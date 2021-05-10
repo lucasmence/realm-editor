@@ -18,6 +18,18 @@
     <Filter Include="external\RichText">
       <UniqueIdentifier>{a2bd6c4e-ad3d-4841-9f74-3d4468d5f161}</UniqueIdentifier>
     </Filter>
+    <Filter Include="library">
+      <UniqueIdentifier>{70f2638e-2611-4767-850e-6335961bb298}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="model">
+      <UniqueIdentifier>{5c75d92f-d737-454a-9652-ffdf82b5c823}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="text">
+      <UniqueIdentifier>{0025e61b-e6ee-45e3-9e87-70ae153f5140}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="object">
+      <UniqueIdentifier>{18ac5d68-7fa3-4e44-aaf4-15a9488870dc}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\main.cpp">
@@ -29,6 +41,21 @@
     <ClCompile Include="source\system\external\RichText\RichText.cpp">
       <Filter>external\RichText</Filter>
     </ClCompile>
+    <ClCompile Include="source\system\text\text.cpp">
+      <Filter>text</Filter>
+    </ClCompile>
+    <ClCompile Include="source\system\model\model.cpp">
+      <Filter>model</Filter>
+    </ClCompile>
+    <ClCompile Include="source\system\library\json.cpp">
+      <Filter>library</Filter>
+    </ClCompile>
+    <ClCompile Include="source\system\model\texture.cpp">
+      <Filter>model</Filter>
+    </ClCompile>
+    <ClCompile Include="source\system\object\viewElement.cpp">
+      <Filter>object</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\system\manager.hpp">
@@ -39,6 +66,21 @@
     </ClInclude>
     <ClInclude Include="source\system\external\RichText\RichText.hpp">
       <Filter>external\RichText</Filter>
+    </ClInclude>
+    <ClInclude Include="source\system\text\text.hpp">
+      <Filter>text</Filter>
+    </ClInclude>
+    <ClInclude Include="source\system\model\model.hpp">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClInclude Include="source\system\library\json.hpp">
+      <Filter>library</Filter>
+    </ClInclude>
+    <ClInclude Include="source\system\model\texture.hpp">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClInclude Include="source\system\object\viewElement.hpp">
+      <Filter>object</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
