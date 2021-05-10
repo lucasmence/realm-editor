@@ -164,12 +164,22 @@
   <ItemGroup>
     <ClCompile Include="source\main.cpp" />
     <ClCompile Include="source\system\external\RichText\RichText.cpp" />
+    <ClCompile Include="source\system\library\json.cpp" />
     <ClCompile Include="source\system\manager.cpp" />
+    <ClCompile Include="source\system\model\model.cpp" />
+    <ClCompile Include="source\system\model\texture.cpp" />
+    <ClCompile Include="source\system\object\viewElement.cpp" />
+    <ClCompile Include="source\system\text\text.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\system\external\nlohmann\json.hpp" />
     <ClInclude Include="source\system\external\RichText\RichText.hpp" />
+    <ClInclude Include="source\system\library\json.hpp" />
     <ClInclude Include="source\system\manager.hpp" />
+    <ClInclude Include="source\system\model\model.hpp" />
+    <ClInclude Include="source\system\model\texture.hpp" />
+    <ClInclude Include="source\system\object\viewElement.hpp" />
+    <ClInclude Include="source\system\text\text.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
