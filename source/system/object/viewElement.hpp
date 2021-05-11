@@ -6,7 +6,7 @@
 class ViewElement
 {
 	public:
-
+		int priority;
 		virtual ~ViewElement();
 		virtual bool draw();
 
