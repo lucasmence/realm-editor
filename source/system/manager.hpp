@@ -39,6 +39,7 @@ class Manager
 		bool eventClick(sf::Event& event);
 		bool addView(ObjectType type, std::shared_ptr<ViewElement> element);
 		bool removeView(ObjectType type, std::shared_ptr<ViewElement> element);
+		bool addViewElement(std::shared_ptr<ViewElement> element);
 };
 
 #endif

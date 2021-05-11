@@ -9,13 +9,30 @@ Manager::Manager()
     this->font = std::shared_ptr<sf::Font>(new sf::Font);
     this->font->loadFromFile("resources/fonts/consola.ttf");
 
-    this->addView(ObjectType::otModel, std::static_pointer_cast<ViewElement>(std::make_shared<Model>(this, "textures/terrain/castle-cobblestone")));
-    this->addView(ObjectType::otText, std::static_pointer_cast<ViewElement>(std::make_shared<Text>(this, "Hello world", 20, sf::Vector2f(50.f, 50.f))));
+    this->addView(ObjectType::otModel, std::static_pointer_cast<ViewElement>(std::make_shared<Model>(this, sf::Vector2f(0.f, 0.f), "textures/terrain/castle-cobblestone")));
+    this->addView(ObjectType::otText, std::static_pointer_cast<ViewElement>(std::make_shared<Text>(this, "Hello world", 20, sf::Vector2f(0.f, 20.f))));
+    this->addView(ObjectType::otText, std::static_pointer_cast<ViewElement>(std::make_shared<Text>(this, "Hello world", 20, sf::Vector2f(0.f, 25.f), 2)));
+    this->addView(ObjectType::otText, std::static_pointer_cast<ViewElement>(std::make_shared<Text>(this, "Hello world", 20, sf::Vector2f(0.f, 30.f))));
+    this->addView(ObjectType::otModel, std::static_pointer_cast<ViewElement>(std::make_shared<Model>(this, sf::Vector2f(20.f, 20.f), "textures/terrain/castle-cobblestone")));
 }
 
 Manager::~Manager()
 {
     this->unloadAll();
+}
+
+bool Manager::addViewElement(std::shared_ptr<ViewElement> element)
+{
+    for (auto &elementIndex : this->list.viewElements)
+        if (elementIndex->priority < element->priority)
+        {
+            std::list<std::shared_ptr<ViewElement>>::iterator iterator = std::find(this->list.viewElements.begin(), this->list.viewElements.end(), elementIndex);
+            this->list.viewElements.emplace(iterator, element);
+            return true;
+        }
+   
+    this->list.viewElements.emplace_back(element);
+    return true;
 }
 
 bool Manager::addView(ObjectType type, std::shared_ptr<ViewElement> element)
@@ -25,13 +42,13 @@ bool Manager::addView(ObjectType type, std::shared_ptr<ViewElement> element)
         case (ObjectType::otModel):
         {
             this->list.models.emplace_back(element);
-            this->list.viewElements.emplace_back(element);
+            this->addViewElement(element);
             break;
         }
         case (ObjectType::otText):
         {
             this->list.texts.emplace_back(element);
-            this->list.viewElements.emplace_back(element);
+            this->addViewElement(element);
             break;
         }
     }
