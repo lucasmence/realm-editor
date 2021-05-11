@@ -18,10 +18,10 @@ class Model : public ViewElement
 		std::shared_ptr<sf::Shape> shape;
 		std::shared_ptr<Texture> texture;
 
-		Model(Manager* manager, std::string filename = "");
+		Model(Manager* manager, sf::Vector2f position, std::string filename = "", int priority = 2);
 		~Model();
 
-		bool loadSprite(std::string filename);
+		bool loadSprite(std::string filename, sf::Vector2f position);
 		bool loadShape(sf::Vector2f size, sf::Color color);
 		virtual bool draw();
 
