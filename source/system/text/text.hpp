@@ -15,7 +15,7 @@ class Text : public ViewElement
 		Manager* manager;
 		std::shared_ptr<sf::Text> text;
 
-		Text(Manager* manager, std::string caption, int size, sf::Vector2f position, sf::Color color = sf::Color(255, 255, 255, 255));
+		Text(Manager* manager, std::string caption, int size, sf::Vector2f position, int priority = 1, sf::Color color = sf::Color(255, 255, 255, 255));
 		~Text();
 
 		bool draw();

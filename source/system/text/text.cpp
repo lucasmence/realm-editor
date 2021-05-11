@@ -1,7 +1,7 @@
 #include "text.hpp"
 #include "../manager.hpp"
 
-Text::Text(Manager* manager, std::string caption, int size, sf::Vector2f position, sf::Color color)
+Text::Text(Manager* manager, std::string caption, int size, sf::Vector2f position, int priority, sf::Color color)
 {
 	this->manager = manager;
     this->text = std::make_shared<sf::Text>();
@@ -10,6 +10,7 @@ Text::Text(Manager* manager, std::string caption, int size, sf::Vector2f positio
     this->text->setCharacterSize(size);
 	this->text->setString(caption);
 	this->text->setPosition(position);
+	this->priority = priority;
 }
 
 Text::~Text()
