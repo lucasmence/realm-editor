@@ -6,6 +6,9 @@ Model::Model(Manager* manager, sf::Vector2f position, std::string filename, int 
 {
 	this->manager = manager;
 	this->priority = priority;
+	this->position = position;
+	this->sprite = nullptr;
+	this->shape = nullptr;
 
 	if (filename != "")
 		this->loadSprite(filename, position);
@@ -18,7 +21,10 @@ Model::~Model()
 
 bool Model::draw()
 {
-	this->manager->window->draw(*this->sprite);
+	if (this->sprite)
+		this->manager->window->draw(*this->sprite);
+	if (this->shape)
+		this->manager->window->draw(*this->shape);
 	return ViewElement::draw();
 }
 
@@ -44,5 +50,19 @@ bool Model::loadSprite(std::string filename, sf::Vector2f position)
 
 bool Model::loadShape(sf::Vector2f size, sf::Color color)
 {
-	return true;
+	if (size.x > 0.f && size.y > 0.f)
+	{
+		this->shape = std::make_shared<sf::RectangleShape>(size);
+		this->shape->setFillColor(color);
+		this->shape->setPosition(this->position);
+		return true;
+	}
+	else if (size.x > 0.f && size.y <= 0.f)
+	{
+		this->shape = std::make_shared<sf::CircleShape>(size.x);
+		this->shape->setFillColor(color);
+		this->shape->setPosition(this->position);
+		return true;
+	}
+	return false;
 }
