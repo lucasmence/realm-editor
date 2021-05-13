@@ -1,0 +1,143 @@
+#include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string.hpp>
+#include "hud.hpp"
+#include "../manager.hpp"
+#include "../library/position.hpp"
+
+Hud::Hud(Manager* manager)
+{
+	this->manager = manager;
+	this->loadLists();
+}
+
+Hud::~Hud()
+{
+	this->unloadLists();
+}
+
+bool Hud::update(sf::Vector2f cursor)
+{
+	this->updateLabels(cursor);
+	this->updateButtonsColor(cursor);
+
+	return true;
+}
+
+bool Hud::updateLabels(sf::Vector2f cursor)
+{
+	for (auto& label : this->labels)
+		if (label->name == "lblCoordinates" && this->manager->hasFocus)
+			label->text->setString("(" + boost::lexical_cast<std::string>((int)cursor.x) + ", " + boost::lexical_cast<std::string>((int)cursor.y) +")");
+	return true;
+}
+
+bool Hud::updateButtonsColor(sf::Vector2f cursor)
+{
+	for (auto& button : this->buttons)
+		if (button->shape->shape->getGlobalBounds().contains(cursor))
+		{
+			button->shape->shape->setFillColor(sf::Color(200, 200, 50, 100));
+			button->label->text->setFillColor(sf::Color(200, 200, 50, 255));
+		}
+		else if (button->selected)
+		{
+			button->shape->shape->setFillColor(sf::Color(150, 200, 200, 100));
+			button->label->text->setFillColor(sf::Color(100, 255, 255, 255));
+		}
+		else
+		{
+			button->shape->shape->setFillColor(sf::Color(150, 150, 150, 100));
+			button->label->text->setFillColor(sf::Color(255, 255, 255, 255));
+		}
+
+	return true;
+}
+
+bool Hud::unloadLists()
+{
+	for (auto& button : this->buttons)
+		button->clear();
+	this->buttons.clear();
+	for (auto& label : this->labels)
+		this->manager->removeView(std::static_pointer_cast<ViewElement>(label));
+	this->labels.clear();
+	for (auto& model : this->models)
+		this->manager->removeView(std::static_pointer_cast<ViewElement>(model));
+	this->models.clear();
+
+	return true;
+}
+
+bool Hud::loadModels()
+{
+	std::shared_ptr<Model> header = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, 0.f));
+	std::shared_ptr<Model> palette = std::make_shared<Model>(this->manager, sf::Vector2f(1620.f, 100.f));
+
+	header->loadShape(sf::Vector2f(2000.f, 100.f), sf::Color(150, 150, 255, 50));
+	palette->loadShape(sf::Vector2f(400.f, 1000.f), sf::Color(150, 150, 255, 50));
+
+	this->manager->addView(std::static_pointer_cast<ViewElement>(header));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(palette));
+
+	this->models.emplace_back(header);
+	this->models.emplace_back(palette);
+
+	return true;
+}
+bool Hud::loadButtons()
+{
+	std::shared_ptr<Button> btnNew = std::make_shared<Button>(this->manager, "[New]", sf::Vector2f(25.f, 15.f), "btnNew", 20);
+	std::shared_ptr<Button> btnOpen = std::make_shared<Button>(this->manager, "[Open]", sf::Vector2f(0.f, 0.f), "btnOpen", 20, btnNew, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnSave = std::make_shared<Button>(this->manager, "[Save]", sf::Vector2f(0.f, 0.f), "btnSave", 20, btnOpen, sf::Vector2i(1, 0));
+
+	std::shared_ptr<Button> btnUnit = std::make_shared<Button>(this->manager, "[Units]", sf::Vector2f(1650.f, 250.f), "btnUnit", 20);
+	std::shared_ptr<Button> btnMerchant = std::make_shared<Button>(this->manager, "[Merchants]", sf::Vector2f(0.f, 0.f), "btnMerchant", 20, btnUnit, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnProp = std::make_shared<Button>(this->manager, "[Props]", sf::Vector2f(0.f, 0.f), "btnProp", 20, btnUnit, sf::Vector2i(0, 1));
+	std::shared_ptr<Button> btnEnvironment = std::make_shared<Button>(this->manager, "[Environments]", sf::Vector2f(0.f, 0.f), "btnEnvironment", 20, btnProp, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnTerrain = std::make_shared<Button>(this->manager, "[Terrain]", sf::Vector2f(0.f, 0.f), "btnTerrain", 20, btnProp, sf::Vector2i(0, 1));
+	std::shared_ptr<Button> btnPortal = std::make_shared<Button>(this->manager, "[Portals]", sf::Vector2f(0.f, 0.f), "btnPortal", 20, btnTerrain, sf::Vector2i(1, 0));
+
+	std::shared_ptr<Button> btnPalettePrevious = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, 700.f), "btnPalettePrevious", 20, btnTerrain, sf::Vector2i(0, 1));
+	std::shared_ptr<Button> btnPaletteBack = std::make_shared<Button>(this->manager, "[>]", sf::Vector2f(175.f, 0.f), "btnPaletteBack", 20, btnPalettePrevious, sf::Vector2i(1, 0));
+	std::shared_ptr<Label> lblPalettePage = std::make_shared<Label>(this->manager, "1", 20, sf::Vector2f(85.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblPalettePage");
+	lblPalettePage->text->setPosition(position::getSidePosition(btnPalettePrevious->shape->shape->getGlobalBounds(), 
+																lblPalettePage->text->getGlobalBounds(), 
+																lblPalettePage->text->getPosition(), sf::Vector2i(1, 0)));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(lblPalettePage));
+	this->labels.emplace_back(lblPalettePage);
+
+	this->buttons.emplace_back(btnNew);
+	this->buttons.emplace_back(btnOpen);
+	this->buttons.emplace_back(btnSave);
+	this->buttons.emplace_back(btnUnit);
+	this->buttons.emplace_back(btnMerchant);
+	this->buttons.emplace_back(btnProp);
+	this->buttons.emplace_back(btnEnvironment);
+	this->buttons.emplace_back(btnTerrain);
+	this->buttons.emplace_back(btnPortal);
+	this->buttons.emplace_back(btnPalettePrevious);
+	this->buttons.emplace_back(btnPaletteBack);
+
+	return true;
+}
+bool Hud::loadLabels()
+{
+	std::shared_ptr<Label> lblCoordinates = std::make_shared<Label>(this->manager, "0, 0", 20, sf::Vector2f(1630.f, 80.f), 1, sf::Color(255, 255, 255, 255), "lblCoordinates");
+	
+	this->manager->addView(std::static_pointer_cast<ViewElement>(lblCoordinates));
+	
+	this->labels.emplace_back(lblCoordinates);	
+
+	return true;
+}
+
+bool Hud::loadLists()
+{
+	this->unloadLists();
+
+	this->loadModels();
+	this->loadButtons();
+	this->loadLabels();	
+
+	return true;
+}
