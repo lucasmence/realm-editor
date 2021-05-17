@@ -172,6 +172,7 @@
     <ClCompile Include="source\system\model\model.cpp" />
     <ClCompile Include="source\system\model\texture.cpp" />
     <ClCompile Include="source\system\object\viewElement.cpp" />
+    <ClCompile Include="source\system\palette\palette.cpp" />
     <ClCompile Include="source\system\text\label.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -185,6 +186,7 @@
     <ClInclude Include="source\system\model\model.hpp" />
     <ClInclude Include="source\system\model\texture.hpp" />
     <ClInclude Include="source\system\object\viewElement.hpp" />
+    <ClInclude Include="source\system\palette\palette.hpp" />
     <ClInclude Include="source\system\text\label.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

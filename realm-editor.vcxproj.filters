@@ -33,6 +33,9 @@
     <Filter Include="hud">
       <UniqueIdentifier>{a0c189f1-45c2-4873-a39e-852acb42707f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="palette">
+      <UniqueIdentifier>{0d15e1c6-803c-47da-891e-f7038a2c7ccb}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\main.cpp">
@@ -68,6 +71,9 @@
     <ClCompile Include="source\system\library\position.cpp">
       <Filter>library</Filter>
     </ClCompile>
+    <ClCompile Include="source\system\palette\palette.cpp">
+      <Filter>palette</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\system\manager.hpp">
@@ -102,6 +108,9 @@
     </ClInclude>
     <ClInclude Include="source\system\library\position.hpp">
       <Filter>library</Filter>
+    </ClInclude>
+    <ClInclude Include="source\system\palette\palette.hpp">
+      <Filter>palette</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
