@@ -10,28 +10,12 @@ Manager::Manager()
     this->font->loadFromFile("resources/fonts/consola.ttf");
 
     this->hud = std::make_shared<Hud>(this);
+    this->palette = std::make_shared<Palette>(this);
 
     this->hasFocus = true;
     this->open = false;
 
     this->loadWindowOpening();
-
-    /*this->addView(ObjectType::otModel, std::static_pointer_cast<ViewElement>(std::make_shared<Model>(this, sf::Vector2f(0.f, 0.f), "textures/terrain/castle-cobblestone")));
-    this->addView(ObjectType::otLabel, std::static_pointer_cast<ViewElement>(std::make_shared<Label>(this, "Hello world", 20, sf::Vector2f(0.f, 20.f))));
-    this->addView(ObjectType::otLabel, std::static_pointer_cast<ViewElement>(std::make_shared<Label>(this, "Hello world", 20, sf::Vector2f(0.f, 25.f), 2)));
-    this->addView(ObjectType::otLabel, std::static_pointer_cast<ViewElement>(std::make_shared<Label>(this, "Hello world", 20, sf::Vector2f(0.f, 30.f))));
-    this->addView(ObjectType::otModel, std::static_pointer_cast<ViewElement>(std::make_shared<Model>(this, sf::Vector2f(20.f, 20.f), "textures/terrain/castle-cobblestone")));
-
-    std::shared_ptr<Model> model1 = std::make_shared<Model>(this, sf::Vector2f(100.f, 100.f));
-    model1->loadShape(sf::Vector2f(50.f, 100.f), sf::Color(150, 150, 150, 100));
-    this->addView(ObjectType::otModel, std::static_pointer_cast<ViewElement>(model1));
-
-    std::shared_ptr<Model> model2 = std::make_shared<Model>(this, sf::Vector2f(200.f, 250.f));
-    model2->loadShape(sf::Vector2f(50.f, 0.f), sf::Color(150, 255, 150, 100));
-    this->addView(ObjectType::otModel, std::static_pointer_cast<ViewElement>(model2));
-
-    std::shared_ptr<Button> button = std::make_shared<Button>(this, "Button1", sf::Vector2f(400.f, 300.f), "btn1");*/
-
 }
 
 Manager::~Manager()
@@ -138,6 +122,7 @@ bool Manager::event()
 
 bool Manager::eventClick(sf::Event& event)
 {
+    this->hud->buttonsClick(this->getMousePosition());
     return false;
 }
 
