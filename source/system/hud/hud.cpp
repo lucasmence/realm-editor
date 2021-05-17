@@ -28,7 +28,31 @@ bool Hud::updateLabels(sf::Vector2f cursor)
 	for (auto& label : this->labels)
 		if (label->name == "lblCoordinates" && this->manager->hasFocus)
 			label->text->setString("(" + boost::lexical_cast<std::string>((int)cursor.x) + ", " + boost::lexical_cast<std::string>((int)cursor.y) +")");
+		else if (label->name == "lblPalettePage" && this->manager->hasFocus)
+			label->text->setString(boost::lexical_cast<std::string>(this->manager->palette->pageIndex+1));
 	return true;
+}
+
+bool Hud::buttonsClick(sf::Vector2f cursor)
+{
+	for (auto& button : this->buttons)
+		if (button->shape->shape->getGlobalBounds().contains(cursor))
+		{
+			if (button->name == "btnPalettePrevious")
+			{
+				this->manager->palette->pageIndex--;
+				this->manager->palette->selectPalette();
+			}
+			else if (button->name == "btnPaletteNext")
+			{
+				this->manager->palette->pageIndex++;
+				this->manager->palette->selectPalette();
+			}
+
+			return true;
+			break;
+		}
+	return false;
 }
 
 bool Hud::updateButtonsColor(sf::Vector2f cursor)
@@ -98,7 +122,7 @@ bool Hud::loadButtons()
 	std::shared_ptr<Button> btnPortal = std::make_shared<Button>(this->manager, "[Portals]", sf::Vector2f(0.f, 0.f), "btnPortal", 20, btnTerrain, sf::Vector2i(1, 0));
 
 	std::shared_ptr<Button> btnPalettePrevious = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, 700.f), "btnPalettePrevious", 20, btnTerrain, sf::Vector2i(0, 1));
-	std::shared_ptr<Button> btnPaletteBack = std::make_shared<Button>(this->manager, "[>]", sf::Vector2f(175.f, 0.f), "btnPaletteBack", 20, btnPalettePrevious, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnPaletteBack = std::make_shared<Button>(this->manager, "[>]", sf::Vector2f(175.f, 0.f), "btnPaletteNext", 20, btnPalettePrevious, sf::Vector2i(1, 0));
 	std::shared_ptr<Label> lblPalettePage = std::make_shared<Label>(this->manager, "1", 20, sf::Vector2f(85.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblPalettePage");
 	lblPalettePage->text->setPosition(position::getSidePosition(btnPalettePrevious->shape->shape->getGlobalBounds(), 
 																lblPalettePage->text->getGlobalBounds(), 

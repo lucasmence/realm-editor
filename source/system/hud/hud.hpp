@@ -27,6 +27,7 @@ class Hud
 		bool update(sf::Vector2f cursor);
 		bool updateButtonsColor(sf::Vector2f cursor);
 		bool updateLabels(sf::Vector2f cursor);
+		bool buttonsClick(sf::Vector2f cursor);
 		Hud(Manager* manager);
 		~Hud();
 
