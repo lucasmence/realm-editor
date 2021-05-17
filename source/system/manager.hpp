@@ -3,10 +3,11 @@
 #include <iostream>
 #include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
+#include "object/viewElement.hpp"
 #include "text/label.hpp"
 #include "model/model.hpp"
 #include "hud/hud.hpp"
-#include "object/viewElement.hpp"
+#include "palette/palette.hpp"
 
 #pragma once
 
@@ -25,6 +26,7 @@ class Manager
 		std::shared_ptr<sf::RenderWindow> window;
 		std::shared_ptr<sf::Font> font;
 		std::shared_ptr<Hud> hud;
+		std::shared_ptr<Palette> palette;
 		ManagerList list;
 
 		bool hasFocus;
