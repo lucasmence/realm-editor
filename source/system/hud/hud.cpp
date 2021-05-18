@@ -7,7 +7,7 @@
 Hud::Hud(Manager* manager)
 {
 	this->manager = manager;
-	this->shapeHover = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, 300.f));
+	this->shapeHover = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, 300.f), "", 1);
 	this->shapeHover->loadShape(sf::Vector2f(1.f, 1.f), sf::Color(150, 200, 150, 100));
 	this->shapeHover->visible = false;
 	this->manager->addView(std::static_pointer_cast<ViewElement>(this->shapeHover));
@@ -50,7 +50,7 @@ bool Hud::updateCursor(sf::Vector2f cursor)
 			}
 				
 	this->shapeHover->visible = true;
-	this->shapeHover->shape->setPosition(cursor);
+	this->shapeHover->shape->setPosition(position::getGridPosition(sf::Vector2f(32.f, 32.f), cursor));
 
 	return true;
 }
@@ -72,7 +72,7 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 	if (this->manager->palette->selectedItem == "" || !this->shapeHover->visible)
 		return false;
 
-	std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, this->shapeHover->shape->getPosition(), "textures/terrain/" + this->manager->palette->selectedItem);
+	std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, this->shapeHover->shape->getPosition(), "textures/terrain/" + this->manager->palette->selectedItem, 5);
 	model->sprite->setOrigin(this->shapeHover->shape->getOrigin());
 	this->manager->addView(std::static_pointer_cast<ViewElement>(model));
 
@@ -136,6 +136,38 @@ bool Hud::unloadLists()
 	for (auto& model : this->models)
 		this->manager->removeView(std::static_pointer_cast<ViewElement>(model));
 	this->models.clear();
+	for (auto& gridIndex : this->grid)
+		this->manager->removeView(std::static_pointer_cast<ViewElement>(gridIndex));
+	this->grid.clear();
+
+	return true;
+}
+
+bool Hud::loadGrid()
+{
+	for (auto& gridIndex : this->grid)
+		this->manager->removeView(std::static_pointer_cast<ViewElement>(gridIndex));
+	this->grid.clear();
+
+	sf::Vector2f distance(64.f, 64.f);
+
+	for (int x = 0; x < 24; x++)
+	{
+		std::shared_ptr<Model> line = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, x * distance.y));
+
+		line->loadShape(sf::Vector2f(2000.f, 1.f), sf::Color(0, 255, 0, 100));
+		this->manager->addView(std::static_pointer_cast<ViewElement>(line));
+		this->grid.emplace_back(line);
+	}
+
+	for (int y = 0; y < 32; y++)
+	{
+		std::shared_ptr<Model> line = std::make_shared<Model>(this->manager, sf::Vector2f(y * distance.x, 0.f));
+
+		line->loadShape(sf::Vector2f(1.f, 1200.f), sf::Color(0, 255, 0, 100));
+		this->manager->addView(std::static_pointer_cast<ViewElement>(line));
+		this->grid.emplace_back(line);
+	}
 
 	return true;
 }
@@ -145,8 +177,8 @@ bool Hud::loadModels()
 	std::shared_ptr<Model> header = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, -100.f));
 	std::shared_ptr<Model> palette = std::make_shared<Model>(this->manager, sf::Vector2f(1620.f, 100.f));
 
-	header->loadShape(sf::Vector2f(2000.f, 200.f), sf::Color(150, 150, 255, 50));
-	palette->loadShape(sf::Vector2f(400.f, 1000.f), sf::Color(150, 150, 255, 50));
+	header->loadShape(sf::Vector2f(2000.f, 200.f), sf::Color(100, 100, 100, 255));
+	palette->loadShape(sf::Vector2f(400.f, 1000.f), sf::Color(100, 100, 100, 255));
 
 	this->manager->addView(std::static_pointer_cast<ViewElement>(header));
 	this->manager->addView(std::static_pointer_cast<ViewElement>(palette));
@@ -217,9 +249,11 @@ bool Hud::loadLists()
 {
 	this->unloadLists();
 
+	this->loadGrid();
 	this->loadModels();
 	this->loadButtons();
 	this->loadLabels();	
+	
 
 	return true;
 }
