@@ -122,8 +122,12 @@ bool Manager::event()
 
 bool Manager::eventClick(sf::Event& event)
 {
-    this->hud->buttonsClick(this->getMousePosition());
-    return false;
+    sf::Vector2f cursor = this->getMousePosition();
+    
+    this->hud->updateClick(cursor);
+    this->palette->selectPaletteItem(cursor);
+
+    return true;
 }
 
 bool Manager::unloadAll()
