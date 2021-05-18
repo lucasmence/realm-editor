@@ -115,8 +115,8 @@ bool Palette::selectPaletteItem(sf::Vector2f cursor)
             this->selectedItem = item.filename;
             std::static_pointer_cast<sf::RectangleShape>(this->manager->hud->shapeHover->shape)->setSize(sf::Vector2f(item.model->sprite->getGlobalBounds().width / item.model->sprite->getScale().x,
                                                                                                                       item.model->sprite->getGlobalBounds().height / item.model->sprite->getScale().y));
-            this->manager->hud->shapeHover->shape->setOrigin(sf::Vector2f(this->manager->hud->shapeHover->shape->getGlobalBounds().width / 2.f,
-                                                                          this->manager->hud->shapeHover->shape->getGlobalBounds().height / 2.f));
+            this->manager->hud->shapeHover->shape->setOrigin(sf::Vector2f(0.f * this->manager->hud->shapeHover->shape->getGlobalBounds().width / 2.f,
+                                                                          0.f * this->manager->hud->shapeHover->shape->getGlobalBounds().height / 2.f));
             this->manager->hud->shapeHover->visible = true;
             break;
         }
