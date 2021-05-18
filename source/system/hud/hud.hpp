@@ -18,11 +18,13 @@ class Hud
 		std::list<std::shared_ptr<Button>> buttons;
 		std::list<std::shared_ptr<Label>> labels;
 		std::list<std::shared_ptr<Model>> models;
+		std::list<std::shared_ptr<Model>> grid;
 		std::shared_ptr<Model> shapeHover;
 
 		bool unloadLists();
 		bool loadLists();
 		bool loadModels();
+		bool loadGrid();
 		bool loadButtons();
 		bool loadLabels();
 		bool update(sf::Vector2f cursor);
