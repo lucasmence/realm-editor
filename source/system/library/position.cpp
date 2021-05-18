@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "position.hpp"
 
 namespace position
@@ -46,4 +47,9 @@ namespace position
 
 		return positionSide;
     }
+
+	sf::Vector2f getGridPosition(sf::Vector2f gridSize, sf::Vector2f position)
+	{
+		return sf::Vector2f(div((int)position.x, gridSize.x).quot * gridSize.x, div((int)position.y, gridSize.y).quot * gridSize.y);
+	}
 }
