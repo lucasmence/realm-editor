@@ -20,6 +20,7 @@ struct PaletteItem
 class Palette
 {
 	public:
+		std::string selectedItem;
 		int pageIndex;
 		PaletteType type;
 		Manager* manager;
@@ -35,6 +36,8 @@ class Palette
 
 		std::list<std::string> loadFileLists(std::string directory);
 		std::string getString(std::string value);
+		bool selectPaletteItem(sf::Vector2f cursor);
+		bool clearPaletteItem();
 
 		Palette(Manager* manager);
 		~Palette();

@@ -5,6 +5,7 @@
 #include <type_traits>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/lexical_cast.hpp>
 #include "palette.hpp"
 #include "../manager.hpp"
 #include "../library/json.hpp"
@@ -12,6 +13,7 @@
 Palette::Palette(Manager* manager)
 {
     this->pageIndex = 0;
+    this->selectedItem = "";
 	this->type = PaletteType::ptTerrain;
 	this->manager = manager;
     this->loadPalettes();
@@ -89,6 +91,39 @@ bool Palette::selectPalette()
         this->pageIndex--;
         this->selectPalette();
     }
+
+    return true;
+}
+
+bool Palette::clearPaletteItem()
+{
+    this->selectedItem = "";
+    this->manager->hud->shapeHover->visible = false;
+    for (auto& item : this->paletteItems)
+            item.model->sprite->setColor(sf::Color(255, 255, 255, 255));
+    return true;
+}
+
+bool Palette::selectPaletteItem(sf::Vector2f cursor)
+{
+    std::string filename = "";
+    for (auto& item : this->paletteItems)
+        if (item.model->sprite->getGlobalBounds().contains(cursor))
+        {
+            item.model->sprite->setColor(sf::Color(255,0,0,255));
+            filename = item.filename;
+            this->selectedItem = item.filename;
+            std::static_pointer_cast<sf::RectangleShape>(this->manager->hud->shapeHover->shape)->setSize(sf::Vector2f(item.model->sprite->getGlobalBounds().width / item.model->sprite->getScale().x,
+                                                                                                                      item.model->sprite->getGlobalBounds().height / item.model->sprite->getScale().y));
+            this->manager->hud->shapeHover->shape->setOrigin(sf::Vector2f(this->manager->hud->shapeHover->shape->getGlobalBounds().width / 2.f,
+                                                                          this->manager->hud->shapeHover->shape->getGlobalBounds().height / 2.f));
+            this->manager->hud->shapeHover->visible = true;
+            break;
+        }
+
+    for (auto& item : this->paletteItems)
+        if (filename != item.filename)
+            item.model->sprite->setColor(sf::Color(255, 255, 255, 255));
 
     return true;
 }
