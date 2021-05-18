@@ -9,6 +9,7 @@ Model::Model(Manager* manager, sf::Vector2f position, std::string filename, int 
 	this->position = position;
 	this->sprite = nullptr;
 	this->shape = nullptr;
+	this->visible = true;
 
 	if (filename != "")
 		this->loadSprite(filename, position);
@@ -21,10 +22,14 @@ Model::~Model()
 
 bool Model::draw()
 {
+	if (!this->visible)
+		return ViewElement::draw();
+
 	if (this->sprite)
 		this->manager->window->draw(*this->sprite);
 	if (this->shape)
 		this->manager->window->draw(*this->shape);
+
 	return ViewElement::draw();
 }
 

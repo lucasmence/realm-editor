@@ -18,6 +18,7 @@ class Model : public ViewElement
 		std::shared_ptr<sf::Shape> shape;
 		std::shared_ptr<Texture> texture;
 		sf::Vector2f position;
+		bool visible;
 
 		Model(Manager* manager, sf::Vector2f position, std::string filename = "", int priority = 2);
 		~Model();
