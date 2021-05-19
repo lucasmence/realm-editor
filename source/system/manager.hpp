@@ -8,6 +8,7 @@
 #include "model/model.hpp"
 #include "hud/hud.hpp"
 #include "palette/palette.hpp"
+#include "map/map.hpp"
 
 #pragma once
 
@@ -28,6 +29,7 @@ class Manager
 		std::shared_ptr<Hud> hud;
 		std::shared_ptr<Palette> palette;
 		std::shared_ptr<sf::View> canvas;
+		std::shared_ptr<Map> map;
 		ManagerList list;
 
 		sf::Vector2f canvasPosition;

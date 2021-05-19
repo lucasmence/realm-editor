@@ -11,6 +11,7 @@ Manager::Manager()
 
     this->hud = std::make_shared<Hud>(this);
     this->palette = std::make_shared<Palette>(this);
+    this->map = std::make_shared<Map>(this);
     this->canvas = std::make_shared<sf::View>();
 
     this->hasFocus = true;
@@ -187,6 +188,7 @@ bool Manager::setCanvas()
 bool Manager::unloadAll()
 {
     this->hud = nullptr;
+    this->map = nullptr;
     this->list.textures.clear();
     this->list.viewElements.clear();
 	return true;
