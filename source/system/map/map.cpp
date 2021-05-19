@@ -1,4 +1,5 @@
 #include "map.hpp"
+#include "../manager.hpp"
 
 Map::Map(Manager* manager)
 {
@@ -20,5 +21,15 @@ bool Map::clearObjects()
 bool Map::addObjectUnit(MapObjectUnit object)
 {
 	this->objects.emplace_back(object);
+	return true;
+}
+
+bool Map::removeObjectUnit(MapObjectUnit& object)
+{
+	this->manager->removeView(std::static_pointer_cast<ViewElement>(object.model));
+	this->objects.erase(std::remove_if(this->objects.begin(),
+                                       this->objects.end(),
+                                       [object](MapObjectUnit& objectIndex) { return object.model == objectIndex.model; }),
+                                       this->objects.end());
 	return true;
 }
