@@ -75,6 +75,7 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 	std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, this->shapeHover->shape->getPosition(), "textures/terrain/" + this->manager->palette->selectedItem, 5, false);
 	model->sprite->setOrigin(this->shapeHover->shape->getOrigin());
 	this->manager->addView(std::static_pointer_cast<ViewElement>(model));
+	this->manager->map->addObjectUnit(MapObjectUnit{MapObjectType::motTerrain, this->shapeHover->shape->getPosition(), 1.f, 0.f, model});
 
 	return true;
 }
