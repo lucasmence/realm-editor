@@ -4,13 +4,20 @@ Manager::Manager()
 {
     this->unloadAll();
 
-	this->window = std::make_shared<sf::RenderWindow>(sf::VideoMode(1380, 860), "realm-editor", sf::Style::Default);
+	this->window = std::make_shared<sf::RenderWindow>(sf::VideoMode(1920, 1080), "realm-editor", sf::Style::Default);
 
     this->font = std::shared_ptr<sf::Font>(new sf::Font);
     this->font->loadFromFile("resources/fonts/consola.ttf");
 
-    this->addView(ObjectType::otModel, std::static_pointer_cast<ViewElement>(std::make_shared<Model>(this, "textures/terrain/castle-cobblestone")));
-    this->addView(ObjectType::otText, std::static_pointer_cast<ViewElement>(std::make_shared<Text>(this, "Hello world", 20, sf::Vector2f(50.f, 50.f))));
+    this->hud = std::make_shared<Hud>(this);
+    this->palette = std::make_shared<Palette>(this);
+    this->canvas = std::make_shared<sf::View>();
+
+    this->hasFocus = true;
+    this->open = false;
+    this->canvasPosition = sf::Vector2f(0.f, -115.f);
+
+    this->loadWindowOpening();
 }
 
 Manager::~Manager()
@@ -18,44 +25,41 @@ Manager::~Manager()
     this->unloadAll();
 }
 
-bool Manager::addView(ObjectType type, std::shared_ptr<ViewElement> element)
+bool Manager::loadWindowOpening()
 {
-    switch (type)
-    {
-        case (ObjectType::otModel):
-        {
-            this->list.models.emplace_back(element);
-            this->list.viewElements.emplace_back(element);
-            break;
-        }
-        case (ObjectType::otText):
-        {
-            this->list.texts.emplace_back(element);
-            this->list.viewElements.emplace_back(element);
-            break;
-        }
-    }
+    if (this->open)
+        return false;
 
+    this->open = true;
+    std::system("windowMode -title realm-editor -mode maximized");
     return true;
 }
 
-bool Manager::removeView(ObjectType type, std::shared_ptr<ViewElement> element)
+bool Manager::addViewElement(std::shared_ptr<ViewElement> element)
 {
-    switch (type)
-    {
-        case (ObjectType::otModel):
+    this->list.viewElements.remove(element);
+
+    for (auto &elementIndex : this->list.viewElements)
+        if (elementIndex->priority < element->priority)
         {
-            this->list.models.remove(element);
-            this->list.viewElements.remove(element);
-            break;
+            std::list<std::shared_ptr<ViewElement>>::iterator iterator = std::find(this->list.viewElements.begin(), this->list.viewElements.end(), elementIndex);
+            this->list.viewElements.emplace(iterator, element);
+            return true;
         }
-        case (ObjectType::otText):
-        {
-            this->list.texts.remove(element);
-            this->list.viewElements.remove(element);
-            break;
-        }
-    }
+   
+    this->list.viewElements.emplace_back(element);
+    return true;
+}
+
+bool Manager::addView(std::shared_ptr<ViewElement> element)
+{
+    this->addViewElement(element);
+    return true;
+}
+
+bool Manager::removeView(std::shared_ptr<ViewElement> element)
+{
+    this->list.viewElements.remove(element);
 
     return true;
 }
@@ -65,6 +69,9 @@ bool Manager::update()
     this->event();
 
     this->window->clear();
+    this->setCanvas();
+
+    this->hud->update(this->getMousePosition());
 
     for (auto& element : this->list.viewElements)
         element->draw();
@@ -72,6 +79,12 @@ bool Manager::update()
     this->window->display();
 
 	return true;
+}
+
+sf::Vector2f Manager::getMousePosition()
+{
+    sf::Vector2i pixelPosition = sf::Mouse::getPosition(*this->window);
+    return window->mapPixelToCoords(pixelPosition);
 }
 
 bool Manager::event()
@@ -87,9 +100,27 @@ bool Manager::event()
                 break;
             }
 
+            case  sf::Event::GainedFocus:
+            {
+                this->hasFocus = true;
+                break;
+            }
+
+            case sf::Event::LostFocus:
+            {
+                this->hasFocus = false;
+                break;
+            }
+
             case sf::Event::MouseButtonPressed:
             {
                 this->eventClick(event);
+                break;
+            }
+
+            case sf::Event::KeyPressed:
+            {
+                this->eventKey(event);
                 break;
             }
         }            
@@ -100,14 +131,63 @@ bool Manager::event()
 
 bool Manager::eventClick(sf::Event& event)
 {
-    return false;
+    sf::Vector2f cursor = this->getMousePosition();
+    
+    this->hud->updateClick(cursor);
+    this->palette->selectPaletteItem(cursor);
+
+    return true;
+}
+
+bool Manager::eventKey(sf::Event& event)
+{
+    switch (event.key.code)
+    {
+        case (sf::Keyboard::Left):
+        {
+            this->moveCanvas(sf::Vector2f(this->canvasPosition.x - 64.f, this->canvasPosition.y));
+            break;
+        }
+        case (sf::Keyboard::Right):
+        {
+            this->moveCanvas(sf::Vector2f(this->canvasPosition.x + 64.f, this->canvasPosition.y));
+            break;
+        }
+        case (sf::Keyboard::Up):
+        {
+            this->moveCanvas(sf::Vector2f(this->canvasPosition.x, this->canvasPosition.y - 64.f));
+            break;
+        }
+        case (sf::Keyboard::Down):
+        {
+            this->moveCanvas(sf::Vector2f(this->canvasPosition.x, this->canvasPosition.y + 64.f));
+            break;
+        }
+    }
+
+    return true;
+}
+
+bool Manager::moveCanvas(sf::Vector2f position)
+{
+    this->canvas->move(position.x - this->canvasPosition.x, position.y - this->canvasPosition.y);
+    this->canvasPosition.x = position.x;
+    this->canvasPosition.y = position.y;
+    this->window->setView(*this->canvas);
+    return true;
+}
+
+bool Manager::setCanvas()
+{
+    this->canvas->reset(sf::FloatRect(this->canvasPosition.x, this->canvasPosition.y, this->window->getSize().x, this->window->getSize().y));
+    this->window->setView(*this->canvas);
+    return true;
 }
 
 bool Manager::unloadAll()
 {
+    this->hud = nullptr;
     this->list.textures.clear();
-    this->list.models.clear();
-    this->list.texts.clear();
     this->list.viewElements.clear();
 	return true;
 }

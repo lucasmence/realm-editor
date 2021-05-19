@@ -17,12 +17,14 @@ class Model : public ViewElement
 		std::shared_ptr<sf::Sprite> sprite;
 		std::shared_ptr<sf::Shape> shape;
 		std::shared_ptr<Texture> texture;
+		bool visible;
 
-		Model(Manager* manager, std::string filename = "");
+		Model(Manager* manager, sf::Vector2f position, std::string filename = "", int priority = 2, bool canvasBound = true);
 		~Model();
 
-		bool loadSprite(std::string filename);
+		bool loadSprite(std::string filename, sf::Vector2f position);
 		bool loadShape(sf::Vector2f size, sf::Color color);
+		bool setPosition(sf::Vector2f position);
 		virtual bool draw();
 
 };
