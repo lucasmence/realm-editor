@@ -7,7 +7,7 @@
 Hud::Hud(Manager* manager)
 {
 	this->manager = manager;
-	this->shapeHover = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, 300.f), "", 1);
+	this->shapeHover = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, 300.f), "", 1, false);
 	this->shapeHover->loadShape(sf::Vector2f(1.f, 1.f), sf::Color(150, 200, 150, 100));
 	this->shapeHover->visible = false;
 	this->manager->addView(std::static_pointer_cast<ViewElement>(this->shapeHover));
@@ -72,7 +72,7 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 	if (this->manager->palette->selectedItem == "" || !this->shapeHover->visible)
 		return false;
 
-	std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, this->shapeHover->shape->getPosition(), "textures/terrain/" + this->manager->palette->selectedItem, 5);
+	std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, this->shapeHover->shape->getPosition(), "textures/terrain/" + this->manager->palette->selectedItem, 5, false);
 	model->sprite->setOrigin(this->shapeHover->shape->getOrigin());
 	this->manager->addView(std::static_pointer_cast<ViewElement>(model));
 
@@ -151,7 +151,7 @@ bool Hud::loadGrid()
 
 	sf::Vector2f distance(64.f, 64.f);
 
-	for (int x = 0; x < 24; x++)
+	for (int x = 0; x < 20; x++)
 	{
 		std::shared_ptr<Model> line = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, x * distance.y));
 
@@ -164,7 +164,7 @@ bool Hud::loadGrid()
 	{
 		std::shared_ptr<Model> line = std::make_shared<Model>(this->manager, sf::Vector2f(y * distance.x, 0.f));
 
-		line->loadShape(sf::Vector2f(1.f, 1200.f), sf::Color(0, 255, 0, 100));
+		line->loadShape(sf::Vector2f(1.f, 1220.f), sf::Color(0, 255, 0, 100));
 		this->manager->addView(std::static_pointer_cast<ViewElement>(line));
 		this->grid.emplace_back(line);
 	}
@@ -177,7 +177,7 @@ bool Hud::loadModels()
 	std::shared_ptr<Model> header = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, -100.f));
 	std::shared_ptr<Model> palette = std::make_shared<Model>(this->manager, sf::Vector2f(1620.f, 100.f));
 
-	header->loadShape(sf::Vector2f(2000.f, 200.f), sf::Color(100, 100, 100, 255));
+	header->loadShape(sf::Vector2f(2020.f, 200.f), sf::Color(100, 100, 100, 255));
 	palette->loadShape(sf::Vector2f(400.f, 1000.f), sf::Color(100, 100, 100, 255));
 
 	this->manager->addView(std::static_pointer_cast<ViewElement>(header));
@@ -206,9 +206,9 @@ bool Hud::loadButtons()
 	std::shared_ptr<Button> btnPalettePrevious = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, 700.f), "btnPalettePrevious", 20, btnTerrain, sf::Vector2i(0, 1));
 	std::shared_ptr<Button> btnPaletteBack = std::make_shared<Button>(this->manager, "[>]", sf::Vector2f(175.f, 0.f), "btnPaletteNext", 20, btnPalettePrevious, sf::Vector2i(1, 0));
 	std::shared_ptr<Label> lblPalettePage = std::make_shared<Label>(this->manager, "1", 20, sf::Vector2f(85.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblPalettePage");
-	lblPalettePage->text->setPosition(position::getSidePosition(btnPalettePrevious->shape->shape->getGlobalBounds(), 
-																lblPalettePage->text->getGlobalBounds(), 
-																lblPalettePage->text->getPosition(), sf::Vector2i(1, 0)));
+	lblPalettePage->setPosition(position::getSidePosition(btnPalettePrevious->shape->shape->getGlobalBounds(), 
+														  lblPalettePage->text->getGlobalBounds(), 
+														  lblPalettePage->text->getPosition(), sf::Vector2i(1, 0)));
 	this->manager->addView(std::static_pointer_cast<ViewElement>(lblPalettePage));
 	this->labels.emplace_back(lblPalettePage);
 
@@ -232,9 +232,9 @@ bool Hud::loadLabels()
 	std::shared_ptr<Label> lblCoordinates = std::make_shared<Label>(this->manager, "0, 0", 20, sf::Vector2f(1630.f, 80.f), 1, sf::Color(255, 255, 255, 255), "lblCoordinates");
 	std::shared_ptr<Label> lblPaletteItem = std::make_shared<Label>(this->manager, "0, 0", 20, sf::Vector2f(0.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblPaletteItem");
 
-	lblPaletteItem->text->setPosition(position::getSidePosition(lblCoordinates->text->getGlobalBounds(),
-																lblPaletteItem->text->getGlobalBounds(), 
-																lblPaletteItem->text->getPosition(), sf::Vector2i(0, 1)));
+	lblPaletteItem->setPosition(position::getSidePosition(lblCoordinates->text->getGlobalBounds(),
+														  lblPaletteItem->text->getGlobalBounds(), 
+														  lblPaletteItem->text->getPosition(), sf::Vector2i(0, 1)));
 	
 	this->manager->addView(std::static_pointer_cast<ViewElement>(lblCoordinates));
 	this->manager->addView(std::static_pointer_cast<ViewElement>(lblPaletteItem));
