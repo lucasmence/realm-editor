@@ -101,6 +101,7 @@ bool Palette::clearPaletteItem()
     this->manager->hud->shapeHover->visible = false;
     for (auto& item : this->paletteItems)
             item.model->sprite->setColor(sf::Color(255, 255, 255, 255));
+
     return true;
 }
 
