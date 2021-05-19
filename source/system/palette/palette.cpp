@@ -12,6 +12,7 @@
 
 Palette::Palette(Manager* manager)
 {
+    this->status = PaletteStatus::psNone;
     this->pageIndex = 0;
     this->selectedItem = "";
 	this->type = PaletteType::ptTerrain;
@@ -95,8 +96,16 @@ bool Palette::selectPalette()
     return true;
 }
 
+bool Palette::erasePaletteItem()
+{
+    this->clearPaletteItem();
+    this->status = PaletteStatus::psDelete;
+    return true;
+}
+
 bool Palette::clearPaletteItem()
 {
+    this->status = PaletteStatus::psNone;
     this->selectedItem = "";
     this->manager->hud->shapeHover->visible = false;
     for (auto& item : this->paletteItems)
@@ -119,6 +128,7 @@ bool Palette::selectPaletteItem(sf::Vector2f cursor)
             this->manager->hud->shapeHover->shape->setOrigin(sf::Vector2f(0.f * this->manager->hud->shapeHover->shape->getGlobalBounds().width / 2.f,
                                                                           0.f * this->manager->hud->shapeHover->shape->getGlobalBounds().height / 2.f));
             this->manager->hud->shapeHover->visible = true;
+            this->status = PaletteStatus::psInsert;
             break;
         }
 
