@@ -43,6 +43,7 @@ class Map
 		~Map();
 
 		bool addObjectUnit(MapObjectUnit object);
+		bool removeObjectUnit(MapObjectUnit& object);
 		bool clearObjects();
 
 };
