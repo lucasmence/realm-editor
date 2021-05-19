@@ -30,6 +30,12 @@
     <Filter Include="object">
       <UniqueIdentifier>{18ac5d68-7fa3-4e44-aaf4-15a9488870dc}</UniqueIdentifier>
     </Filter>
+    <Filter Include="hud">
+      <UniqueIdentifier>{a0c189f1-45c2-4873-a39e-852acb42707f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="palette">
+      <UniqueIdentifier>{0d15e1c6-803c-47da-891e-f7038a2c7ccb}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\main.cpp">
@@ -40,9 +46,6 @@
     </ClCompile>
     <ClCompile Include="source\system\external\RichText\RichText.cpp">
       <Filter>external\RichText</Filter>
-    </ClCompile>
-    <ClCompile Include="source\system\text\text.cpp">
-      <Filter>text</Filter>
     </ClCompile>
     <ClCompile Include="source\system\model\model.cpp">
       <Filter>model</Filter>
@@ -56,6 +59,21 @@
     <ClCompile Include="source\system\object\viewElement.cpp">
       <Filter>object</Filter>
     </ClCompile>
+    <ClCompile Include="source\system\hud\hud.cpp">
+      <Filter>hud</Filter>
+    </ClCompile>
+    <ClCompile Include="source\system\hud\button.cpp">
+      <Filter>hud</Filter>
+    </ClCompile>
+    <ClCompile Include="source\system\text\label.cpp">
+      <Filter>text</Filter>
+    </ClCompile>
+    <ClCompile Include="source\system\library\position.cpp">
+      <Filter>library</Filter>
+    </ClCompile>
+    <ClCompile Include="source\system\palette\palette.cpp">
+      <Filter>palette</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\system\manager.hpp">
@@ -66,9 +84,6 @@
     </ClInclude>
     <ClInclude Include="source\system\external\RichText\RichText.hpp">
       <Filter>external\RichText</Filter>
-    </ClInclude>
-    <ClInclude Include="source\system\text\text.hpp">
-      <Filter>text</Filter>
     </ClInclude>
     <ClInclude Include="source\system\model\model.hpp">
       <Filter>model</Filter>
@@ -81,6 +96,21 @@
     </ClInclude>
     <ClInclude Include="source\system\object\viewElement.hpp">
       <Filter>object</Filter>
+    </ClInclude>
+    <ClInclude Include="source\system\hud\hud.hpp">
+      <Filter>hud</Filter>
+    </ClInclude>
+    <ClInclude Include="source\system\hud\button.hpp">
+      <Filter>hud</Filter>
+    </ClInclude>
+    <ClInclude Include="source\system\text\label.hpp">
+      <Filter>text</Filter>
+    </ClInclude>
+    <ClInclude Include="source\system\library\position.hpp">
+      <Filter>library</Filter>
+    </ClInclude>
+    <ClInclude Include="source\system\palette\palette.hpp">
+      <Filter>palette</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
