@@ -21,9 +21,8 @@ Button::Button(Manager* manager,
 	{
 		sf::Vector2f positionSide = position::getSidePosition(neighbor->shape->shape->getGlobalBounds(), this->shape->shape->getGlobalBounds(), position, side);
 
-		this->shape->shape->setPosition(positionSide);
-		this->label->text->setPosition(sf::Vector2f(positionSide.x + 5.f, positionSide.y));
-			
+		this->shape->setPosition(positionSide);
+		this->label->setPosition(sf::Vector2f(positionSide.x + 5.f, positionSide.y));		
 	}
 
 	manager->addView(std::static_pointer_cast<ViewElement>(this->label));
