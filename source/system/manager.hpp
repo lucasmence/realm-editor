@@ -27,7 +27,10 @@ class Manager
 		std::shared_ptr<sf::Font> font;
 		std::shared_ptr<Hud> hud;
 		std::shared_ptr<Palette> palette;
+		std::shared_ptr<sf::View> canvas;
 		ManagerList list;
+
+		sf::Vector2f canvasPosition;
 
 		bool hasFocus;
 		bool open;
@@ -40,9 +43,12 @@ class Manager
 		bool update();
 		bool event();
 		bool eventClick(sf::Event& event);
+		bool eventKey(sf::Event& event);
 		bool addView(std::shared_ptr<ViewElement> element);
 		bool removeView(std::shared_ptr<ViewElement> element);
 		bool addViewElement(std::shared_ptr<ViewElement> element);
+		bool moveCanvas(sf::Vector2f position);
+		bool setCanvas();
 		sf::Vector2f getMousePosition();
 };
 

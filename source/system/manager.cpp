@@ -11,9 +11,11 @@ Manager::Manager()
 
     this->hud = std::make_shared<Hud>(this);
     this->palette = std::make_shared<Palette>(this);
+    this->canvas = std::make_shared<sf::View>();
 
     this->hasFocus = true;
     this->open = false;
+    this->canvasPosition = sf::Vector2f(0.f, -115.f);
 
     this->loadWindowOpening();
 }
@@ -67,6 +69,7 @@ bool Manager::update()
     this->event();
 
     this->window->clear();
+    this->setCanvas();
 
     this->hud->update(this->getMousePosition());
 
@@ -114,6 +117,12 @@ bool Manager::event()
                 this->eventClick(event);
                 break;
             }
+
+            case sf::Event::KeyPressed:
+            {
+                this->eventKey(event);
+                break;
+            }
         }            
     }
 
@@ -127,6 +136,51 @@ bool Manager::eventClick(sf::Event& event)
     this->hud->updateClick(cursor);
     this->palette->selectPaletteItem(cursor);
 
+    return true;
+}
+
+bool Manager::eventKey(sf::Event& event)
+{
+    switch (event.key.code)
+    {
+        case (sf::Keyboard::Left):
+        {
+            this->moveCanvas(sf::Vector2f(this->canvasPosition.x - 64.f, this->canvasPosition.y));
+            break;
+        }
+        case (sf::Keyboard::Right):
+        {
+            this->moveCanvas(sf::Vector2f(this->canvasPosition.x + 64.f, this->canvasPosition.y));
+            break;
+        }
+        case (sf::Keyboard::Up):
+        {
+            this->moveCanvas(sf::Vector2f(this->canvasPosition.x, this->canvasPosition.y - 64.f));
+            break;
+        }
+        case (sf::Keyboard::Down):
+        {
+            this->moveCanvas(sf::Vector2f(this->canvasPosition.x, this->canvasPosition.y + 64.f));
+            break;
+        }
+    }
+
+    return true;
+}
+
+bool Manager::moveCanvas(sf::Vector2f position)
+{
+    this->canvas->move(position.x - this->canvasPosition.x, position.y - this->canvasPosition.y);
+    this->canvasPosition.x = position.x;
+    this->canvasPosition.y = position.y;
+    this->window->setView(*this->canvas);
+    return true;
+}
+
+bool Manager::setCanvas()
+{
+    this->canvas->reset(sf::FloatRect(this->canvasPosition.x, this->canvasPosition.y, this->window->getSize().x, this->window->getSize().y));
+    this->window->setView(*this->canvas);
     return true;
 }
 
