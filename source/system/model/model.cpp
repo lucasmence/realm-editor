@@ -2,7 +2,7 @@
 #include "../library/json.hpp"
 #include "../manager.hpp"
 
-Model::Model(Manager* manager, sf::Vector2f position, std::string filename, int priority)
+Model::Model(Manager* manager, sf::Vector2f position, std::string filename, int priority, bool canvasBound)
 {
 	this->manager = manager;
 	this->priority = priority;
@@ -10,6 +10,7 @@ Model::Model(Manager* manager, sf::Vector2f position, std::string filename, int 
 	this->sprite = nullptr;
 	this->shape = nullptr;
 	this->visible = true;
+	this->canvasBound = canvasBound;
 
 	if (filename != "")
 		this->loadSprite(filename, position);
@@ -26,9 +27,18 @@ bool Model::draw()
 		return ViewElement::draw();
 
 	if (this->sprite)
+	{
+		if (this->canvasBound)
+			this->sprite->setPosition(this->manager->canvasPosition.x + this->position.x, this->manager->canvasPosition.y + this->position.y);
 		this->manager->window->draw(*this->sprite);
+	}
+		
 	if (this->shape)
+	{
+		if (this->canvasBound)
+			this->shape->setPosition(this->manager->canvasPosition.x + this->position.x, this->manager->canvasPosition.y + this->position.y);
 		this->manager->window->draw(*this->shape);
+	}	
 
 	return ViewElement::draw();
 }
@@ -70,4 +80,15 @@ bool Model::loadShape(sf::Vector2f size, sf::Color color)
 		return true;
 	}
 	return false;
+}
+
+bool Model::setPosition(sf::Vector2f position)
+{
+	ViewElement::setPosition(position);
+	if (this->sprite)
+		this->sprite->setPosition(position);
+
+	if (this->shape)
+		this->shape->setPosition(position);
+	return true;
 }
