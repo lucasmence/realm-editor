@@ -64,18 +64,44 @@ bool Hud::updateLabels(sf::Vector2f cursor)
 			label->text->setString(boost::lexical_cast<std::string>(this->manager->palette->pageIndex+1));
 		else if (label->name == "lblPaletteItem")
 			label->text->setString(this->manager->palette->selectedItem);
+
 	return true;
 }
 
 bool Hud::spawnClick(sf::Vector2f cursor)
 {
-	if (this->manager->palette->selectedItem == "" || !this->shapeHover->visible)
-		return false;
 
-	std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, this->shapeHover->shape->getPosition(), "textures/terrain/" + this->manager->palette->selectedItem, 5, false);
-	model->sprite->setOrigin(this->shapeHover->shape->getOrigin());
-	this->manager->addView(std::static_pointer_cast<ViewElement>(model));
-	this->manager->map->addObjectUnit(MapObjectUnit{MapObjectType::motTerrain, this->shapeHover->shape->getPosition(), 1.f, 0.f, model});
+	switch (this->manager->palette->status)
+	{
+		case (PaletteStatus::psInsert):
+		{
+			if (this->manager->palette->selectedItem == "" || !this->shapeHover->visible)
+				return false;
+
+			std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, this->shapeHover->shape->getPosition(), "textures/terrain/" + this->manager->palette->selectedItem, 5, false);
+			model->sprite->setOrigin(this->shapeHover->shape->getOrigin());
+			this->manager->addView(std::static_pointer_cast<ViewElement>(model));
+			this->manager->map->addObjectUnit(MapObjectUnit{ MapObjectType::motTerrain, this->shapeHover->shape->getPosition(), 1.f, 0.f, model });
+
+			break;
+		}
+
+		case (PaletteStatus::psDelete):
+		{
+			MapObjectUnit objectSelected{MapObjectType::motTerrain , sf::Vector2f(0.f, 0.f), 0.f, 0.f, nullptr};
+			for (auto& object : this->manager->map->objects)
+				if (object.model->sprite->getGlobalBounds().contains(cursor))
+					objectSelected = object;
+
+			if (objectSelected.model)
+				this->manager->map->removeObjectUnit(objectSelected);
+
+			break;
+		}
+
+		default: return false;
+	}
+	
 
 	return true;
 }
@@ -97,6 +123,8 @@ bool Hud::buttonsClick(sf::Vector2f cursor)
 			}
 			else if (button->name == "btnClear")
 				this->manager->palette->clearPaletteItem();
+			else if (button->name == "btnErase")
+				this->manager->palette->erasePaletteItem();
 
 			return true;
 			break;
@@ -196,6 +224,7 @@ bool Hud::loadButtons()
 	std::shared_ptr<Button> btnSave = std::make_shared<Button>(this->manager, "[Save]", sf::Vector2f(0.f, 0.f), "btnSave", 20, btnOpen, sf::Vector2i(1, 0));
 
 	std::shared_ptr<Button> btnClear = std::make_shared<Button>(this->manager, "[C]", sf::Vector2f(1425.f, 65.f), "btnClear", 20);
+	std::shared_ptr<Button> btnErase = std::make_shared<Button>(this->manager, "[E]", sf::Vector2f(0.f, 0.f), "btnErase", 20, btnClear, sf::Vector2i(-1, 0));
 
 	std::shared_ptr<Button> btnUnit = std::make_shared<Button>(this->manager, "[Units]", sf::Vector2f(1650.f, 200.f), "btnUnit", 20);
 	std::shared_ptr<Button> btnMerchant = std::make_shared<Button>(this->manager, "[Merchants]", sf::Vector2f(0.f, 0.f), "btnMerchant", 20, btnUnit, sf::Vector2i(1, 0));
@@ -217,6 +246,7 @@ bool Hud::loadButtons()
 	this->buttons.emplace_back(btnOpen);
 	this->buttons.emplace_back(btnSave);
 	this->buttons.emplace_back(btnClear);
+	this->buttons.emplace_back(btnErase);
 	this->buttons.emplace_back(btnUnit);
 	this->buttons.emplace_back(btnMerchant);
 	this->buttons.emplace_back(btnProp);
