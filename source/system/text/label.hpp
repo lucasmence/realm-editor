@@ -14,7 +14,6 @@ class Label : public ViewElement
 	public:
 		Manager* manager;
 		std::shared_ptr<sf::Text> text;
-		std::string name;
 
 		Label(Manager* manager, 
 			  std::string caption, 
@@ -29,6 +28,7 @@ class Label : public ViewElement
 
 		bool setPosition(sf::Vector2f position);
 		bool draw();
+		bool reset();
 };
 
 #endif
