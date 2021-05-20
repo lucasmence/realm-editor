@@ -2,15 +2,15 @@
 #include "../library/json.hpp"
 #include "../manager.hpp"
 
-Model::Model(Manager* manager, sf::Vector2f position, std::string filename, int priority, bool canvasBound)
+Model::Model(Manager* manager, sf::Vector2f position, std::string filename, int priority, bool canvasBound, std::string name)
 {
 	this->manager = manager;
 	this->priority = priority;
 	this->position = position;
 	this->sprite = nullptr;
 	this->shape = nullptr;
-	this->visible = true;
 	this->canvasBound = canvasBound;
+	this->name = name;
 
 	if (filename != "")
 		this->loadSprite(filename, position);
@@ -30,6 +30,11 @@ bool Model::draw()
 	{
 		if (this->canvasBound)
 			this->sprite->setPosition(this->manager->canvasPosition.x + this->position.x, this->manager->canvasPosition.y + this->position.y);
+		if (this->fading)
+		{
+			this->sprite->setColor(sf::Color(this->sprite->getColor().r, this->sprite->getColor().g, this->sprite->getColor().b, this->sprite->getColor().a - this->fadeSpeed));
+			this->visible = (this->sprite->getColor().a > 0);
+		}
 		this->manager->window->draw(*this->sprite);
 	}
 		
@@ -37,6 +42,11 @@ bool Model::draw()
 	{
 		if (this->canvasBound)
 			this->shape->setPosition(this->manager->canvasPosition.x + this->position.x, this->manager->canvasPosition.y + this->position.y);
+		if (this->fading)
+		{
+			this->shape->setFillColor(sf::Color(this->shape->getFillColor().r, this->shape->getFillColor().g, this->shape->getFillColor().b, this->shape->getFillColor().a - this->fadeSpeed));
+			this->visible = (this->shape->getFillColor().a > 0);
+		}
 		this->manager->window->draw(*this->shape);
 	}	
 
@@ -91,4 +101,15 @@ bool Model::setPosition(sf::Vector2f position)
 	if (this->shape)
 		this->shape->setPosition(position);
 	return true;
+}
+
+bool Model::reset()
+{
+	if (this->sprite)
+		this->sprite->setColor(sf::Color(this->sprite->getColor().r, this->sprite->getColor().g, this->sprite->getColor().b, 255));
+
+	if (this->shape)
+		this->shape->setFillColor(sf::Color(this->shape->getFillColor().r, this->shape->getFillColor().g, this->shape->getFillColor().b, 255));
+
+	return ViewElement::reset();
 }
