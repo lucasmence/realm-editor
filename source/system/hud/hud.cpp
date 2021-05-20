@@ -11,6 +11,7 @@ Hud::Hud(Manager* manager)
 	this->shapeHover->loadShape(sf::Vector2f(1.f, 1.f), sf::Color(150, 200, 150, 100));
 	this->shapeHover->visible = false;
 	this->manager->addView(std::static_pointer_cast<ViewElement>(this->shapeHover));
+	this->messageBox = MessageBox{nullptr, nullptr};
 	this->loadLists();
 }
 
@@ -59,11 +60,58 @@ bool Hud::updateLabels(sf::Vector2f cursor)
 {
 	for (auto& label : this->labels)
 		if (label->name == "lblCoordinates" && this->manager->hasFocus)
-			label->text->setString("(" + boost::lexical_cast<std::string>((int)cursor.x) + ", " + boost::lexical_cast<std::string>((int)cursor.y) +")");
+			label->text->setString("(" + boost::lexical_cast<std::string>((int)cursor.x) + ", " + boost::lexical_cast<std::string>((int)cursor.y) + ")");
 		else if (label->name == "lblPalettePage")
-			label->text->setString(boost::lexical_cast<std::string>(this->manager->palette->pageIndex+1));
+			label->text->setString(boost::lexical_cast<std::string>(this->manager->palette->pageIndex + 1));
 		else if (label->name == "lblPaletteItem")
 			label->text->setString(this->manager->palette->selectedItem);
+		else if (label->name == "lblPaletteStatus")
+			this->updateLabelPaletteStatus(label->text);
+
+	return true;
+}
+
+bool Hud::updateLabelPaletteStatus(std::shared_ptr<sf::Text> text)
+{
+	switch (this->manager->palette->status)
+	{
+		case (PaletteStatus::psInsert):
+		{
+			text->setString("I N S E R T I N G");
+			text->setFillColor(sf::Color(0,255,0,255));
+			break;
+		}
+		case (PaletteStatus::psDelete):
+		{
+			text->setString("D E L E T I N G");
+			text->setFillColor(sf::Color(255, 0, 0, 255));
+			break;
+		}
+		default: 
+		{
+			text->setString("- - -");
+			text->setFillColor(sf::Color(255, 255, 255, 255));
+			break;
+		}
+	}
+	return true;
+}
+
+bool Hud::showMessage(std::string text, float time)
+{
+	this->messageBox.label->reset();
+	this->messageBox.border->reset();
+	this->messageBox.label->text->setString(text);
+	this->messageBox.label->setPosition(sf::Vector2f(0.f, 900.f));
+	this->messageBox.border->setPosition(sf::Vector2f(0.f, 905.f));
+	std::static_pointer_cast<sf::RectangleShape>(this->messageBox.border->shape)->setSize(sf::Vector2f(this->messageBox.label->text->getGlobalBounds().width + 10.f,
+																									   this->messageBox.label->text->getGlobalBounds().height + 10.f));
+	this->messageBox.label->setPosition(position::getCenterPosition(sf::Vector2f(1920.f, 1080.f), this->messageBox.label->text->getGlobalBounds(), sf::Vector2i(1, 0)));
+	this->messageBox.border->setPosition(position::getCenterPosition(sf::Vector2f(1920.f, 1080.f), this->messageBox.border->shape->getGlobalBounds(), sf::Vector2i(1, 0)));
+	this->messageBox.label->timeMax = time;
+	this->messageBox.border->timeMax = time;
+
+
 
 	return true;
 }
@@ -205,15 +253,22 @@ bool Hud::loadModels()
 {
 	std::shared_ptr<Model> header = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, -100.f));
 	std::shared_ptr<Model> palette = std::make_shared<Model>(this->manager, sf::Vector2f(1620.f, 100.f));
+	std::shared_ptr<Model> messageBox = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, 900.f));
 
 	header->loadShape(sf::Vector2f(2020.f, 200.f), sf::Color(100, 100, 100, 255));
 	palette->loadShape(sf::Vector2f(400.f, 1000.f), sf::Color(100, 100, 100, 255));
+	messageBox->loadShape(sf::Vector2f(30.f, 1.f), sf::Color(100, 100, 100, 255));
 
 	this->manager->addView(std::static_pointer_cast<ViewElement>(header));
 	this->manager->addView(std::static_pointer_cast<ViewElement>(palette));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(messageBox));
 
 	this->models.emplace_back(header);
 	this->models.emplace_back(palette);
+	this->models.emplace_back(messageBox);
+
+	messageBox->visible = false;
+	this->messageBox.border = messageBox;
 
 	return true;
 }
@@ -263,6 +318,8 @@ bool Hud::loadLabels()
 	std::shared_ptr<Label> lblCoordinates = std::make_shared<Label>(this->manager, "0, 0", 20, sf::Vector2f(1630.f, 70.f), 1, sf::Color(255, 255, 255, 255), "lblCoordinates");
 	std::shared_ptr<Label> lblPaletteItem = std::make_shared<Label>(this->manager, "0, 0", 20, sf::Vector2f(0.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblPaletteItem");
 	std::shared_ptr<Label> lblVersion = std::make_shared<Label>(this->manager, "0.01", 20, sf::Vector2f(1870.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblVersion");
+	std::shared_ptr<Label> lblPaletteStatus = std::make_shared<Label>(this->manager, "- - -", 30, sf::Vector2f(0.f, 960.f), 1, sf::Color(255, 255, 255, 255), "lblPaletteStatus");
+	std::shared_ptr<Label> lblMessageBox = std::make_shared<Label>(this->manager, "", 20, sf::Vector2f(0.f, 900.f), 1, sf::Color(255, 255, 255, 255), "lblMessageBox");
 
 	lblPaletteItem->setPosition(position::getSidePosition(lblCoordinates->text->getGlobalBounds(),
 														  lblPaletteItem->text->getGlobalBounds(), 
@@ -271,10 +328,17 @@ bool Hud::loadLabels()
 	this->manager->addView(std::static_pointer_cast<ViewElement>(lblCoordinates));
 	this->manager->addView(std::static_pointer_cast<ViewElement>(lblPaletteItem));
 	this->manager->addView(std::static_pointer_cast<ViewElement>(lblVersion));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(lblPaletteStatus));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(lblMessageBox));
 	
 	this->labels.emplace_back(lblCoordinates);	
 	this->labels.emplace_back(lblPaletteItem);
 	this->labels.emplace_back(lblVersion);
+	this->labels.emplace_back(lblPaletteStatus);
+	this->labels.emplace_back(lblMessageBox);
+
+	lblMessageBox->visible = false;
+	this->messageBox.label = lblMessageBox;
 
 	return true;
 }
