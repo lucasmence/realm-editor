@@ -1,4 +1,5 @@
 #include "manager.hpp"
+#include "library/script.hpp"
 
 Manager::Manager()
 {
@@ -32,7 +33,8 @@ bool Manager::loadWindowOpening()
         return false;
 
     this->open = true;
-    std::system("windowMode -title realm-editor -mode maximized");
+    script::maximizeWindow("realm-editor");
+    
     return true;
 }
 
