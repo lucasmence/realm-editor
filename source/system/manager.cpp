@@ -56,6 +56,7 @@ bool Manager::addViewElement(std::shared_ptr<ViewElement> element)
 
 bool Manager::addView(std::shared_ptr<ViewElement> element)
 {
+    element->initialization();
     this->addViewElement(element);
     return true;
 }
