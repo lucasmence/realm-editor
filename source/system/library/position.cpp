@@ -52,4 +52,29 @@ namespace position
 	{
 		return sf::Vector2f(div((int)position.x, gridSize.x).quot * gridSize.x, div((int)position.y, gridSize.y).quot * gridSize.y);
 	}
+
+	sf::Vector2f getCenterPosition(sf::Vector2f screen, sf::FloatRect object, sf::Vector2i side)
+	{
+		sf::Vector2f positionSide(object.left, object.top);
+
+		switch (side.x)
+		{
+			case (1):
+			{
+				positionSide.x = (screen.x / 2.f) - (object.width / 2.f);
+				break;
+			}
+		}
+
+		switch (side.y)
+		{
+			case (1):
+			{
+				positionSide.y = (screen.y / 2.f) - (object.height / 2.f);
+				break;
+			}
+		}
+
+		return positionSide;
+	}
 }
