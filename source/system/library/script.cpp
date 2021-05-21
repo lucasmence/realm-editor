@@ -8,16 +8,24 @@ namespace script
 {
     std::string loadFile()
     {
+        std::string filename = "filename.data";
+        deleteFile("temp/" + filename);
+
         auto Command = std::string("cd scripts && cmd.exe /C openfile.bat");
         std::system(Command.c_str());
-        return getTemp("filename.data");
+
+        return getTemp(filename);
     }
 
     std::string saveFile()
     {
+        std::string filename = "savefile.data";
+        deleteFile("temp/" + filename);
+
         auto Command = std::string("cd scripts && cmd.exe /C savefile.bat");
         std::system(Command.c_str());
-        return getTemp("savefile.data");
+
+        return getTemp(filename);
     }
     
     std::string getTemp(std::string filename)
