@@ -173,6 +173,10 @@ bool Hud::buttonsClick(sf::Vector2f cursor)
 				this->manager->palette->clearPaletteItem();
 			else if (button->name == "btnErase")
 				this->manager->palette->erasePaletteItem();
+			else if (button->name == "btnSave")
+				this->manager->map->saveMap();
+			else if (button->name == "btnSaveAs")
+				this->manager->map->saveMapAs();
 
 			return true;
 			break;
@@ -277,6 +281,8 @@ bool Hud::loadButtons()
 	std::shared_ptr<Button> btnNew = std::make_shared<Button>(this->manager, "[New]", sf::Vector2f(15.f, 10.f), "btnNew", 20);
 	std::shared_ptr<Button> btnOpen = std::make_shared<Button>(this->manager, "[Open]", sf::Vector2f(0.f, 0.f), "btnOpen", 20, btnNew, sf::Vector2i(1, 0));
 	std::shared_ptr<Button> btnSave = std::make_shared<Button>(this->manager, "[Save]", sf::Vector2f(0.f, 0.f), "btnSave", 20, btnOpen, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnSaveAs = std::make_shared<Button>(this->manager, "[Save As]", sf::Vector2f(0.f, 0.f), "btnSaveAs", 20, btnSave, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnHelp = std::make_shared<Button>(this->manager, "[Help]", sf::Vector2f(0.f, 0.f), "btnHelp", 20, btnSaveAs, sf::Vector2i(1, 0));
 
 	std::shared_ptr<Button> btnClear = std::make_shared<Button>(this->manager, "[C]", sf::Vector2f(1425.f, 65.f), "btnClear", 20);
 	std::shared_ptr<Button> btnErase = std::make_shared<Button>(this->manager, "[E]", sf::Vector2f(0.f, 0.f), "btnErase", 20, btnClear, sf::Vector2i(-1, 0));
@@ -300,6 +306,8 @@ bool Hud::loadButtons()
 	this->buttons.emplace_back(btnNew);
 	this->buttons.emplace_back(btnOpen);
 	this->buttons.emplace_back(btnSave);
+	this->buttons.emplace_back(btnSaveAs);
+	this->buttons.emplace_back(btnHelp);
 	this->buttons.emplace_back(btnClear);
 	this->buttons.emplace_back(btnErase);
 	this->buttons.emplace_back(btnUnit);
