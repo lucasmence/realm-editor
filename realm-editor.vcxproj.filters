@@ -127,5 +127,14 @@
     <ClInclude Include="source\system\library\script.hpp">
       <Filter>library</Filter>
     </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="realm-editor.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="realm-editor.ico" />
   </ItemGroup>
 </Project>
