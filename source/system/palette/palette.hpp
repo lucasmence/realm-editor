@@ -9,6 +9,8 @@
 
 enum class PaletteType {ptTerrain};
 
+enum class PaletteStatus {psNone, psInsert, psDelete};
+
 class Manager;
 
 struct PaletteItem
@@ -24,6 +26,7 @@ class Palette
 		int pageIndex;
 		PaletteType type;
 		Manager* manager;
+		PaletteStatus status;
 
 		std::list<std::string> terrain;
 		std::list<PaletteItem> paletteItems;
@@ -38,6 +41,7 @@ class Palette
 		std::string getString(std::string value);
 		bool selectPaletteItem(sf::Vector2f cursor);
 		bool clearPaletteItem();
+		bool erasePaletteItem();
 
 		Palette(Manager* manager);
 		~Palette();

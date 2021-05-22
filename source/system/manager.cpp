@@ -1,4 +1,5 @@
 #include "manager.hpp"
+#include "library/script.hpp"
 
 Manager::Manager()
 {
@@ -11,6 +12,7 @@ Manager::Manager()
 
     this->hud = std::make_shared<Hud>(this);
     this->palette = std::make_shared<Palette>(this);
+    this->map = std::make_shared<Map>(this);
     this->canvas = std::make_shared<sf::View>();
 
     this->hasFocus = true;
@@ -31,7 +33,8 @@ bool Manager::loadWindowOpening()
         return false;
 
     this->open = true;
-    std::system("windowMode -title realm-editor -mode maximized");
+    script::maximizeWindow("realm-editor");
+    
     return true;
 }
 
@@ -53,6 +56,7 @@ bool Manager::addViewElement(std::shared_ptr<ViewElement> element)
 
 bool Manager::addView(std::shared_ptr<ViewElement> element)
 {
+    element->initialization();
     this->addViewElement(element);
     return true;
 }
@@ -187,6 +191,7 @@ bool Manager::setCanvas()
 bool Manager::unloadAll()
 {
     this->hud = nullptr;
+    this->map = nullptr;
     this->list.textures.clear();
     this->list.viewElements.clear();
 	return true;
