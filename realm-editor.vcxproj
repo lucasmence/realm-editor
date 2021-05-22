@@ -168,7 +168,9 @@
     <ClCompile Include="source\system\hud\hud.cpp" />
     <ClCompile Include="source\system\library\json.cpp" />
     <ClCompile Include="source\system\library\position.cpp" />
+    <ClCompile Include="source\system\library\script.cpp" />
     <ClCompile Include="source\system\manager.cpp" />
+    <ClCompile Include="source\system\map\map.cpp" />
     <ClCompile Include="source\system\model\model.cpp" />
     <ClCompile Include="source\system\model\texture.cpp" />
     <ClCompile Include="source\system\object\viewElement.cpp" />
@@ -182,7 +184,9 @@
     <ClInclude Include="source\system\hud\hud.hpp" />
     <ClInclude Include="source\system\library\json.hpp" />
     <ClInclude Include="source\system\library\position.hpp" />
+    <ClInclude Include="source\system\library\script.hpp" />
     <ClInclude Include="source\system\manager.hpp" />
+    <ClInclude Include="source\system\map\map.hpp" />
     <ClInclude Include="source\system\model\model.hpp" />
     <ClInclude Include="source\system\model\texture.hpp" />
     <ClInclude Include="source\system\object\viewElement.hpp" />
