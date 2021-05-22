@@ -62,6 +62,7 @@ bool Map::renderMap()
 				int dimensionIndex = this->file["terrain"][fieldIndex]["dimensions"].size();
 				this->file["terrain"][fieldIndex]["dimensions"][dimensionIndex]["x"] = object.position.x;
 				this->file["terrain"][fieldIndex]["dimensions"][dimensionIndex]["y"] = object.position.y;
+				this->file["terrain"][fieldIndex]["dimensions"][dimensionIndex]["scale"] = object.model->sprite->getScale().x;
 				found = true;
 				break;
 			}
@@ -72,6 +73,7 @@ bool Map::renderMap()
 			this->file["terrain"][terrainIndex]["texture"] = object.model->texture->filename;
 			this->file["terrain"][terrainIndex]["dimensions"][0]["x"] = object.position.x;
 			this->file["terrain"][terrainIndex]["dimensions"][0]["y"] = object.position.y;
+			this->file["terrain"][terrainIndex]["dimensions"][0]["scale"] = object.model->sprite->getScale().x;
 		}	
 	}
 
@@ -111,6 +113,16 @@ bool Map::loadMap()
 	this->filename = script::loadFile();
 	this->file = Json::loadFromFile(this->filename);
 
+	this->data.size.x = this->file.value("map-size-x", 1000);
+	this->data.size.y = this->file.value("map-size-y", 1000);
+	this->data.music = this->file.value("music", "village");
+
+	if (this->file["map"].size() > 0)
+	{
+		this->data.name = this->file["map"].value("name", "");
+		this->data.version = this->file["map"].value("version", "1.0");
+	}
+
 	for (int index = 0; index < this->file[field].size(); index++)
 	{
 		std::string texture = Json::getString(this->file[field][index].value("texture", ""));
@@ -122,8 +134,10 @@ bool Map::loadMap()
 								  this->file[field][index][dimensionField][dimensionIndex].value("y", 0.f));
 
 			std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, position, "textures/" + texture, 5, false);
+			model->sprite->setScale(sf::Vector2f(this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f), 
+												 this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f)));
 			this->manager->addView(std::static_pointer_cast<ViewElement>(model));
-			this->addObjectUnit(MapObjectUnit{ MapObjectType::motTerrain, position, 1.f, 0.f, model });
+			this->addObjectUnit(MapObjectUnit{ MapObjectType::motTerrain, position, 0.f, model });
 
 		}
 	}

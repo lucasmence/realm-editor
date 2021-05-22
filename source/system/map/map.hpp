@@ -17,15 +17,14 @@ struct MapObject
 {
 	MapObjectType type;
 	sf::Vector2f position;
-	float scale;
 	float angle;
 };
 
 struct MapObjectUnit : public MapObject
 {
 	std::shared_ptr<Model> model;
-	MapObjectUnit(MapObjectType type, sf::Vector2f position, float scale, float angle, std::shared_ptr<Model> model) :
-		MapObject{ type, position, scale, angle }, model(model) {};
+	MapObjectUnit(MapObjectType type, sf::Vector2f position, float angle, std::shared_ptr<Model> model) :
+		MapObject{ type, position, angle}, model(model) {};
 };
 
 struct MapObjectMatrix : public MapObject
