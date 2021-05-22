@@ -113,6 +113,16 @@ bool Map::loadMap()
 	this->filename = script::loadFile();
 	this->file = Json::loadFromFile(this->filename);
 
+	this->data.size.x = this->file.value("map-size-x", 1000);
+	this->data.size.y = this->file.value("map-size-y", 1000);
+	this->data.music = this->file.value("music", "village");
+
+	if (this->file["map"].size() > 0)
+	{
+		this->data.name = this->file["map"].value("name", "");
+		this->data.version = this->file["map"].value("version", "1.0");
+	}
+
 	for (int index = 0; index < this->file[field].size(); index++)
 	{
 		std::string texture = Json::getString(this->file[field][index].value("texture", ""));
