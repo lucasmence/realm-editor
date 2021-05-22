@@ -9,6 +9,8 @@ Manager::Manager()
 
     this->font = std::shared_ptr<sf::Font>(new sf::Font);
     this->font->loadFromFile("resources/fonts/consola.ttf");
+    this->icon.loadFromFile("realm-editor.png");
+    this->window->setIcon(this->icon.getSize().x, this->icon.getSize().y, this->icon.getPixelsPtr());
 
     this->hud = std::make_shared<Hud>(this);
     this->palette = std::make_shared<Palette>(this);
