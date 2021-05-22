@@ -62,6 +62,7 @@ bool Map::renderMap()
 				int dimensionIndex = this->file["terrain"][fieldIndex]["dimensions"].size();
 				this->file["terrain"][fieldIndex]["dimensions"][dimensionIndex]["x"] = object.position.x;
 				this->file["terrain"][fieldIndex]["dimensions"][dimensionIndex]["y"] = object.position.y;
+				this->file["terrain"][fieldIndex]["dimensions"][dimensionIndex]["scale"] = object.model->sprite->getScale().x;
 				found = true;
 				break;
 			}
@@ -72,6 +73,7 @@ bool Map::renderMap()
 			this->file["terrain"][terrainIndex]["texture"] = object.model->texture->filename;
 			this->file["terrain"][terrainIndex]["dimensions"][0]["x"] = object.position.x;
 			this->file["terrain"][terrainIndex]["dimensions"][0]["y"] = object.position.y;
+			this->file["terrain"][terrainIndex]["dimensions"][0]["scale"] = object.model->sprite->getScale().x;
 		}	
 	}
 
@@ -122,8 +124,10 @@ bool Map::loadMap()
 								  this->file[field][index][dimensionField][dimensionIndex].value("y", 0.f));
 
 			std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, position, "textures/" + texture, 5, false);
+			model->sprite->setScale(sf::Vector2f(this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f), 
+												 this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f)));
 			this->manager->addView(std::static_pointer_cast<ViewElement>(model));
-			this->addObjectUnit(MapObjectUnit{ MapObjectType::motTerrain, position, 1.f, 0.f, model });
+			this->addObjectUnit(MapObjectUnit{ MapObjectType::motTerrain, position, 0.f, model });
 
 		}
 	}
