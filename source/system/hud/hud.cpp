@@ -97,6 +97,12 @@ bool Hud::updateLabelPaletteStatus(std::shared_ptr<sf::Text> text)
 	return true;
 }
 
+bool Hud::help()
+{
+	this->showMessage("Not available!");
+	return true;
+}
+
 bool Hud::showMessage(std::string text, float time)
 {
 	this->messageBox.label->reset();
@@ -177,6 +183,12 @@ bool Hud::buttonsClick(sf::Vector2f cursor)
 				this->manager->map->saveMap();
 			else if (button->name == "btnSaveAs")
 				this->manager->map->saveMapAs();
+			else if (button->name == "btnOpen")
+				this->manager->map->loadMap();
+			else if (button->name == "btnNew")
+				this->manager->map->newMap();
+			else if (button->name == "btnHelp")
+				this->help();
 
 			return true;
 			break;
