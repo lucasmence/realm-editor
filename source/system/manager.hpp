@@ -33,6 +33,7 @@ class Manager
 		ManagerList list;
 
 		sf::Vector2f canvasPosition;
+		sf::Image icon;
 
 		bool hasFocus;
 		bool open;
