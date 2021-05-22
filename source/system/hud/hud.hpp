@@ -43,6 +43,7 @@ class Hud
 		bool buttonsClick(sf::Vector2f cursor);
 		bool spawnClick(sf::Vector2f cursor);
 		bool showMessage(std::string text, float time = 3.f);
+		bool help();
 		Hud(Manager* manager);
 		~Hud();
 
