@@ -12,6 +12,7 @@
 
 Palette::Palette(Manager* manager)
 {
+    this->status = PaletteStatus::psNone;
     this->pageIndex = 0;
     this->selectedItem = "";
 	this->type = PaletteType::ptTerrain;
@@ -56,7 +57,7 @@ bool Palette::selectPalette()
     this->clearPaletteItems();
     
     int x = 0, y = 0, xLimit = 4, pageLimit = 32, index = 0, count = pageLimit * this->pageIndex, countLimit = pageLimit * (this->pageIndex + 1);
-    sf::Vector2f initialPosition(1650.f, 350.f);
+    sf::Vector2f initialPosition(1650.f, 300.f);
 
     switch (this->type)
     {
@@ -95,12 +96,21 @@ bool Palette::selectPalette()
     return true;
 }
 
+bool Palette::erasePaletteItem()
+{
+    this->clearPaletteItem();
+    this->status = PaletteStatus::psDelete;
+    return true;
+}
+
 bool Palette::clearPaletteItem()
 {
+    this->status = PaletteStatus::psNone;
     this->selectedItem = "";
     this->manager->hud->shapeHover->visible = false;
     for (auto& item : this->paletteItems)
             item.model->sprite->setColor(sf::Color(255, 255, 255, 255));
+
     return true;
 }
 
@@ -118,6 +128,7 @@ bool Palette::selectPaletteItem(sf::Vector2f cursor)
             this->manager->hud->shapeHover->shape->setOrigin(sf::Vector2f(0.f * this->manager->hud->shapeHover->shape->getGlobalBounds().width / 2.f,
                                                                           0.f * this->manager->hud->shapeHover->shape->getGlobalBounds().height / 2.f));
             this->manager->hud->shapeHover->visible = true;
+            this->status = PaletteStatus::psInsert;
             break;
         }
 
