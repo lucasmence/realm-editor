@@ -16,6 +16,13 @@ Map::~Map()
 
 bool Map::clearObjects()
 {
+	for (auto& object : this->objects)
+		this->manager->removeView(std::static_pointer_cast<ViewElement>(object.model));
+
+	this->objects.erase(std::remove_if(this->objects.begin(),
+                                       this->objects.end(),
+                                       [](MapObjectUnit& objectIndex) { return objectIndex.model; }),
+                                       this->objects.end());
 	this->objects.clear();
 	return true;
 }
@@ -96,10 +103,38 @@ bool Map::saveMap()
 
 bool Map::loadMap()
 {
+	this->newMap();
+
+	std::string field = "terrain";
+	std::string dimensionField = "dimensions";
+
+	this->filename = script::loadFile();
+	this->file = Json::loadFromFile(this->filename);
+
+	for (int index = 0; index < this->file[field].size(); index++)
+	{
+		std::string texture = Json::getString(this->file[field][index].value("texture", ""));
+
+		for (int dimensionIndex = 0; dimensionIndex < this->file[field][index][dimensionField].size(); dimensionIndex++)
+		{
+
+			sf::Vector2f position(this->file[field][index][dimensionField][dimensionIndex].value("x", 0.f),
+								  this->file[field][index][dimensionField][dimensionIndex].value("y", 0.f));
+
+			std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, position, "textures/" + texture, 5, false);
+			this->manager->addView(std::static_pointer_cast<ViewElement>(model));
+			this->addObjectUnit(MapObjectUnit{ MapObjectType::motTerrain, position, 1.f, 0.f, model });
+
+		}
+	}
+
+	this->manager->hud->showMessage("Map loaded successfully!");
+
 	return true;
 }
 
 bool Map::newMap()
 {
+	this->clearObjects();
 	return true;
 }
