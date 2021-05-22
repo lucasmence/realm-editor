@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -178,6 +178,7 @@
     <ClCompile Include="source\system\text\label.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="resource.h" />
     <ClInclude Include="source\system\external\nlohmann\json.hpp" />
     <ClInclude Include="source\system\external\RichText\RichText.hpp" />
     <ClInclude Include="source\system\hud\button.hpp" />
@@ -192,6 +193,12 @@
     <ClInclude Include="source\system\object\viewElement.hpp" />
     <ClInclude Include="source\system\palette\palette.hpp" />
     <ClInclude Include="source\system\text\label.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="realm-editor.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="realm-editor.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
