@@ -1,6 +1,7 @@
 #include <SFML/Graphics.hpp>
 #include <memory>
 #include <list>
+#include <vector>
 #include "button.hpp"
 
 #pragma once
@@ -21,6 +22,8 @@ class Hud
 	public:
 		Manager* manager;
 
+		int gridSize;
+		std::vector<int> gridSizeList;
 		std::list<std::shared_ptr<Button>> buttons;
 		std::list<std::shared_ptr<Label>> labels;
 		std::list<std::shared_ptr<Model>> models;
@@ -43,6 +46,7 @@ class Hud
 		bool buttonsClick(sf::Vector2f cursor);
 		bool spawnClick(sf::Vector2f cursor);
 		bool showMessage(std::string text, float time = 3.f);
+		bool changeGridSize(int order);
 		bool help();
 		Hud(Manager* manager);
 		~Hud();
