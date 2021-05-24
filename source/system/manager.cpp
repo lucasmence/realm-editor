@@ -169,6 +169,12 @@ bool Manager::eventKey(sf::Event& event)
             this->moveCanvas(sf::Vector2f(this->canvasPosition.x, this->canvasPosition.y + 64.f));
             break;
         }
+        case (sf::Keyboard::Space):
+        {
+            this->canvasPosition = sf::Vector2f(0.f, -115.f);
+            this->moveCanvas(this->canvasPosition);
+            break;
+        }
     }
 
     return true;
