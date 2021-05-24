@@ -63,6 +63,7 @@ bool Map::renderMap()
 				this->file["terrain"][fieldIndex]["dimensions"][dimensionIndex]["x"] = object.position.x;
 				this->file["terrain"][fieldIndex]["dimensions"][dimensionIndex]["y"] = object.position.y;
 				this->file["terrain"][fieldIndex]["dimensions"][dimensionIndex]["scale"] = object.model->sprite->getScale().x;
+				this->file["terrain"][fieldIndex]["dimensions"][dimensionIndex]["rotation"] = object.model->sprite->getRotation();
 				found = true;
 				break;
 			}
@@ -74,10 +75,9 @@ bool Map::renderMap()
 			this->file["terrain"][terrainIndex]["dimensions"][0]["x"] = object.position.x;
 			this->file["terrain"][terrainIndex]["dimensions"][0]["y"] = object.position.y;
 			this->file["terrain"][terrainIndex]["dimensions"][0]["scale"] = object.model->sprite->getScale().x;
+			this->file["terrain"][terrainIndex]["dimensions"][0]["rotation"] = object.model->sprite->getRotation();
 		}	
 	}
-
-	
 
 	return true;
 }
@@ -136,9 +136,9 @@ bool Map::loadMap()
 			std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, position, "textures/" + texture, 5, false);
 			model->sprite->setScale(sf::Vector2f(this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f), 
 												 this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f)));
+			model->sprite->setRotation(this->file[field][index][dimensionField][dimensionIndex].value("rotation", 0.f));
 			this->manager->addView(std::static_pointer_cast<ViewElement>(model));
 			this->addObjectUnit(MapObjectUnit{ MapObjectType::motTerrain, position, 0.f, model });
-
 		}
 	}
 
