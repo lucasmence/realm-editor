@@ -47,6 +47,7 @@ class Hud
 		bool spawnClick(sf::Vector2f cursor);
 		bool showMessage(std::string text, float time = 3.f);
 		bool changeGridSize(int order);
+		bool toggleGridVisibility();
 		bool help();
 		Hud(Manager* manager);
 		~Hud();

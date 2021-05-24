@@ -119,6 +119,13 @@ bool Hud::changeGridSize(int order)
 	return this->loadGrid();;
 }
 
+bool Hud::toggleGridVisibility()
+{
+	for (auto& gridIndex : this->grid)
+		gridIndex->visible = !gridIndex->visible;
+	return true;
+}
+
 bool Hud::showMessage(std::string text, float time)
 {
 	this->messageBox.label->reset();
@@ -209,6 +216,8 @@ bool Hud::buttonsClick(sf::Vector2f cursor)
 				this->changeGridSize(1);
 			else if (button->name == "btnGridSizeDecrease")
 				this->changeGridSize(-1);
+			else if (button->name == "btnGridVisibilityToggle")
+				this->toggleGridVisibility();
 
 			return true;
 			break;
@@ -318,7 +327,8 @@ bool Hud::loadButtons()
 
 	std::shared_ptr<Button> btnClear = std::make_shared<Button>(this->manager, "[C]", sf::Vector2f(1425.f, 65.f), "btnClear", 20);
 	std::shared_ptr<Button> btnErase = std::make_shared<Button>(this->manager, "[E]", sf::Vector2f(0.f, 0.f), "btnErase", 20, btnClear, sf::Vector2i(-1, 0));
-
+	std::shared_ptr<Button> btnGridVisibilityToggle = std::make_shared<Button>(this->manager, "[G]", sf::Vector2f(0.f, 0.f), "btnGridVisibilityToggle", 20, btnClear, sf::Vector2i(1, 0));
+	
 	std::shared_ptr<Button> btnUnit = std::make_shared<Button>(this->manager, "[Units]", sf::Vector2f(1650.f, 200.f), "btnUnit", 20);
 	std::shared_ptr<Button> btnMerchant = std::make_shared<Button>(this->manager, "[Merchants]", sf::Vector2f(0.f, 0.f), "btnMerchant", 20, btnUnit, sf::Vector2i(1, 0));
 	std::shared_ptr<Button> btnProp = std::make_shared<Button>(this->manager, "[Props]", sf::Vector2f(0.f, 0.f), "btnProp", 20, btnUnit, sf::Vector2i(0, 1));
@@ -351,6 +361,7 @@ bool Hud::loadButtons()
 	this->buttons.emplace_back(btnHelp);
 	this->buttons.emplace_back(btnClear);
 	this->buttons.emplace_back(btnErase);
+	this->buttons.emplace_back(btnGridVisibilityToggle);
 	this->buttons.emplace_back(btnUnit);
 	this->buttons.emplace_back(btnMerchant);
 	this->buttons.emplace_back(btnProp);
