@@ -57,7 +57,7 @@ bool Palette::selectPalette()
     this->clearPaletteItems();
     
     int x = 0, y = 0, xLimit = 4, pageLimit = 32, index = 0, count = pageLimit * this->pageIndex, countLimit = pageLimit * (this->pageIndex + 1);
-    sf::Vector2f initialPosition(1650.f, 300.f);
+    sf::Vector2f initialPosition(1650.f, 325.f);
 
     switch (this->type)
     {
