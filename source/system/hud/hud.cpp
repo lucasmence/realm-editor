@@ -12,6 +12,7 @@ Hud::Hud(Manager* manager)
 	this->brushSizeList = { 1, 4, 16 };
 	this->gridSize = 1;
 	this->brushSize = 0;
+	this->rotation = 0;
 	this->hoverShapeSize = sf::Vector2f(0.f, 0.f);
 	this->shapeHover = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, 300.f), "", 1, false);
 	this->shapeHover->loadShape(sf::Vector2f(1.f, 1.f), sf::Color(150, 200, 150, 100));
@@ -32,6 +33,9 @@ bool Hud::update(sf::Vector2f cursor)
 	this->updateCursor(cursor);
 	this->updateLabels(cursor);
 	this->updateButtonsColor(cursor);
+	this->updateEditsColor(cursor);
+	this->updateEditValues();
+	this->updateHoverShapeSize();
 
 	return true;
 }
@@ -40,6 +44,8 @@ bool Hud::updateClick(sf::Vector2f cursor)
 {
 	this->buttonsClick(cursor);
 	this->spawnClick(cursor);
+	this->editsClick(cursor);
+
 	return true;
 }
 
@@ -145,6 +151,7 @@ bool Hud::updateHoverShapeSize()
 																								(sqrt(this->brushSizeList.at(this->brushSize))),
 																								this->hoverShapeSize.y *
 																								(sqrt(this->brushSizeList.at(this->brushSize)))));
+	this->shapeHover->shape->setRotation(this->rotation);
 	return true;
 }
 
@@ -191,9 +198,10 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 																		   this->shapeHover->shape->getPosition(), 
 																		   "textures/terrain/" + this->manager->palette->selectedItem, 5, false);
 					model->sprite->setOrigin(this->shapeHover->shape->getOrigin());
-					this->manager->addView(std::static_pointer_cast<ViewElement>(model));
-					this->manager->map->addObjectUnit(MapObjectUnit{ MapObjectType::motTerrain, this->shapeHover->shape->getPosition(), 0.f, model });
 					model->sprite->move(model->sprite->getGlobalBounds().width * x, model->sprite->getGlobalBounds().height * y);
+					model->sprite->setRotation(this->rotation);
+					this->manager->addView(std::static_pointer_cast<ViewElement>(model));
+					this->manager->map->addObjectUnit(MapObjectUnit{ MapObjectType::motTerrain, model->sprite->getPosition(), 0.f, model });
 				}
 
 			break;
@@ -264,6 +272,24 @@ bool Hud::buttonsClick(sf::Vector2f cursor)
 	return false;
 }
 
+bool Hud::editsClick(sf::Vector2f cursor)
+{
+	bool selected = true;
+	for (auto& edit : this->edits)
+		if (edit->shape->shape->getGlobalBounds().contains(cursor))
+		{
+			edit->selected = true;
+			selected = true;
+		}
+
+	if (selected)
+		for (auto& edit : this->edits)
+			if (!edit->shape->shape->getGlobalBounds().contains(cursor))
+				edit->selected = false;
+
+	return true;
+}
+
 bool Hud::updateButtonsColor(sf::Vector2f cursor)
 {
 	for (auto& button : this->buttons)
@@ -286,11 +312,64 @@ bool Hud::updateButtonsColor(sf::Vector2f cursor)
 	return true;
 }
 
+bool Hud::updateEditsColor(sf::Vector2f cursor)
+{
+	for (auto& edit : this->edits)
+		if (edit->shape->shape->getGlobalBounds().contains(cursor))
+		{
+			edit->shape->shape->setFillColor(sf::Color(50, 200, 50, 100));
+			edit->label->text->setFillColor(sf::Color(50, 200, 50, 255));
+		}
+		else if (edit->selected)
+		{
+			edit->shape->shape->setFillColor(sf::Color(150, 200, 200, 100));
+			edit->label->text->setFillColor(sf::Color(100, 255, 255, 255));
+		}
+		else
+		{
+			edit->shape->shape->setFillColor(sf::Color(150, 150, 150, 100));
+			edit->label->text->setFillColor(sf::Color(255, 255, 255, 255));
+		}
+
+	return true;
+}
+
+bool Hud::updateEditValues()
+{
+	for (auto& edit : this->edits)
+		if (edit->name == "edtRotation")
+			this->rotation = edit->getValue().integer;
+	return true;
+}
+
+bool Hud::updateEdit(char text)
+{
+	for (auto& edit : this->edits)
+		if (edit->selected)
+		{
+			std::string value = "";
+			value += text;
+			if (value == "\b" && edit->getValue().string.length() > 0)
+			{
+				edit->value.string.pop_back();
+				edit->setValue(edit->getValue().string);
+			}	
+			else
+				edit->setValue(edit->getValue().string+text);
+
+			return true;
+		}
+	return false;
+}
+
 bool Hud::unloadLists()
 {
 	for (auto& button : this->buttons)
 		button->clear();
 	this->buttons.clear();
+	for (auto& edit : this->edits)
+		edit->clear();
+	this->edits.clear();
 	for (auto& label : this->labels)
 		this->manager->removeView(std::static_pointer_cast<ViewElement>(label));
 	this->labels.clear();
@@ -402,6 +481,17 @@ bool Hud::loadButtons()
 	this->manager->addView(std::static_pointer_cast<ViewElement>(lblBrushSize));
 	this->labels.emplace_back(lblBrushSize);
 
+	std::shared_ptr<Label> lblRotation = std::make_shared<Label>(this->manager, "Rotation: ", 20, sf::Vector2f(0.f, -50.f), 1, sf::Color(255, 255, 255, 255), "lblRotation");
+	lblRotation->setPosition(position::getSidePosition(btnBrushSizeDecrease->shape->shape->getGlobalBounds(),
+													   lblRotation->text->getGlobalBounds(),
+													   lblRotation->text->getPosition(), sf::Vector2i(0, 1)));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(lblRotation));
+	this->labels.emplace_back(lblRotation);
+
+	std::shared_ptr<Edit> edtRotation = std::make_shared<Edit>(this->manager, EditType::etInteger, "<0>", sf::Vector2f(0.f, -5.f), "edtRotation", 20, 
+															   lblRotation->text->getGlobalBounds(), sf::Vector2i(1, 0));
+	edtRotation->integerMaxValue = 360;
+
 	this->buttons.emplace_back(btnNew);
 	this->buttons.emplace_back(btnOpen);
 	this->buttons.emplace_back(btnSave);
@@ -422,6 +512,7 @@ bool Hud::loadButtons()
 	this->buttons.emplace_back(btnGridSizeIncrease);
 	this->buttons.emplace_back(btnBrushSizeDecrease);
 	this->buttons.emplace_back(btnBrushSizeIncrease);
+	this->edits.emplace_back(edtRotation);
 
 	return true;
 }
