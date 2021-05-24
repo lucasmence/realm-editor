@@ -129,6 +129,12 @@ bool Manager::event()
                 this->eventKey(event);
                 break;
             }
+
+            case sf::Event::TextEntered:
+            {
+                this->eventType(event);
+                break;
+            }
         }            
     }
 
@@ -177,6 +183,12 @@ bool Manager::eventKey(sf::Event& event)
         }
     }
 
+    return true;
+}
+
+bool Manager::eventType(sf::Event& event)
+{
+    this->hud->updateEdit(static_cast<char>(event.text.unicode));
     return true;
 }
 
