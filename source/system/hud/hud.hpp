@@ -22,8 +22,11 @@ class Hud
 	public:
 		Manager* manager;
 
+		sf::Vector2f hoverShapeSize;
 		int gridSize;
+		int brushSize;
 		std::vector<int> gridSizeList;
+		std::vector<int> brushSizeList;
 		std::list<std::shared_ptr<Button>> buttons;
 		std::list<std::shared_ptr<Label>> labels;
 		std::list<std::shared_ptr<Model>> models;
@@ -47,6 +50,8 @@ class Hud
 		bool spawnClick(sf::Vector2f cursor);
 		bool showMessage(std::string text, float time = 3.f);
 		bool changeGridSize(int order);
+		bool changeBrushSize(int order);
+		bool updateHoverShapeSize();
 		bool toggleGridVisibility();
 		bool help();
 		Hud(Manager* manager);

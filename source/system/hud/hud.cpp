@@ -1,5 +1,6 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
+#include <math.h>
 #include "hud.hpp"
 #include "../manager.hpp"
 #include "../library/position.hpp"
@@ -8,7 +9,10 @@ Hud::Hud(Manager* manager)
 {
 	this->manager = manager;
 	this->gridSizeList = { 32, 64, 128, 256 };
+	this->brushSizeList = { 1, 4, 16 };
 	this->gridSize = 1;
+	this->brushSize = 0;
+	this->hoverShapeSize = sf::Vector2f(0.f, 0.f);
 	this->shapeHover = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, 300.f), "", 1, false);
 	this->shapeHover->loadShape(sf::Vector2f(1.f, 1.f), sf::Color(150, 200, 150, 100));
 	this->shapeHover->visible = false;
@@ -71,6 +75,8 @@ bool Hud::updateLabels(sf::Vector2f cursor)
 			this->updateLabelPaletteStatus(label->text);
 		else if (label->name == "lblGridSize")
 			label->text->setString(boost::lexical_cast<std::string>(this->gridSizeList.at(this->gridSize))+"px");
+		else if (label->name == "lblBrushSize")
+			label->text->setString(boost::lexical_cast<std::string>(this->brushSizeList.at(this->brushSize)) + "x");
 
 	return true;
 }
@@ -116,7 +122,30 @@ bool Hud::changeGridSize(int order)
 	else if (this->gridSize >= this->gridSizeList.size())
 		this->gridSize = this->gridSizeList.size() - 1;
 
-	return this->loadGrid();;
+	return this->loadGrid();
+}
+
+bool Hud::changeBrushSize(int order)
+{
+	this->brushSize += order;
+
+	if (this->brushSize < 0)
+		this->brushSize = 0;
+	else if (this->brushSize >= this->brushSizeList.size())
+		this->brushSize = this->brushSizeList.size() - 1;
+
+	this->updateHoverShapeSize();
+
+	return true;
+}
+
+bool Hud::updateHoverShapeSize()
+{
+	std::static_pointer_cast<sf::RectangleShape>(this->shapeHover->shape)->setSize(sf::Vector2f(this->hoverShapeSize.x *
+																								(sqrt(this->brushSizeList.at(this->brushSize))),
+																								this->hoverShapeSize.y *
+																								(sqrt(this->brushSizeList.at(this->brushSize)))));
+	return true;
 }
 
 bool Hud::toggleGridVisibility()
@@ -155,10 +184,17 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 			if (this->manager->palette->selectedItem == "" || !this->shapeHover->visible)
 				return false;
 
-			std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, this->shapeHover->shape->getPosition(), "textures/terrain/" + this->manager->palette->selectedItem, 5, false);
-			model->sprite->setOrigin(this->shapeHover->shape->getOrigin());
-			this->manager->addView(std::static_pointer_cast<ViewElement>(model));
-			this->manager->map->addObjectUnit(MapObjectUnit{ MapObjectType::motTerrain, this->shapeHover->shape->getPosition(), 0.f, model });
+			for (int x = 0; x < sqrt(this->brushSizeList.at(this->brushSize)); x++)
+				for (int y = 0; y < sqrt(this->brushSizeList.at(this->brushSize)); y++)
+				{
+					std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, 
+																		   this->shapeHover->shape->getPosition(), 
+																		   "textures/terrain/" + this->manager->palette->selectedItem, 5, false);
+					model->sprite->setOrigin(this->shapeHover->shape->getOrigin());
+					this->manager->addView(std::static_pointer_cast<ViewElement>(model));
+					this->manager->map->addObjectUnit(MapObjectUnit{ MapObjectType::motTerrain, this->shapeHover->shape->getPosition(), 0.f, model });
+					model->sprite->move(model->sprite->getGlobalBounds().width * x, model->sprite->getGlobalBounds().height * y);
+				}
 
 			break;
 		}
@@ -178,7 +214,6 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 
 		default: return false;
 	}
-	
 
 	return true;
 }
@@ -218,6 +253,10 @@ bool Hud::buttonsClick(sf::Vector2f cursor)
 				this->changeGridSize(-1);
 			else if (button->name == "btnGridVisibilityToggle")
 				this->toggleGridVisibility();
+			else if (button->name == "btnBrushSizeIncrease")
+				this->changeBrushSize(1);
+			else if (button->name == "btnBrushSizeDecrease")
+				this->changeBrushSize(-1);
 
 			return true;
 			break;
@@ -354,6 +393,15 @@ bool Hud::loadButtons()
 	this->manager->addView(std::static_pointer_cast<ViewElement>(lblGridSize));
 	this->labels.emplace_back(lblGridSize);
 
+	std::shared_ptr<Button> btnBrushSizeDecrease = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, -50.f), "btnBrushSizeDecrease", 20, btnGridSizeDecrease, sf::Vector2i(0, 1));
+	std::shared_ptr<Button> btnBrushSizeIncrease = std::make_shared<Button>(this->manager, "[>]", sf::Vector2f(175.f, 0.f), "btnBrushSizeIncrease", 20, btnBrushSizeDecrease, sf::Vector2i(1, 0));
+	std::shared_ptr<Label> lblBrushSize = std::make_shared<Label>(this->manager, "1x", 20, sf::Vector2f(75.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblBrushSize");
+	lblBrushSize->setPosition(position::getSidePosition(btnBrushSizeDecrease->shape->shape->getGlobalBounds(),
+													   lblBrushSize->text->getGlobalBounds(),
+													   lblBrushSize->text->getPosition(), sf::Vector2i(1, 0)));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(lblBrushSize));
+	this->labels.emplace_back(lblBrushSize);
+
 	this->buttons.emplace_back(btnNew);
 	this->buttons.emplace_back(btnOpen);
 	this->buttons.emplace_back(btnSave);
@@ -372,6 +420,8 @@ bool Hud::loadButtons()
 	this->buttons.emplace_back(btnPaletteBack);
 	this->buttons.emplace_back(btnGridSizeDecrease);
 	this->buttons.emplace_back(btnGridSizeIncrease);
+	this->buttons.emplace_back(btnBrushSizeDecrease);
+	this->buttons.emplace_back(btnBrushSizeIncrease);
 
 	return true;
 }
