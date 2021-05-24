@@ -7,6 +7,8 @@
 Hud::Hud(Manager* manager)
 {
 	this->manager = manager;
+	this->gridSizeList = { 32, 64, 128, 256 };
+	this->gridSize = 1;
 	this->shapeHover = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, 300.f), "", 1, false);
 	this->shapeHover->loadShape(sf::Vector2f(1.f, 1.f), sf::Color(150, 200, 150, 100));
 	this->shapeHover->visible = false;
@@ -51,7 +53,7 @@ bool Hud::updateCursor(sf::Vector2f cursor)
 			}
 				
 	this->shapeHover->visible = true;
-	this->shapeHover->shape->setPosition(position::getGridPosition(sf::Vector2f(32.f, 32.f), cursor));
+	this->shapeHover->shape->setPosition(position::getGridPosition(sf::Vector2f(this->gridSizeList.at(this->gridSize) / 2.f, this->gridSizeList.at(this->gridSize) / 2.f), cursor));
 
 	return true;
 }
@@ -67,6 +69,8 @@ bool Hud::updateLabels(sf::Vector2f cursor)
 			label->text->setString(this->manager->palette->selectedItem);
 		else if (label->name == "lblPaletteStatus")
 			this->updateLabelPaletteStatus(label->text);
+		else if (label->name == "lblGridSize")
+			label->text->setString(boost::lexical_cast<std::string>(this->gridSizeList.at(this->gridSize))+"px");
 
 	return true;
 }
@@ -101,6 +105,18 @@ bool Hud::help()
 {
 	this->showMessage("Not available!");
 	return true;
+}
+
+bool Hud::changeGridSize(int order)
+{
+	this->gridSize += order;
+
+	if (this->gridSize < 0)
+		this->gridSize = 0;
+	else if (this->gridSize >= this->gridSizeList.size())
+		this->gridSize = this->gridSizeList.size() - 1;
+
+	return this->loadGrid();;
 }
 
 bool Hud::showMessage(std::string text, float time)
@@ -189,6 +205,10 @@ bool Hud::buttonsClick(sf::Vector2f cursor)
 				this->manager->map->newMap();
 			else if (button->name == "btnHelp")
 				this->help();
+			else if (button->name == "btnGridSizeIncrease")
+				this->changeGridSize(1);
+			else if (button->name == "btnGridSizeDecrease")
+				this->changeGridSize(-1);
 
 			return true;
 			break;
@@ -242,20 +262,20 @@ bool Hud::loadGrid()
 		this->manager->removeView(std::static_pointer_cast<ViewElement>(gridIndex));
 	this->grid.clear();
 
-	sf::Vector2f distance(64.f, 64.f);
+	sf::Vector2f distance(this->gridSizeList.at(this->gridSize), this->gridSizeList.at(this->gridSize));
 
-	for (int x = 0; x < 20; x++)
+	for (int x = 0; x < (int(40 / (this->gridSize + 1))); x++)
 	{
-		std::shared_ptr<Model> line = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, x * distance.y));
+		std::shared_ptr<Model> line = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, x * distance.y), "", 3);
 
 		line->loadShape(sf::Vector2f(2000.f, 1.f), sf::Color(0, 255, 0, 100));
 		this->manager->addView(std::static_pointer_cast<ViewElement>(line));
 		this->grid.emplace_back(line);
 	}
 
-	for (int y = 0; y < 32; y++)
+	for (int y = 0; y < (int(64 / (this->gridSize + 1))); y++)
 	{
-		std::shared_ptr<Model> line = std::make_shared<Model>(this->manager, sf::Vector2f(y * distance.x, 0.f));
+		std::shared_ptr<Model> line = std::make_shared<Model>(this->manager, sf::Vector2f(y * distance.x, 0.f), "", 3);
 
 		line->loadShape(sf::Vector2f(1.f, 1220.f), sf::Color(0, 255, 0, 100));
 		this->manager->addView(std::static_pointer_cast<ViewElement>(line));
@@ -306,7 +326,7 @@ bool Hud::loadButtons()
 	std::shared_ptr<Button> btnTerrain = std::make_shared<Button>(this->manager, "[Terrain]", sf::Vector2f(0.f, 0.f), "btnTerrain", 20, btnProp, sf::Vector2i(0, 1));
 	std::shared_ptr<Button> btnPortal = std::make_shared<Button>(this->manager, "[Portals]", sf::Vector2f(0.f, 0.f), "btnPortal", 20, btnTerrain, sf::Vector2i(1, 0));
 
-	std::shared_ptr<Button> btnPalettePrevious = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, 700.f), "btnPalettePrevious", 20, btnTerrain, sf::Vector2i(0, 1));
+	std::shared_ptr<Button> btnPalettePrevious = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, 15.f), "btnPalettePrevious", 20, btnTerrain, sf::Vector2i(0, 1));
 	std::shared_ptr<Button> btnPaletteBack = std::make_shared<Button>(this->manager, "[>]", sf::Vector2f(175.f, 0.f), "btnPaletteNext", 20, btnPalettePrevious, sf::Vector2i(1, 0));
 	std::shared_ptr<Label> lblPalettePage = std::make_shared<Label>(this->manager, "1", 20, sf::Vector2f(85.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblPalettePage");
 	lblPalettePage->setPosition(position::getSidePosition(btnPalettePrevious->shape->shape->getGlobalBounds(), 
@@ -314,6 +334,15 @@ bool Hud::loadButtons()
 														  lblPalettePage->text->getPosition(), sf::Vector2i(1, 0)));
 	this->manager->addView(std::static_pointer_cast<ViewElement>(lblPalettePage));
 	this->labels.emplace_back(lblPalettePage);
+
+	std::shared_ptr<Button> btnGridSizeDecrease = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, 700.f), "btnGridSizeDecrease", 20, btnTerrain, sf::Vector2i(0, 1));
+	std::shared_ptr<Button> btnGridSizeIncrease = std::make_shared<Button>(this->manager, "[>]", sf::Vector2f(175.f, 0.f), "btnGridSizeIncrease", 20, btnGridSizeDecrease, sf::Vector2i(1, 0));
+	std::shared_ptr<Label> lblGridSize = std::make_shared<Label>(this->manager, "64px", 20, sf::Vector2f(65.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblGridSize");
+	lblGridSize->setPosition(position::getSidePosition(btnGridSizeDecrease->shape->shape->getGlobalBounds(),
+													   lblGridSize->text->getGlobalBounds(),
+													   lblGridSize->text->getPosition(), sf::Vector2i(1, 0)));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(lblGridSize));
+	this->labels.emplace_back(lblGridSize);
 
 	this->buttons.emplace_back(btnNew);
 	this->buttons.emplace_back(btnOpen);
@@ -330,6 +359,8 @@ bool Hud::loadButtons()
 	this->buttons.emplace_back(btnPortal);
 	this->buttons.emplace_back(btnPalettePrevious);
 	this->buttons.emplace_back(btnPaletteBack);
+	this->buttons.emplace_back(btnGridSizeDecrease);
+	this->buttons.emplace_back(btnGridSizeIncrease);
 
 	return true;
 }
@@ -337,7 +368,7 @@ bool Hud::loadLabels()
 {
 	std::shared_ptr<Label> lblCoordinates = std::make_shared<Label>(this->manager, "0, 0", 20, sf::Vector2f(1630.f, 70.f), 1, sf::Color(255, 255, 255, 255), "lblCoordinates");
 	std::shared_ptr<Label> lblPaletteItem = std::make_shared<Label>(this->manager, "0, 0", 20, sf::Vector2f(0.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblPaletteItem");
-	std::shared_ptr<Label> lblVersion = std::make_shared<Label>(this->manager, "0.01", 20, sf::Vector2f(1870.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblVersion");
+	std::shared_ptr<Label> lblVersion = std::make_shared<Label>(this->manager, "0.02", 20, sf::Vector2f(1870.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblVersion");
 	std::shared_ptr<Label> lblPaletteStatus = std::make_shared<Label>(this->manager, "- - -", 30, sf::Vector2f(0.f, 960.f), 1, sf::Color(255, 255, 255, 255), "lblPaletteStatus");
 	std::shared_ptr<Label> lblMessageBox = std::make_shared<Label>(this->manager, "", 20, sf::Vector2f(0.f, 900.f), 1, sf::Color(255, 255, 255, 255), "lblMessageBox");
 
