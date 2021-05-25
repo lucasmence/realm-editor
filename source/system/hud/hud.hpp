@@ -27,6 +27,8 @@ class Hud
 		int gridSize;
 		int brushSize;
 		int rotation;
+		bool mousePressed;
+		bool spawnPress;
 		std::vector<int> gridSizeList;
 		std::vector<int> brushSizeList;
 		std::list<std::shared_ptr<Button>> buttons;
@@ -47,6 +49,8 @@ class Hud
 		bool updateClick(sf::Vector2f cursor);
 		bool updateButtonsColor(sf::Vector2f cursor);
 		bool updateEditsColor(sf::Vector2f cursor);
+		bool updateMouseReleased();
+		bool updateMousePressed(sf::Vector2f cursor);
 		bool updateEdit(char text);
 		bool updateEditValues();
 		bool updateLabels(sf::Vector2f cursor);
@@ -60,6 +64,7 @@ class Hud
 		bool changeBrushSize(int order);
 		bool updateHoverShapeSize();
 		bool toggleGridVisibility();
+		bool toggleSpawnPress(std::shared_ptr<Button> button);
 		bool help();
 		Hud(Manager* manager);
 		~Hud();
