@@ -135,6 +135,12 @@ bool Manager::event()
                 this->eventType(event);
                 break;
             }
+
+            case sf::Event::MouseButtonReleased:
+            {
+                this->eventMouseReleased(event);
+                break;
+            }
         }            
     }
 
@@ -183,6 +189,12 @@ bool Manager::eventKey(sf::Event& event)
         }
     }
 
+    return true;
+}
+
+bool Manager::eventMouseReleased(sf::Event& event)
+{
+    this->hud->updateMouseReleased();
     return true;
 }
 
