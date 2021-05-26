@@ -8,7 +8,7 @@
 #ifndef MAP_HPP
 #define MAP_HPP
 
-enum class MapObjectType {motTerrain};
+enum class MapObjectType {motTerrain, motProp, motEnvironment};
 
 class Manager;
 class Model;
