@@ -170,6 +170,8 @@ bool Hud::updateHoverShapeSize()
 																								(sqrt(this->brushSizeList.at(this->brushSize))),
 																								this->hoverShapeSize.y *
 																								(sqrt(this->brushSizeList.at(this->brushSize)))));
+	this->shapeHover->shape->setOrigin(sf::Vector2f(1.f * this->shapeHover->shape->getGlobalBounds().width / 2.f,
+                                                    1.f * this->shapeHover->shape->getGlobalBounds().height / 2.f));
 	this->shapeHover->shape->setRotation(this->rotation);
 	return true;
 }
@@ -202,8 +204,6 @@ bool Hud::showMessage(std::string text, float time)
 	this->messageBox.label->timeMax = time;
 	this->messageBox.border->timeMax = time;
 
-
-
 	return true;
 }
 
@@ -217,13 +217,42 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 			if (this->manager->palette->selectedItem == "" || !this->shapeHover->visible)
 				return false;
 
+			MapObjectType objectType = MapObjectType::motTerrain;
+			std::string paletteTypeField = "";
+			int priority = 8;
+
+			switch (this->manager->palette->type)
+			{
+				case (PaletteType::ptTerrain) :
+				{
+					objectType = MapObjectType::motTerrain;
+					paletteTypeField = "terrain";
+					priority = 8;
+					break;
+				}
+				case (PaletteType::ptProp):
+				{
+					objectType = MapObjectType::motProp;
+					paletteTypeField = "prop";
+					priority = 7;
+					break;
+				}
+				case (PaletteType::ptEnvironment):
+				{
+					objectType = MapObjectType::motEnvironment;
+					paletteTypeField = "environment";
+					priority = 6;
+					break;
+				}
+			}
+
 			sf::Vector2f hoverCenter(this->shapeHover->shape->getPosition().x + this->shapeHover->shape->getGlobalBounds().width / 2.f,
 									 this->shapeHover->shape->getPosition().y + this->shapeHover->shape->getGlobalBounds().height / 2.f);
 
 			if (this->mousePressed && this->spawnPress)
 				for (auto& object : this->manager->map->objects)
-					if (object.type == MapObjectType::motTerrain && object.model->sprite->getGlobalBounds().contains(hoverCenter) &&
-						object.model->texture->filename == "terrain/"+this->manager->palette->selectedItem)
+					if (object.type == objectType && object.model->sprite->getGlobalBounds().contains(hoverCenter) &&
+						object.model->texture->filename == paletteTypeField + "/" + this->manager->palette->selectedItem)
 						return false;			
 
 			for (int x = 0; x < sqrt(this->brushSizeList.at(this->brushSize)); x++)
@@ -231,12 +260,12 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 				{
 					std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, 
 																		   this->shapeHover->shape->getPosition(), 
-																		   "textures/terrain/" + this->manager->palette->selectedItem, 5, false);
+																		   "textures/"+ paletteTypeField +"/" + this->manager->palette->selectedItem, priority, false);
 					model->sprite->setOrigin(this->shapeHover->shape->getOrigin());
 					model->sprite->move(model->sprite->getGlobalBounds().width * x, model->sprite->getGlobalBounds().height * y);
 					model->sprite->setRotation(this->rotation);
 					this->manager->addView(std::static_pointer_cast<ViewElement>(model));
-					this->manager->map->addObjectUnit(MapObjectUnit{ MapObjectType::motTerrain, model->sprite->getPosition(), 0.f, model });
+					this->manager->map->addObjectUnit(MapObjectUnit{ objectType, model->sprite->getPosition(), 0.f, model });
 				}
 
 			break;
@@ -269,12 +298,12 @@ bool Hud::buttonsClick(sf::Vector2f cursor)
 			if (button->name == "btnPalettePrevious")
 			{
 				this->manager->palette->pageIndex--;
-				this->manager->palette->selectPalette();
+				this->manager->palette->selectPalette(this->manager->palette->type);
 			}
 			else if (button->name == "btnPaletteNext")
 			{
 				this->manager->palette->pageIndex++;
-				this->manager->palette->selectPalette();
+				this->manager->palette->selectPalette(this->manager->palette->type);
 			}
 			else if (button->name == "btnClear")
 				this->manager->palette->clearPaletteItem();
@@ -302,6 +331,12 @@ bool Hud::buttonsClick(sf::Vector2f cursor)
 				this->changeBrushSize(-1);
 			else if (button->name == "btnSpawnPress")
 				this->toggleSpawnPress(button);
+			else if (button->name == "btnTerrain")
+				this->manager->palette->selectPalette(PaletteType::ptTerrain);
+			else if (button->name == "btnProp")
+				this->manager->palette->selectPalette(PaletteType::ptProp);
+			else if (button->name == "btnEnvironment")
+				this->manager->palette->selectPalette(PaletteType::ptEnvironment);
 
 			return true;
 			break;
