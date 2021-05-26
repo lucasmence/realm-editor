@@ -11,6 +11,7 @@ Model::Model(Manager* manager, sf::Vector2f position, std::string filename, int 
 	this->shape = nullptr;
 	this->canvasBound = canvasBound;
 	this->name = name;
+	this->filename = filename;
 
 	if (filename != "")
 		this->loadSprite(filename, position);
@@ -56,6 +57,7 @@ bool Model::draw()
 bool Model::loadSprite(std::string filename, sf::Vector2f position)
 {
 	json jsonFile = Json::loadFromFile("data/" + filename + ".json");
+	this->filename = filename;
 
 	sf::Vector2i dimension(0, 0);
 	for (int index = 0; index < jsonFile["animation"].size(); index++)
