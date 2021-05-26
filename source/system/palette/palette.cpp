@@ -34,8 +34,10 @@ bool Palette::loadPalettes()
 {
     this->unloadPalettes();
     this->terrain = this->loadFileLists("textures/terrain");
+    this->prop = this->loadFileLists("textures/prop");
+    this->environment = this->loadFileLists("textures/environment");
 
-    this->selectPalette();
+    this->selectPalette(this->type);
 
     return true;
 }
@@ -52,9 +54,39 @@ bool Palette::clearPaletteItems()
     return true;
 }
 
-bool Palette::selectPalette()
+bool Palette::loadPaletteItemList(std::list<std::string>& list, std::string field)
+{
+    int x = 0, y = 0, xLimit = 4, pageLimit = 32, index = 0, count = pageLimit * this->pageIndex, countLimit = pageLimit * (this->pageIndex + 1);
+    sf::Vector2f initialPosition(1650.f, 325.f);
+
+    for (auto& filename : list)
+    {
+        index++;
+        if (index < count)
+            continue;
+
+        std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, sf::Vector2f(initialPosition.x + x * 64.f, initialPosition.y + y * 64.f), "textures/" + field + "/" + filename);
+        model->sprite->setScale(sf::Vector2f(64.f / model->sprite->getGlobalBounds().width, 64.f / model->sprite->getGlobalBounds().height));
+        this->manager->addView(std::static_pointer_cast<ViewElement>(model));
+        this->paletteItems.emplace_back(PaletteItem{ model, filename });
+        x++;
+        count++;
+        if (x >= xLimit)
+        {
+            y++;
+            x = 0;
+        }
+        if (count >= countLimit)
+            break;
+    }
+
+    return true;
+}
+
+bool Palette::selectPalette(PaletteType type)
 {
     this->clearPaletteItems();
+    this->type = type;
     
     int x = 0, y = 0, xLimit = 4, pageLimit = 32, index = 0, count = pageLimit * this->pageIndex, countLimit = pageLimit * (this->pageIndex + 1);
     sf::Vector2f initialPosition(1650.f, 325.f);
@@ -63,26 +95,17 @@ bool Palette::selectPalette()
     {
         case (PaletteType::ptTerrain):
         {
-            for (auto& filename : this->terrain)
-            {
-                index++;
-                if (index < count)
-                    continue;
-
-                std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, sf::Vector2f(initialPosition.x + x * 64.f, initialPosition.y + y * 64.f), "textures/terrain/" + filename);
-                model->sprite->setScale(sf::Vector2f(64.f / model->sprite->getGlobalBounds().width, 64.f / model->sprite->getGlobalBounds().height));
-                this->manager->addView(std::static_pointer_cast<ViewElement>(model));
-                this->paletteItems.emplace_back(PaletteItem{model, filename});
-                x++;
-                count++;
-                if (x >= xLimit)
-                {
-                    y++;
-                    x = 0;
-                }
-                if (count >= countLimit)
-                    break;
-            }
+            this->loadPaletteItemList(this->terrain, "terrain");
+            break;
+        }
+        case (PaletteType::ptProp):
+        {
+            this->loadPaletteItemList(this->prop, "prop");
+            break;
+        }
+        case (PaletteType::ptEnvironment):
+        {
+            this->loadPaletteItemList(this->environment, "environment");
             break;
         }
     }
@@ -90,7 +113,7 @@ bool Palette::selectPalette()
     if (this->pageIndex > 0 && this->paletteItems.size() <= 0)
     {
         this->pageIndex--;
-        this->selectPalette();
+        this->selectPalette(this->type);
     }
 
     return true;
@@ -126,8 +149,6 @@ bool Palette::selectPaletteItem(sf::Vector2f cursor)
             this->manager->hud->hoverShapeSize = sf::Vector2f(item.model->sprite->getGlobalBounds().width / item.model->sprite->getScale().x,
                                                               item.model->sprite->getGlobalBounds().height / item.model->sprite->getScale().y);
             this->manager->hud->updateHoverShapeSize();
-            this->manager->hud->shapeHover->shape->setOrigin(sf::Vector2f(0.f * this->manager->hud->shapeHover->shape->getGlobalBounds().width / 2.f,
-                                                                          0.f * this->manager->hud->shapeHover->shape->getGlobalBounds().height / 2.f));
             this->manager->hud->shapeHover->visible = true;
             this->status = PaletteStatus::psInsert;
             break;
