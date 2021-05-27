@@ -29,6 +29,7 @@ class Hud
 		int rotation;
 		bool mousePressed;
 		bool spawnPress;
+		bool centerShape;
 		std::vector<int> gridSizeList;
 		std::vector<int> brushSizeList;
 		std::list<std::shared_ptr<Button>> buttons;
@@ -65,6 +66,7 @@ class Hud
 		bool updateHoverShapeSize();
 		bool toggleGridVisibility();
 		bool toggleSpawnPress(std::shared_ptr<Button> button);
+		bool toggleCenterShape(std::shared_ptr<Button> button);
 		bool help();
 		Hud(Manager* manager);
 		~Hud();
