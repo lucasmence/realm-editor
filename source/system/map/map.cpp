@@ -149,6 +149,8 @@ bool Map::renderObject(json& localfile, MapObjectUnit& object)
 
 bool Map::renderMap()
 {
+	this->manager->hud->showMessage("Rendering map...");
+
 	this->file["map-size-x"] = this->data.size.x;
 	this->file["map-size-y"] = this->data.size.y;
 	this->file["music"] = this->data.music;
@@ -233,11 +235,14 @@ bool Map::saveMap()
 {
 	this->renderMap();
 
+	this->manager->hud->showMessage("Ready to save...");
 	if (this->filename == "")
 		this->filename = script::saveFile();
 
 	std::ofstream fileStream(filename);
 	fileStream << this->file;
+
+	this->manager->setTitle(this->filename);
 
 	this->manager->hud->showMessage("Map saved successfully!");
 
@@ -252,6 +257,8 @@ bool Map::loadMap()
 
 	this->filename = script::loadFile();
 	this->file = Json::loadFromFile(this->filename);
+
+	this->manager->hud->showMessage("Loading map...");
 
 	this->data.size.x = this->file.value("map-size-x", 1000);
 	this->data.size.y = this->file.value("map-size-y", 1000);
@@ -349,6 +356,8 @@ bool Map::loadMap()
 		}
 	}
 
+	this->manager->setTitle(this->filename);
+
 	this->manager->hud->showMessage("Map loaded successfully!");
 
 	return true;
@@ -358,12 +367,15 @@ bool Map::newMap()
 {
 	this->clearObjects();
 
+	this->filename = "";
 	this->data.size = sf::Vector2i(1000, 1000);
 	this->data.name = "another_map";
 	this->data.music = "village";
 	this->data.version = "1.00";
 
 	this->updateMapInfo();
+
+	this->manager->setTitle("New");
 
 	return true;
 }
