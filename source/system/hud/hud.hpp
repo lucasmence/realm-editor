@@ -40,6 +40,7 @@ class Hud
 		std::list<std::shared_ptr<Model>> models;
 		std::list<std::shared_ptr<Model>> grid;
 		std::shared_ptr<Model> shapeHover;
+		std::shared_ptr<Model> shapeMapArea;
 		MessageBox messageBox;
 
 		bool unloadLists();
@@ -66,9 +67,11 @@ class Hud
 		bool changeGridSize(int order);
 		bool changeBrushSize(int order);
 		bool updateHoverShapeSize();
+		bool updateHoverMapSize();
 		bool toggleGridVisibility();
 		bool toggleSpawnPress(std::shared_ptr<Button> button);
 		bool toggleCenterShape(std::shared_ptr<Button> button);
+		bool toggleMapAreaSize(std::shared_ptr<Button> button);
 		bool help();
 		bool setEditValue(std::string editName, std::string value);
 		Hud(Manager* manager);

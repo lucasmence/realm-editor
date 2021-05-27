@@ -19,17 +19,25 @@ Hud::Hud(Manager* manager)
 	this->centerShape = false;
 	this->mouseRightButton = false;
 	this->hoverShapeSize = sf::Vector2f(0.f, 0.f);
+	this->messageBox = MessageBox{ nullptr, nullptr };
+
 	this->shapeHover = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, 300.f), "", 1, false);
 	this->shapeHover->loadShape(sf::Vector2f(1.f, 1.f), sf::Color(150, 200, 150, 100));
 	this->shapeHover->visible = false;
 	this->manager->addView(std::static_pointer_cast<ViewElement>(this->shapeHover));
-	this->messageBox = MessageBox{nullptr, nullptr};
+
+	this->shapeMapArea = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, 0.f), "", 5, false);
+	this->shapeMapArea->loadShape(sf::Vector2f(1.f, 1.f), sf::Color(225, 100, 175, 100));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(this->shapeMapArea));
+	this->shapeMapArea->visible = false;
+	
 	this->loadLists();
 }
 
 Hud::~Hud()
 {
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeHover));
+	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeMapArea));
 	this->unloadLists();
 }
 
@@ -41,6 +49,7 @@ bool Hud::update(sf::Vector2f cursor)
 	this->updateEditsColor(cursor);
 	this->updateEditValues();
 	this->updateHoverShapeSize();
+	this->updateHoverMapSize();
 	this->updateMousePressed(cursor);
 
 	return true;
@@ -144,7 +153,7 @@ bool Hud::updateLabelPaletteStatus(std::shared_ptr<sf::Text> text)
 
 bool Hud::help()
 {
-	this->showMessage("Not available!");
+	this->showMessage("Coming soon...");
 	return true;
 }
 
@@ -174,12 +183,22 @@ bool Hud::changeBrushSize(int order)
 	return true;
 }
 
+bool Hud::updateHoverMapSize()
+{
+	if (!this->shapeMapArea->visible)
+		return false;
+
+	std::static_pointer_cast<sf::RectangleShape>(this->shapeMapArea->shape)->setSize(sf::Vector2f(this->manager->map->data.size.x, this->manager->map->data.size.y));
+
+	return true;
+}
+
 bool Hud::updateHoverShapeSize()
 {
 	std::static_pointer_cast<sf::RectangleShape>(this->shapeHover->shape)->setSize(sf::Vector2f(this->hoverShapeSize.x *
-																								(sqrt(this->brushSizeList.at(this->brushSize))),
-																								this->hoverShapeSize.y *
-																								(sqrt(this->brushSizeList.at(this->brushSize)))));
+																							   (sqrt(this->brushSizeList.at(this->brushSize))),
+																							   this->hoverShapeSize.y *
+																							   (sqrt(this->brushSizeList.at(this->brushSize)))));
 	this->shapeHover->shape->setOrigin(sf::Vector2f(0.f * this->shapeHover->shape->getGlobalBounds().width / 2.f,
                                                     0.f * this->shapeHover->shape->getGlobalBounds().height / 2.f));
 	this->shapeHover->shape->setRotation(this->rotation);
@@ -205,6 +224,13 @@ bool Hud::toggleGridVisibility()
 {
 	for (auto& gridIndex : this->grid)
 		gridIndex->visible = !gridIndex->visible;
+	return true;
+}
+
+bool Hud::toggleMapAreaSize(std::shared_ptr<Button> button)
+{
+	button->selected = !button->selected;
+	this->shapeMapArea->visible = button->selected;
 	return true;
 }
 
@@ -385,6 +411,8 @@ bool Hud::buttonsClick(sf::Vector2f cursor)
 				this->toggleSpawnPress(button);
 			else if (button->name == "btnCenterShape")
 				this->toggleCenterShape(button);
+			else if (button->name == "btnMapAreaSize")
+				this->toggleMapAreaSize(button);
 			else if (button->name == "btnTerrain")
 				this->manager->palette->selectPalette(PaletteType::ptTerrain);
 			else if (button->name == "btnProp")
@@ -605,6 +633,7 @@ bool Hud::loadButtons()
 	std::shared_ptr<Button> btnGridVisibilityToggle = std::make_shared<Button>(this->manager, "[G]", sf::Vector2f(0.f, 0.f), "btnGridVisibilityToggle", 20, btnClear, sf::Vector2i(1, 0));
 	std::shared_ptr<Button> btnSpawnPress = std::make_shared<Button>(this->manager, "[P]", sf::Vector2f(0.f, 0.f), "btnSpawnPress", 20, btnErase, sf::Vector2i(-1, 0));
 	std::shared_ptr<Button> btnCenterShape = std::make_shared<Button>(this->manager, "[S]", sf::Vector2f(0.f, 0.f), "btnCenterShape", 20, btnSpawnPress, sf::Vector2i(-1, 0));
+	std::shared_ptr<Button> btnMapAreaSize = std::make_shared<Button>(this->manager, "[A]", sf::Vector2f(0.f, 0.f), "btnMapAreaSize", 20, btnGridVisibilityToggle, sf::Vector2i(1, 0));
 	
 	std::shared_ptr<Button> btnUnit = std::make_shared<Button>(this->manager, "[Units]", sf::Vector2f(1650.f, 200.f), "btnUnit", 20);
 	std::shared_ptr<Button> btnMerchant = std::make_shared<Button>(this->manager, "[Merchants]", sf::Vector2f(0.f, 0.f), "btnMerchant", 20, btnUnit, sf::Vector2i(1, 0));
@@ -719,6 +748,7 @@ bool Hud::loadButtons()
 	this->buttons.emplace_back(btnGridVisibilityToggle);
 	this->buttons.emplace_back(btnSpawnPress);
 	this->buttons.emplace_back(btnCenterShape);
+	this->buttons.emplace_back(btnMapAreaSize);
 	this->buttons.emplace_back(btnUnit);
 	this->buttons.emplace_back(btnMerchant);
 	this->buttons.emplace_back(btnProp);
