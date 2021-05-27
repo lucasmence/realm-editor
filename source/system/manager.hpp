@@ -37,6 +37,7 @@ class Manager
 
 		bool hasFocus;
 		bool open;
+		std::string appName;
 
 		Manager();
 		~Manager();
@@ -54,6 +55,7 @@ class Manager
 		bool addViewElement(std::shared_ptr<ViewElement> element);
 		bool moveCanvas(sf::Vector2f position);
 		bool setCanvas();
+		std::string setTitle(std::string value);
 		sf::Vector2f getMousePosition();
 };
 
