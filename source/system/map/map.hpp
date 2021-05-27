@@ -1,6 +1,5 @@
 #include <SFML/Graphics.hpp>
 #include <list>
-#include <memory>
 #include "../library/json.hpp"
 
 #pragma once
@@ -8,10 +7,43 @@
 #ifndef MAP_HPP
 #define MAP_HPP
 
-enum class MapObjectType {motTerrain};
+enum class MapObjectType {motTerrain, motProp, motEnvironment, motUnit, motMerchant, motPortal};
 
 class Manager;
 class Model;
+
+struct MapObjectFieldString
+{
+	std::string value;
+	bool active;
+};
+
+struct MapObjectFieldInt
+{
+	int value;
+	bool active;
+};
+
+struct MapObjectFieldFloat
+{
+	float value;
+	bool active;
+};
+
+struct MapObjectFieldBool
+{
+	bool value;
+	bool active;
+};
+
+struct MapObjectField
+{
+	std::string field;
+	MapObjectFieldString valueString = MapObjectFieldString{"", false};
+	MapObjectFieldInt valueInt = MapObjectFieldInt{0, false};
+	MapObjectFieldFloat valueFloat = MapObjectFieldFloat{0.f, false};
+	MapObjectFieldBool valueBool = MapObjectFieldBool{false, false};
+};
 
 struct MapObject
 {
@@ -23,8 +55,9 @@ struct MapObject
 struct MapObjectUnit : public MapObject
 {
 	std::shared_ptr<Model> model;
-	MapObjectUnit(MapObjectType type, sf::Vector2f position, float angle, std::shared_ptr<Model> model) :
-		MapObject{ type, position, angle}, model(model) {};
+	std::list<MapObjectField> fields;
+	MapObjectUnit(MapObjectType type, sf::Vector2f position, float angle, std::shared_ptr<Model> model, std::list<MapObjectField> fields) :
+		MapObject{ type, position, angle}, model(model), fields(fields) {};
 };
 
 struct MapObjectMatrix : public MapObject
@@ -54,8 +87,13 @@ class Map
 		bool addObjectUnit(MapObjectUnit object);
 		bool removeObjectUnit(MapObjectUnit& object);
 		bool clearObjects();
+		std::string getTextureFromUnit(json line, MapObjectType type);
+		std::string getOriginFromField(json line, MapObjectType type);
+
 
 		bool renderMap();
+		bool renderObject(json& localfile, MapObjectUnit& object);
+		bool renderObjectField(json& localfile, MapObjectField& field);
 		bool saveMap();
 		bool saveMapAs();
 		bool loadMap();
