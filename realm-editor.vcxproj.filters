@@ -83,6 +83,9 @@
     <ClCompile Include="source\system\library\script.cpp">
       <Filter>library</Filter>
     </ClCompile>
+    <ClCompile Include="source\system\hud\edit.cpp">
+      <Filter>hud</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\system\manager.hpp">
@@ -129,6 +132,9 @@
     </ClInclude>
     <ClInclude Include="resource.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\system\hud\edit.hpp">
+      <Filter>hud</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
