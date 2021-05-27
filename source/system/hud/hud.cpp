@@ -17,6 +17,7 @@ Hud::Hud(Manager* manager)
 	this->spawnPress = false;
 	this->mousePressed = false;
 	this->centerShape = false;
+	this->mouseRightButton = false;
 	this->hoverShapeSize = sf::Vector2f(0.f, 0.f);
 	this->shapeHover = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, 300.f), "", 1, false);
 	this->shapeHover->loadShape(sf::Vector2f(1.f, 1.f), sf::Color(150, 200, 150, 100));
@@ -45,9 +46,10 @@ bool Hud::update(sf::Vector2f cursor)
 	return true;
 }
 
-bool Hud::updateClick(sf::Vector2f cursor)
+bool Hud::updateClick(sf::Vector2f cursor, bool rightButton)
 {
 	this->mousePressed = true;
+	this->mouseRightButton = rightButton;
 	this->buttonsClick(cursor);
 	this->spawnClick(cursor);
 	this->editsClick(cursor);
@@ -225,8 +227,11 @@ bool Hud::showMessage(std::string text, float time)
 
 bool Hud::spawnClick(sf::Vector2f cursor)
 {
+	PaletteStatus status = this->manager->palette->status;
+	if (status == PaletteStatus::psInsert && this->mouseRightButton)
+		status = PaletteStatus::psDelete;
 
-	switch (this->manager->palette->status)
+	switch (status)
 	{
 		case (PaletteStatus::psInsert):
 		{
@@ -628,6 +633,7 @@ bool Hud::loadButtons()
 	std::shared_ptr<Edit> edtScale = std::make_shared<Edit>(this->manager, EditType::etInteger, "<100>", sf::Vector2f(0.f, -5.f), "edtScale", 20,
 														   lblScale->text->getGlobalBounds(), sf::Vector2i(1, 0));
 	edtScale->integerMaxValue = 1000;
+	edtScale->setValue("100");
 
 	this->buttons.emplace_back(btnNew);
 	this->buttons.emplace_back(btnOpen);

@@ -31,6 +31,7 @@ class Hud
 		bool mousePressed;
 		bool spawnPress;
 		bool centerShape;
+		bool mouseRightButton;
 		std::vector<int> gridSizeList;
 		std::vector<int> brushSizeList;
 		std::list<std::shared_ptr<Button>> buttons;
@@ -48,7 +49,7 @@ class Hud
 		bool loadButtons();
 		bool loadLabels();
 		bool update(sf::Vector2f cursor);
-		bool updateClick(sf::Vector2f cursor);
+		bool updateClick(sf::Vector2f cursor, bool rightButton);
 		bool updateButtonsColor(sf::Vector2f cursor);
 		bool updateEditsColor(sf::Vector2f cursor);
 		bool updateMouseReleased();
