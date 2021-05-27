@@ -462,6 +462,21 @@ bool Hud::updateEditsColor(sf::Vector2f cursor)
 	return true;
 }
 
+bool Hud::setEditValue(std::string editName, std::string value)
+{
+	if (editName == "" || value == "")
+		return false;
+
+	for (auto& edit : this->edits)
+		if (edit->name == editName)
+		{
+			edit->setValue(value);
+			return true;
+		}
+
+	return false;
+}
+
 bool Hud::updateEditValues()
 {
 	for (auto& edit : this->edits)
@@ -469,6 +484,16 @@ bool Hud::updateEditValues()
 			this->rotation = edit->getValue().integer;
 		else if (edit->name == "edtScale")
 			this->scale = edit->getValue().integer / 100.f;
+		else if (edit->name == "edtMapSizeX")
+			this->manager->map->data.size.x = edit->getValue().integer;
+		else if (edit->name == "edtMapSizeY")
+			this->manager->map->data.size.y = edit->getValue().integer;
+		else if (edit->name == "edtMapName")
+			this->manager->map->data.name = edit->getValue().string;
+		else if (edit->name == "edtMapMusic")
+			this->manager->map->data.music = edit->getValue().string;
+		else if (edit->name == "edtMapVersion")
+			this->manager->map->data.version = edit->getValue().string;
 	return true;
 }
 
@@ -573,7 +598,7 @@ bool Hud::loadButtons()
 	std::shared_ptr<Button> btnSaveAs = std::make_shared<Button>(this->manager, "[Save As]", sf::Vector2f(0.f, 0.f), "btnSaveAs", 20, btnSave, sf::Vector2i(1, 0));
 	std::shared_ptr<Button> btnHelp = std::make_shared<Button>(this->manager, "[Help]", sf::Vector2f(0.f, 0.f), "btnHelp", 20, btnSaveAs, sf::Vector2i(1, 0));
 
-	std::shared_ptr<Button> btnClear = std::make_shared<Button>(this->manager, "[C]", sf::Vector2f(1425.f, 65.f), "btnClear", 20);
+	std::shared_ptr<Button> btnClear = std::make_shared<Button>(this->manager, "[C]", sf::Vector2f(1325.f, 65.f), "btnClear", 20);
 	std::shared_ptr<Button> btnErase = std::make_shared<Button>(this->manager, "[E]", sf::Vector2f(0.f, 0.f), "btnErase", 20, btnClear, sf::Vector2i(-1, 0));
 	std::shared_ptr<Button> btnGridVisibilityToggle = std::make_shared<Button>(this->manager, "[G]", sf::Vector2f(0.f, 0.f), "btnGridVisibilityToggle", 20, btnClear, sf::Vector2i(1, 0));
 	std::shared_ptr<Button> btnSpawnPress = std::make_shared<Button>(this->manager, "[P]", sf::Vector2f(0.f, 0.f), "btnSpawnPress", 20, btnErase, sf::Vector2i(-1, 0));
@@ -620,9 +645,10 @@ bool Hud::loadButtons()
 	this->manager->addView(std::static_pointer_cast<ViewElement>(lblRotation));
 	this->labels.emplace_back(lblRotation);
 
-	std::shared_ptr<Edit> edtRotation = std::make_shared<Edit>(this->manager, EditType::etInteger, "<0>", sf::Vector2f(0.f, -5.f), "edtRotation", 20, 
+	std::shared_ptr<Edit> edtRotation = std::make_shared<Edit>(this->manager, EditType::etInteger, "", sf::Vector2f(0.f, -5.f), "edtRotation", 20, 
 															   lblRotation->text->getGlobalBounds(), sf::Vector2i(1, 0));
 	edtRotation->integerMaxValue = 360;
+	edtRotation->setValue("0");
 
 	std::shared_ptr<Label> lblScale = std::make_shared<Label>(this->manager, "Scale: ", 20, sf::Vector2f(0.f, -50.f), 1, sf::Color(255, 255, 255, 255), "lblScale");
 	lblScale->setPosition(position::getSidePosition(lblRotation->text->getGlobalBounds(),
@@ -630,10 +656,56 @@ bool Hud::loadButtons()
 													lblScale->text->getPosition(), sf::Vector2i(0, 1)));
 	this->manager->addView(std::static_pointer_cast<ViewElement>(lblScale));
 	this->labels.emplace_back(lblScale);
-	std::shared_ptr<Edit> edtScale = std::make_shared<Edit>(this->manager, EditType::etInteger, "<100>", sf::Vector2f(0.f, -5.f), "edtScale", 20,
+
+	std::shared_ptr<Edit> edtScale = std::make_shared<Edit>(this->manager, EditType::etInteger, "", sf::Vector2f(0.f, -5.f), "edtScale", 20,
 														   lblScale->text->getGlobalBounds(), sf::Vector2i(1, 0));
 	edtScale->integerMaxValue = 1000;
 	edtScale->setValue("100");
+
+	std::shared_ptr<Label> lblMapSize = std::make_shared<Label>(this->manager, "Size: ", 20, sf::Vector2f(-50.f, -85.f), 1, sf::Color(255, 255, 255, 255), "lblMapSize");
+	lblMapSize->setPosition(position::getSidePosition(btnCenterShape->shape->shape->getGlobalBounds(),
+													  lblMapSize->text->getGlobalBounds(),
+													  lblMapSize->text->getPosition(), sf::Vector2i(0, 1)));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(lblMapSize));
+	this->labels.emplace_back(lblMapSize);
+
+	std::shared_ptr<Edit> edtMapSizeX = std::make_shared<Edit>(this->manager, EditType::etInteger, "", sf::Vector2f(0.f, -5.f), "edtMapSizeX", 20,
+															   lblMapSize->text->getGlobalBounds(), sf::Vector2i(1, 0));
+	edtMapSizeX->setValue("1000");
+	edtMapSizeX->integerMaxValue = 99999;
+	std::shared_ptr<Edit> edtMapSizeY = std::make_shared<Edit>(this->manager, EditType::etInteger, "", sf::Vector2f(10.f, 0.f), "edtMapSizeY", 20,
+															   edtMapSizeX->shape->shape->getGlobalBounds(), sf::Vector2i(1, 0));
+	edtMapSizeY->setValue("1000");
+	edtMapSizeY->integerMaxValue = 99999;
+
+	std::shared_ptr<Label> lblMapName = std::make_shared<Label>(this->manager, "Name: ", 20, sf::Vector2f(0.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblMapName");
+	lblMapName->setPosition(position::getSidePosition(lblMapSize->text->getGlobalBounds(),
+													  lblMapName->text->getGlobalBounds(),
+													  lblMapName->text->getPosition(), sf::Vector2i(0, 1)));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(lblMapName));
+	this->labels.emplace_back(lblMapName);
+
+	std::shared_ptr<Edit> edtMapName = std::make_shared<Edit>(this->manager, EditType::etString, "", sf::Vector2f(0.f, 0.f), "edtMapName", 15,
+															  lblMapName->text->getGlobalBounds(), sf::Vector2i(1, 0));
+	edtMapName->setValue("another_map");
+	edtMapName->maxLength = 64;
+
+	std::shared_ptr<Label> lblMapMusic = std::make_shared<Label>(this->manager, "Music: ", 20, sf::Vector2f(10.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblMapMusic");
+	lblMapMusic->setPosition(position::getSidePosition(edtMapSizeY->shape->shape->getGlobalBounds(),
+													   lblMapMusic->text->getGlobalBounds(),
+													   lblMapMusic->text->getPosition(), sf::Vector2i(1, 0)));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(lblMapMusic));
+	this->labels.emplace_back(lblMapMusic);
+
+	std::shared_ptr<Edit> edtMapMusic = std::make_shared<Edit>(this->manager, EditType::etString, "", sf::Vector2f(0.f, 0.f), "edtMapMusic", 15,
+															   lblMapMusic->text->getGlobalBounds(), sf::Vector2i(1, 0));
+	edtMapMusic->setValue("village");
+	edtMapMusic->maxLength = 32;
+
+	std::shared_ptr<Edit> edtMapVersion = std::make_shared<Edit>(this->manager, EditType::etString, "", sf::Vector2f(425.f, 0.f), "edtMapVersion", 15,
+																 edtMapName->shape->shape->getGlobalBounds(), sf::Vector2i(1, 0));
+	edtMapVersion->setValue("1.00");
+	edtMapVersion->maxLength = 16;
 
 	this->buttons.emplace_back(btnNew);
 	this->buttons.emplace_back(btnOpen);
@@ -659,6 +731,11 @@ bool Hud::loadButtons()
 	this->buttons.emplace_back(btnBrushSizeIncrease);
 	this->edits.emplace_back(edtRotation);
 	this->edits.emplace_back(edtScale);
+	this->edits.emplace_back(edtMapSizeX);
+	this->edits.emplace_back(edtMapSizeY);
+	this->edits.emplace_back(edtMapName);
+	this->edits.emplace_back(edtMapMusic);
+	this->edits.emplace_back(edtMapVersion);
 
 	return true;
 }
