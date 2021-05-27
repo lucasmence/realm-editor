@@ -1,5 +1,6 @@
 #include <regex>
 #include <typeinfo>
+#include <boost/lexical_cast.hpp>
 #include "map.hpp"
 #include "../manager.hpp"
 #include "../library/script.hpp"
@@ -26,6 +27,17 @@ bool Map::clearObjects()
                                        [](MapObjectUnit& objectIndex) { return objectIndex.model; }),
                                        this->objects.end());
 	this->objects.clear();
+	return true;
+}
+
+bool Map::updateMapInfo()
+{
+	this->manager->hud->setEditValue("edtMapSizeX", boost::lexical_cast<std::string>(this->data.size.x));
+	this->manager->hud->setEditValue("edtMapSizeY", boost::lexical_cast<std::string>(this->data.size.y));
+	this->manager->hud->setEditValue("edtMapName", boost::lexical_cast<std::string>(this->data.name));
+	this->manager->hud->setEditValue("edtMapMusic", boost::lexical_cast<std::string>(this->data.music));
+	this->manager->hud->setEditValue("edtMapVersion", boost::lexical_cast<std::string>(this->data.version));
+
 	return true;
 }
 
@@ -137,8 +149,6 @@ bool Map::renderObject(json& localfile, MapObjectUnit& object)
 
 bool Map::renderMap()
 {
-	this->manager->hud->showMessage("Rendering...");
-
 	this->file["map-size-x"] = this->data.size.x;
 	this->file["map-size-y"] = this->data.size.y;
 	this->file["music"] = this->data.music;
@@ -238,8 +248,6 @@ bool Map::loadMap()
 {
 	this->newMap();
 
-	this->manager->hud->showMessage("Loading map...");
-
 	std::string dimensionField = "dimensions";
 
 	this->filename = script::loadFile();
@@ -254,6 +262,8 @@ bool Map::loadMap()
 		this->data.name = this->file["map"].value("name", "");
 		this->data.version = this->file["map"].value("version", "1.0");
 	}
+
+	this->updateMapInfo();
 
 	std::vector<std::string> objectsField = { "terrain", "prop", "environment", "unit", "merchant" };
 
@@ -347,5 +357,13 @@ bool Map::loadMap()
 bool Map::newMap()
 {
 	this->clearObjects();
+
+	this->data.size = sf::Vector2i(1000, 1000);
+	this->data.name = "another_map";
+	this->data.music = "village";
+	this->data.version = "1.00";
+
+	this->updateMapInfo();
+
 	return true;
 }
