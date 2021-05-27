@@ -15,6 +15,7 @@ Hud::Hud(Manager* manager)
 	this->rotation = 0;
 	this->spawnPress = false;
 	this->mousePressed = false;
+	this->centerShape = false;
 	this->hoverShapeSize = sf::Vector2f(0.f, 0.f);
 	this->shapeHover = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, 300.f), "", 1, false);
 	this->shapeHover->loadShape(sf::Vector2f(1.f, 1.f), sf::Color(150, 200, 150, 100));
@@ -80,9 +81,15 @@ bool Hud::updateCursor(sf::Vector2f cursor)
 				this->shapeHover->visible = false;
 				return false;
 			}
-				
+	
+	sf::Vector2f positionCenter(0.f, 0.f);
+	if (this->centerShape)
+		positionCenter = sf::Vector2f(this->shapeHover->shape->getGlobalBounds().width / 2.f, this->shapeHover->shape->getGlobalBounds().height / 2.f);
+
 	this->shapeHover->visible = true;
-	this->shapeHover->shape->setPosition(position::getGridPosition(sf::Vector2f(this->gridSizeList.at(this->gridSize) / 2.f, this->gridSizeList.at(this->gridSize) / 2.f), cursor));
+	this->shapeHover->shape->setPosition(position::getGridPosition(sf::Vector2f(this->gridSizeList.at(this->gridSize) / 2.f + (positionCenter.x),
+																				this->gridSizeList.at(this->gridSize) / 2.f + (positionCenter.y)),
+																				cursor));
 
 	return true;
 }
@@ -170,8 +177,8 @@ bool Hud::updateHoverShapeSize()
 																								(sqrt(this->brushSizeList.at(this->brushSize))),
 																								this->hoverShapeSize.y *
 																								(sqrt(this->brushSizeList.at(this->brushSize)))));
-	this->shapeHover->shape->setOrigin(sf::Vector2f(1.f * this->shapeHover->shape->getGlobalBounds().width / 2.f,
-                                                    1.f * this->shapeHover->shape->getGlobalBounds().height / 2.f));
+	this->shapeHover->shape->setOrigin(sf::Vector2f(0.f * this->shapeHover->shape->getGlobalBounds().width / 2.f,
+                                                    0.f * this->shapeHover->shape->getGlobalBounds().height / 2.f));
 	this->shapeHover->shape->setRotation(this->rotation);
 	return true;
 }
@@ -180,6 +187,13 @@ bool Hud::toggleSpawnPress(std::shared_ptr<Button> button)
 {
 	this->spawnPress = !this->spawnPress;
 	button->selected = this->spawnPress;
+	return true;
+}
+
+bool Hud::toggleCenterShape(std::shared_ptr<Button> button)
+{
+	this->centerShape = !this->centerShape;
+	button->selected = this->centerShape;
 	return true;
 }
 
@@ -218,30 +232,52 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 				return false;
 
 			MapObjectType objectType = MapObjectType::motTerrain;
-			std::string paletteTypeField = "";
+			std::string paletteTypeField = "textures/";
 			int priority = 8;
+			std::string texture = this->manager->palette->selectedItem;
+			std::list<MapObjectField> fields = {};
 
 			switch (this->manager->palette->type)
 			{
 				case (PaletteType::ptTerrain) :
 				{
 					objectType = MapObjectType::motTerrain;
-					paletteTypeField = "terrain";
+					paletteTypeField += "terrain";
 					priority = 8;
 					break;
 				}
 				case (PaletteType::ptProp):
 				{
 					objectType = MapObjectType::motProp;
-					paletteTypeField = "prop";
+					paletteTypeField += "prop";
 					priority = 7;
 					break;
 				}
 				case (PaletteType::ptEnvironment):
 				{
 					objectType = MapObjectType::motEnvironment;
-					paletteTypeField = "environment";
+					paletteTypeField += "environment";
 					priority = 6;
+					break;
+				}
+				case (PaletteType::ptUnit):
+				{
+					objectType = MapObjectType::motUnit;
+					paletteTypeField = "";
+					priority = 5;
+					texture = this->manager->palette->selectedTexture;
+					MapObjectField fieldObject;
+					fieldObject.field = "alliance";
+					fieldObject.valueString = MapObjectFieldString{"enemy", true};
+					fields.emplace_back(fieldObject);
+					break;
+				}
+				case (PaletteType::ptMerchant):
+				{
+					objectType = MapObjectType::motMerchant;
+					paletteTypeField = "";
+					priority = 5;
+					texture = this->manager->palette->selectedTexture;
 					break;
 				}
 			}
@@ -252,7 +288,7 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 			if (this->mousePressed && this->spawnPress)
 				for (auto& object : this->manager->map->objects)
 					if (object.type == objectType && object.model->sprite->getGlobalBounds().contains(hoverCenter) &&
-						object.model->texture->filename == paletteTypeField + "/" + this->manager->palette->selectedItem)
+						object.model->texture->filename == paletteTypeField + "/" + texture)
 						return false;			
 
 			for (int x = 0; x < sqrt(this->brushSizeList.at(this->brushSize)); x++)
@@ -260,12 +296,12 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 				{
 					std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, 
 																		   this->shapeHover->shape->getPosition(), 
-																		   "textures/"+ paletteTypeField +"/" + this->manager->palette->selectedItem, priority, false);
+																		   paletteTypeField +"/" + texture, priority, false, "", this->manager->palette->selectedOrigin);
 					model->sprite->setOrigin(this->shapeHover->shape->getOrigin());
 					model->sprite->move(model->sprite->getGlobalBounds().width * x, model->sprite->getGlobalBounds().height * y);
 					model->sprite->setRotation(this->rotation);
 					this->manager->addView(std::static_pointer_cast<ViewElement>(model));
-					this->manager->map->addObjectUnit(MapObjectUnit{ objectType, model->sprite->getPosition(), 0.f, model });
+					this->manager->map->addObjectUnit(MapObjectUnit{ objectType, model->sprite->getPosition(), 0.f, model, fields });
 				}
 
 			break;
@@ -273,10 +309,16 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 
 		case (PaletteStatus::psDelete):
 		{
-			MapObjectUnit objectSelected{MapObjectType::motTerrain , sf::Vector2f(0.f, 0.f), 0.f, nullptr};
+			MapObjectUnit objectSelected{ MapObjectType::motTerrain , sf::Vector2f(0.f, 0.f), 0.f, nullptr, {} };
 			for (auto& object : this->manager->map->objects)
 				if (object.model->sprite->getGlobalBounds().contains(cursor))
+				{
+					if (objectSelected.model != nullptr)
+						if (objectSelected.model->priority < object.model->priority)
+							continue;
+
 					objectSelected = object;
+				}	
 
 			if (objectSelected.model)
 				this->manager->map->removeObjectUnit(objectSelected);
@@ -331,12 +373,18 @@ bool Hud::buttonsClick(sf::Vector2f cursor)
 				this->changeBrushSize(-1);
 			else if (button->name == "btnSpawnPress")
 				this->toggleSpawnPress(button);
+			else if (button->name == "btnCenterShape")
+				this->toggleCenterShape(button);
 			else if (button->name == "btnTerrain")
 				this->manager->palette->selectPalette(PaletteType::ptTerrain);
 			else if (button->name == "btnProp")
 				this->manager->palette->selectPalette(PaletteType::ptProp);
 			else if (button->name == "btnEnvironment")
 				this->manager->palette->selectPalette(PaletteType::ptEnvironment);
+			else if (button->name == "btnUnit")
+				this->manager->palette->selectPalette(PaletteType::ptUnit);
+			else if (button->name == "btnMerchant")
+				this->manager->palette->selectPalette(PaletteType::ptMerchant);
 
 			return true;
 			break;
@@ -519,6 +567,7 @@ bool Hud::loadButtons()
 	std::shared_ptr<Button> btnErase = std::make_shared<Button>(this->manager, "[E]", sf::Vector2f(0.f, 0.f), "btnErase", 20, btnClear, sf::Vector2i(-1, 0));
 	std::shared_ptr<Button> btnGridVisibilityToggle = std::make_shared<Button>(this->manager, "[G]", sf::Vector2f(0.f, 0.f), "btnGridVisibilityToggle", 20, btnClear, sf::Vector2i(1, 0));
 	std::shared_ptr<Button> btnSpawnPress = std::make_shared<Button>(this->manager, "[P]", sf::Vector2f(0.f, 0.f), "btnSpawnPress", 20, btnErase, sf::Vector2i(-1, 0));
+	std::shared_ptr<Button> btnCenterShape = std::make_shared<Button>(this->manager, "[S]", sf::Vector2f(0.f, 0.f), "btnCenterShape", 20, btnSpawnPress, sf::Vector2i(-1, 0));
 	
 	std::shared_ptr<Button> btnUnit = std::make_shared<Button>(this->manager, "[Units]", sf::Vector2f(1650.f, 200.f), "btnUnit", 20);
 	std::shared_ptr<Button> btnMerchant = std::make_shared<Button>(this->manager, "[Merchants]", sf::Vector2f(0.f, 0.f), "btnMerchant", 20, btnUnit, sf::Vector2i(1, 0));
@@ -574,6 +623,7 @@ bool Hud::loadButtons()
 	this->buttons.emplace_back(btnErase);
 	this->buttons.emplace_back(btnGridVisibilityToggle);
 	this->buttons.emplace_back(btnSpawnPress);
+	this->buttons.emplace_back(btnCenterShape);
 	this->buttons.emplace_back(btnUnit);
 	this->buttons.emplace_back(btnMerchant);
 	this->buttons.emplace_back(btnProp);
