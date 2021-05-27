@@ -2,7 +2,7 @@
 #include "../library/json.hpp"
 #include "../manager.hpp"
 
-Model::Model(Manager* manager, sf::Vector2f position, std::string filename, int priority, bool canvasBound, std::string name)
+Model::Model(Manager* manager, sf::Vector2f position, std::string filename, int priority, bool canvasBound, std::string name, std::string origin)
 {
 	this->manager = manager;
 	this->priority = priority;
@@ -12,6 +12,7 @@ Model::Model(Manager* manager, sf::Vector2f position, std::string filename, int 
 	this->canvasBound = canvasBound;
 	this->name = name;
 	this->filename = filename;
+	this->origin = origin;
 
 	if (filename != "")
 		this->loadSprite(filename, position);
