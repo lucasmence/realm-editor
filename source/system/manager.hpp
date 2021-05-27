@@ -47,6 +47,8 @@ class Manager
 		bool event();
 		bool eventClick(sf::Event& event);
 		bool eventKey(sf::Event& event);
+		bool eventType(sf::Event& event);
+		bool eventMouseReleased(sf::Event& event);
 		bool addView(std::shared_ptr<ViewElement> element);
 		bool removeView(std::shared_ptr<ViewElement> element);
 		bool addViewElement(std::shared_ptr<ViewElement> element);

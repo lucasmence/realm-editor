@@ -129,6 +129,18 @@ bool Manager::event()
                 this->eventKey(event);
                 break;
             }
+
+            case sf::Event::TextEntered:
+            {
+                this->eventType(event);
+                break;
+            }
+
+            case sf::Event::MouseButtonReleased:
+            {
+                this->eventMouseReleased(event);
+                break;
+            }
         }            
     }
 
@@ -169,8 +181,26 @@ bool Manager::eventKey(sf::Event& event)
             this->moveCanvas(sf::Vector2f(this->canvasPosition.x, this->canvasPosition.y + 64.f));
             break;
         }
+        case (sf::Keyboard::Space):
+        {
+            this->canvasPosition = sf::Vector2f(0.f, -115.f);
+            this->moveCanvas(this->canvasPosition);
+            break;
+        }
     }
 
+    return true;
+}
+
+bool Manager::eventMouseReleased(sf::Event& event)
+{
+    this->hud->updateMouseReleased();
+    return true;
+}
+
+bool Manager::eventType(sf::Event& event)
+{
+    this->hud->updateEdit(static_cast<char>(event.text.unicode));
     return true;
 }
 

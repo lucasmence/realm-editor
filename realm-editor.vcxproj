@@ -165,6 +165,7 @@
     <ClCompile Include="source\main.cpp" />
     <ClCompile Include="source\system\external\RichText\RichText.cpp" />
     <ClCompile Include="source\system\hud\button.cpp" />
+    <ClCompile Include="source\system\hud\edit.cpp" />
     <ClCompile Include="source\system\hud\hud.cpp" />
     <ClCompile Include="source\system\library\json.cpp" />
     <ClCompile Include="source\system\library\position.cpp" />
@@ -182,6 +183,7 @@
     <ClInclude Include="source\system\external\nlohmann\json.hpp" />
     <ClInclude Include="source\system\external\RichText\RichText.hpp" />
     <ClInclude Include="source\system\hud\button.hpp" />
+    <ClInclude Include="source\system\hud\edit.hpp" />
     <ClInclude Include="source\system\hud\hud.hpp" />
     <ClInclude Include="source\system\library\json.hpp" />
     <ClInclude Include="source\system\library\position.hpp" />
