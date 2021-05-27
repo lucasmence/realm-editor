@@ -151,7 +151,7 @@ bool Manager::eventClick(sf::Event& event)
 {
     sf::Vector2f cursor = this->getMousePosition();
     
-    this->hud->updateClick(cursor);
+    this->hud->updateClick(cursor, sf::Mouse::isButtonPressed(sf::Mouse::Right));
     this->palette->selectPaletteItem(cursor);
 
     return true;
