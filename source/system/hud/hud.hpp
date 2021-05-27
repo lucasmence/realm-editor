@@ -70,6 +70,7 @@ class Hud
 		bool toggleSpawnPress(std::shared_ptr<Button> button);
 		bool toggleCenterShape(std::shared_ptr<Button> button);
 		bool help();
+		bool setEditValue(std::string editName, std::string value);
 		Hud(Manager* manager);
 		~Hud();
 
