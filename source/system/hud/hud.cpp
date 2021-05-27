@@ -13,6 +13,7 @@ Hud::Hud(Manager* manager)
 	this->gridSize = 1;
 	this->brushSize = 0;
 	this->rotation = 0;
+	this->scale = 1.f;
 	this->spawnPress = false;
 	this->mousePressed = false;
 	this->centerShape = false;
@@ -180,6 +181,7 @@ bool Hud::updateHoverShapeSize()
 	this->shapeHover->shape->setOrigin(sf::Vector2f(0.f * this->shapeHover->shape->getGlobalBounds().width / 2.f,
                                                     0.f * this->shapeHover->shape->getGlobalBounds().height / 2.f));
 	this->shapeHover->shape->setRotation(this->rotation);
+	this->shapeHover->shape->setScale(this->scale, this->scale);
 	return true;
 }
 
@@ -300,6 +302,7 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 					model->sprite->setOrigin(this->shapeHover->shape->getOrigin());
 					model->sprite->move(model->sprite->getGlobalBounds().width * x, model->sprite->getGlobalBounds().height * y);
 					model->sprite->setRotation(this->rotation);
+					model->sprite->setScale(this->scale, this->scale);
 					this->manager->addView(std::static_pointer_cast<ViewElement>(model));
 					this->manager->map->addObjectUnit(MapObjectUnit{ objectType, model->sprite->getPosition(), 0.f, model, fields });
 				}
@@ -459,6 +462,8 @@ bool Hud::updateEditValues()
 	for (auto& edit : this->edits)
 		if (edit->name == "edtRotation")
 			this->rotation = edit->getValue().integer;
+		else if (edit->name == "edtScale")
+			this->scale = edit->getValue().integer / 100.f;
 	return true;
 }
 
@@ -614,6 +619,16 @@ bool Hud::loadButtons()
 															   lblRotation->text->getGlobalBounds(), sf::Vector2i(1, 0));
 	edtRotation->integerMaxValue = 360;
 
+	std::shared_ptr<Label> lblScale = std::make_shared<Label>(this->manager, "Scale: ", 20, sf::Vector2f(0.f, -50.f), 1, sf::Color(255, 255, 255, 255), "lblScale");
+	lblScale->setPosition(position::getSidePosition(lblRotation->text->getGlobalBounds(),
+													lblScale->text->getGlobalBounds(),
+													lblScale->text->getPosition(), sf::Vector2i(0, 1)));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(lblScale));
+	this->labels.emplace_back(lblScale);
+	std::shared_ptr<Edit> edtScale = std::make_shared<Edit>(this->manager, EditType::etInteger, "<100>", sf::Vector2f(0.f, -5.f), "edtScale", 20,
+														   lblScale->text->getGlobalBounds(), sf::Vector2i(1, 0));
+	edtScale->integerMaxValue = 1000;
+
 	this->buttons.emplace_back(btnNew);
 	this->buttons.emplace_back(btnOpen);
 	this->buttons.emplace_back(btnSave);
@@ -637,6 +652,7 @@ bool Hud::loadButtons()
 	this->buttons.emplace_back(btnBrushSizeDecrease);
 	this->buttons.emplace_back(btnBrushSizeIncrease);
 	this->edits.emplace_back(edtRotation);
+	this->edits.emplace_back(edtScale);
 
 	return true;
 }
