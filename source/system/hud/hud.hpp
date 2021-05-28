@@ -27,6 +27,7 @@ class Hud
 		int gridSize;
 		int brushSize;
 		int rotation;
+		int priority;
 		float scale;
 		bool mousePressed;
 		bool spawnPress;
