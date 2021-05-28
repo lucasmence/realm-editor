@@ -89,7 +89,8 @@ class Map
 		bool clearObjects();
 		std::string getTextureFromUnit(json line, MapObjectType type);
 		std::string getOriginFromField(json line, MapObjectType type);
-
+		bool updateMapInfo();
+		int getObjectPriority(MapObjectType type);
 
 		bool renderMap();
 		bool renderObject(json& localfile, MapObjectUnit& object);

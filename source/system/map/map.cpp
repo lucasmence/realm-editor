@@ -1,5 +1,6 @@
 #include <regex>
 #include <typeinfo>
+#include <boost/lexical_cast.hpp>
 #include "map.hpp"
 #include "../manager.hpp"
 #include "../library/script.hpp"
@@ -27,6 +28,51 @@ bool Map::clearObjects()
                                        this->objects.end());
 	this->objects.clear();
 	return true;
+}
+
+bool Map::updateMapInfo()
+{
+	this->manager->hud->setEditValue("edtMapSizeX", boost::lexical_cast<std::string>(this->data.size.x));
+	this->manager->hud->setEditValue("edtMapSizeY", boost::lexical_cast<std::string>(this->data.size.y));
+	this->manager->hud->setEditValue("edtMapName", boost::lexical_cast<std::string>(this->data.name));
+	this->manager->hud->setEditValue("edtMapMusic", boost::lexical_cast<std::string>(this->data.music));
+	this->manager->hud->setEditValue("edtMapVersion", boost::lexical_cast<std::string>(this->data.version));
+
+	return true;
+}
+
+int Map::getObjectPriority(MapObjectType type)
+{
+	switch (type)
+	{
+		case (MapObjectType::motTerrain):
+		{
+			return 8;
+			break;
+		}
+		case (MapObjectType::motProp):
+		{
+			return 7;
+			break;
+		}
+		case (MapObjectType::motEnvironment):
+		{
+			return 6;
+			break;
+		}
+		case (MapObjectType::motUnit):
+		{
+			return 5;
+			break;
+		}
+		case (MapObjectType::motMerchant):
+		{
+			return 5;
+			break;
+		}
+	}
+
+	return 0;
 }
 
 std::string Map::getOriginFromField(json line, MapObjectType type)
@@ -129,6 +175,17 @@ bool Map::renderObject(json& localfile, MapObjectUnit& object)
 	localfile["scale"] = object.model->sprite->getScale().x;
 	localfile["rotation"] = object.model->sprite->getRotation();
 
+	switch (object.type)
+	{
+		case (MapObjectType::motTerrain): case (MapObjectType::motEnvironment): case (MapObjectType::motProp):
+		{
+			int priority = object.model->priority - this->getObjectPriority(object.type);
+			if (priority > 0)
+				localfile["priority"] = object.model->priority;
+			break;
+		}
+	}
+
 	for (auto& field : object.fields)
 		this->renderObjectField(localfile, field);
 
@@ -137,7 +194,7 @@ bool Map::renderObject(json& localfile, MapObjectUnit& object)
 
 bool Map::renderMap()
 {
-	this->manager->hud->showMessage("Rendering...");
+	this->manager->hud->showMessage("Rendering map...");
 
 	this->file["map-size-x"] = this->data.size.x;
 	this->file["map-size-y"] = this->data.size.y;
@@ -223,11 +280,14 @@ bool Map::saveMap()
 {
 	this->renderMap();
 
+	this->manager->hud->showMessage("Ready to save...");
 	if (this->filename == "")
 		this->filename = script::saveFile();
 
 	std::ofstream fileStream(filename);
 	fileStream << this->file;
+
+	this->manager->setTitle(this->filename);
 
 	this->manager->hud->showMessage("Map saved successfully!");
 
@@ -238,12 +298,12 @@ bool Map::loadMap()
 {
 	this->newMap();
 
-	this->manager->hud->showMessage("Loading map...");
-
 	std::string dimensionField = "dimensions";
 
 	this->filename = script::loadFile();
 	this->file = Json::loadFromFile(this->filename);
+
+	this->manager->hud->showMessage("Loading map...");
 
 	this->data.size.x = this->file.value("map-size-x", 1000);
 	this->data.size.y = this->file.value("map-size-y", 1000);
@@ -255,33 +315,24 @@ bool Map::loadMap()
 		this->data.version = this->file["map"].value("version", "1.0");
 	}
 
+	this->updateMapInfo();
+
 	std::vector<std::string> objectsField = { "terrain", "prop", "environment", "unit", "merchant" };
 
 	for (auto& field : objectsField)
 	{
 		MapObjectType type = MapObjectType::motTerrain;
-		int priority = 8;
 		
 		if (field == "prop")
-		{
-			priority = 7;
 			type = MapObjectType::motProp;
-		}
 		else if (field == "environment")
-		{
-			priority = 6;
 			type = MapObjectType::motEnvironment;
-		}
 		else if (field == "unit")
-		{
-			priority = 5;
 			type = MapObjectType::motUnit;
-		}
 		else if (field == "merchant")
-		{
-			priority = 5;
 			type = MapObjectType::motMerchant;
-		}
+
+		int priority = this->getObjectPriority(type);
 			
 		for (int index = 0; index < this->file[field].size(); index++)
 		{
@@ -297,17 +348,19 @@ bool Map::loadMap()
 
 			for (int dimensionIndex = 0; dimensionIndex < this->file[field][index][dimensionField].size(); dimensionIndex++)
 			{
+				int priorityIndex = priority + this->file[field][index][dimensionField][dimensionIndex].value("priority", 0);
+
 				sf::Vector2f position(this->file[field][index][dimensionField][dimensionIndex].value("x", 0.f),
 									  this->file[field][index][dimensionField][dimensionIndex].value("y", 0.f));
 
-				std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, position, "textures/" + texture, priority, false, "", 
+				std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, position, "textures/" + texture, priorityIndex, false, "",
 																	   this->getOriginFromField(this->file[field][index], type));
 				model->sprite->setScale(sf::Vector2f(this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f),
 													 this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f)));
 				model->sprite->setRotation(this->file[field][index][dimensionField][dimensionIndex].value("rotation", 0.f));
 				this->manager->addView(std::static_pointer_cast<ViewElement>(model));
 
-				std::vector<std::string> subFieldsExceptions = {"texture", "unit", "merchant", "x", "y", "scale", "rotation"};
+				std::vector<std::string> subFieldsExceptions = {"texture", "unit", "merchant", "x", "y", "scale", "rotation", "priority"};
 				std::list<MapObjectField> subFields = {};
 				for (auto& subFieldIndex : this->file[field][index][dimensionField][dimensionIndex].items())
 				{
@@ -339,6 +392,8 @@ bool Map::loadMap()
 		}
 	}
 
+	this->manager->setTitle(this->filename);
+
 	this->manager->hud->showMessage("Map loaded successfully!");
 
 	return true;
@@ -347,5 +402,16 @@ bool Map::loadMap()
 bool Map::newMap()
 {
 	this->clearObjects();
+
+	this->filename = "";
+	this->data.size = sf::Vector2i(1000, 1000);
+	this->data.name = "another_map";
+	this->data.music = "village";
+	this->data.version = "1.00";
+
+	this->updateMapInfo();
+
+	this->manager->setTitle("New");
+
 	return true;
 }
