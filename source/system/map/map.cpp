@@ -41,6 +41,40 @@ bool Map::updateMapInfo()
 	return true;
 }
 
+int Map::getObjectPriority(MapObjectType type)
+{
+	switch (type)
+	{
+		case (MapObjectType::motTerrain):
+		{
+			return 8;
+			break;
+		}
+		case (MapObjectType::motProp):
+		{
+			return 7;
+			break;
+		}
+		case (MapObjectType::motEnvironment):
+		{
+			return 6;
+			break;
+		}
+		case (MapObjectType::motUnit):
+		{
+			return 5;
+			break;
+		}
+		case (MapObjectType::motMerchant):
+		{
+			return 5;
+			break;
+		}
+	}
+
+	return 0;
+}
+
 std::string Map::getOriginFromField(json line, MapObjectType type)
 {
 	switch (type)
@@ -140,6 +174,17 @@ bool Map::renderObject(json& localfile, MapObjectUnit& object)
 	localfile["y"] = object.position.y;
 	localfile["scale"] = object.model->sprite->getScale().x;
 	localfile["rotation"] = object.model->sprite->getRotation();
+
+	switch (object.type)
+	{
+		case (MapObjectType::motTerrain): case (MapObjectType::motEnvironment): case (MapObjectType::motProp):
+		{
+			int priority = object.model->priority - this->getObjectPriority(object.type);
+			if (priority > 0)
+				localfile["priority"] = object.model->priority;
+			break;
+		}
+	}
 
 	for (auto& field : object.fields)
 		this->renderObjectField(localfile, field);
@@ -277,28 +322,17 @@ bool Map::loadMap()
 	for (auto& field : objectsField)
 	{
 		MapObjectType type = MapObjectType::motTerrain;
-		int priority = 8;
 		
 		if (field == "prop")
-		{
-			priority = 7;
 			type = MapObjectType::motProp;
-		}
 		else if (field == "environment")
-		{
-			priority = 6;
 			type = MapObjectType::motEnvironment;
-		}
 		else if (field == "unit")
-		{
-			priority = 5;
 			type = MapObjectType::motUnit;
-		}
 		else if (field == "merchant")
-		{
-			priority = 5;
 			type = MapObjectType::motMerchant;
-		}
+
+		int priority = this->getObjectPriority(type);
 			
 		for (int index = 0; index < this->file[field].size(); index++)
 		{
@@ -314,17 +348,19 @@ bool Map::loadMap()
 
 			for (int dimensionIndex = 0; dimensionIndex < this->file[field][index][dimensionField].size(); dimensionIndex++)
 			{
+				int priorityIndex = priority + this->file[field][index][dimensionField][dimensionIndex].value("priority", 0);
+
 				sf::Vector2f position(this->file[field][index][dimensionField][dimensionIndex].value("x", 0.f),
 									  this->file[field][index][dimensionField][dimensionIndex].value("y", 0.f));
 
-				std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, position, "textures/" + texture, priority, false, "", 
+				std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, position, "textures/" + texture, priorityIndex, false, "",
 																	   this->getOriginFromField(this->file[field][index], type));
 				model->sprite->setScale(sf::Vector2f(this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f),
 													 this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f)));
 				model->sprite->setRotation(this->file[field][index][dimensionField][dimensionIndex].value("rotation", 0.f));
 				this->manager->addView(std::static_pointer_cast<ViewElement>(model));
 
-				std::vector<std::string> subFieldsExceptions = {"texture", "unit", "merchant", "x", "y", "scale", "rotation"};
+				std::vector<std::string> subFieldsExceptions = {"texture", "unit", "merchant", "x", "y", "scale", "rotation", "priority"};
 				std::list<MapObjectField> subFields = {};
 				for (auto& subFieldIndex : this->file[field][index][dimensionField][dimensionIndex].items())
 				{
