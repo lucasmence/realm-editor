@@ -55,6 +55,7 @@ class Manager
 		bool addViewElement(std::shared_ptr<ViewElement> element);
 		bool moveCanvas(sf::Vector2f position);
 		bool setCanvas();
+		std::shared_ptr<Texture> getTexture(std::string filename);
 		std::string setTitle(std::string value);
 		sf::Vector2f getMousePosition();
 };

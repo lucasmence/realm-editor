@@ -230,6 +230,17 @@ std::string Manager::setTitle(std::string value)
     return title;
 }
 
+std::shared_ptr<Texture> Manager::getTexture(std::string filename)
+{
+    for (auto& texture : this->list.textures)
+        if (texture->filename == filename)
+            return texture; 
+
+    std::shared_ptr<Texture> texture = std::make_shared<Texture>(filename);
+    this->list.textures.emplace_back(texture);
+    return texture;
+}
+
 bool Manager::unloadAll()
 {
     this->hud = nullptr;
