@@ -9,7 +9,7 @@
 class Texture 
 {
 	public:
-		std::shared_ptr<sf::Texture> texture;
+		sf::Texture texture;
 		std::string filename;
 
 		Texture(std::string filename);
