@@ -32,6 +32,9 @@ class Hud
 		bool spawnPress;
 		bool centerShape;
 		bool mouseRightButton;
+		bool matrixActivated;
+		bool matrixTriggered;
+		bool matrixPosSpawn;
 		std::vector<int> gridSizeList;
 		std::vector<int> brushSizeList;
 		std::list<std::shared_ptr<Button>> buttons;
@@ -41,6 +44,7 @@ class Hud
 		std::list<std::shared_ptr<Model>> grid;
 		std::shared_ptr<Model> shapeHover;
 		std::shared_ptr<Model> shapeMapArea;
+		std::shared_ptr<Model> shapeMatrix;
 		MessageBox messageBox;
 
 		bool unloadLists();
@@ -53,7 +57,7 @@ class Hud
 		bool updateClick(sf::Vector2f cursor, bool rightButton);
 		bool updateButtonsColor(sf::Vector2f cursor);
 		bool updateEditsColor(sf::Vector2f cursor);
-		bool updateMouseReleased();
+		bool updateMouseReleased(sf::Vector2f cursor);
 		bool updateMousePressed(sf::Vector2f cursor);
 		bool updateEdit(char text);
 		bool updateEditValues();
@@ -63,12 +67,17 @@ class Hud
 		bool buttonsClick(sf::Vector2f cursor);
 		bool editsClick(sf::Vector2f cursor);
 		bool spawnClick(sf::Vector2f cursor);
+		bool matrixActivate(sf::Vector2f cursor);
+		bool matrixDeactivate(sf::Vector2f cursor);
+		bool matrixGenerate(sf::Vector2f cursor);
 		bool showMessage(std::string text, float time = 3.f);
 		bool changeGridSize(int order);
 		bool changeBrushSize(int order);
 		bool updateHoverShapeSize();
 		bool updateHoverMapSize();
+		bool updateShapeMatrix(sf::Vector2f cursor);
 		bool toggleGridVisibility();
+		bool toggleMatrixTriggered(std::shared_ptr<Button> button);
 		bool toggleSpawnPress(std::shared_ptr<Button> button);
 		bool toggleCenterShape(std::shared_ptr<Button> button);
 		bool toggleMapAreaSize(std::shared_ptr<Button> button);
