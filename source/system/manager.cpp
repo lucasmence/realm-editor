@@ -5,7 +5,8 @@ Manager::Manager()
 {
     this->unloadAll();
 
-	this->window = std::make_shared<sf::RenderWindow>(sf::VideoMode(1920, 1080), "realm-editor", sf::Style::Default);
+    this->appName = "realm-editor";
+	this->window = std::make_shared<sf::RenderWindow>(sf::VideoMode(1920, 1080), appName, sf::Style::Default);
 
     this->font = std::shared_ptr<sf::Font>(new sf::Font);
     this->font->loadFromFile("resources/fonts/consola.ttf");
@@ -22,6 +23,7 @@ Manager::Manager()
     this->canvasPosition = sf::Vector2f(0.f, -115.f);
 
     this->loadWindowOpening();
+    this->map->newMap();
 }
 
 Manager::~Manager()
@@ -151,7 +153,7 @@ bool Manager::eventClick(sf::Event& event)
 {
     sf::Vector2f cursor = this->getMousePosition();
     
-    this->hud->updateClick(cursor);
+    this->hud->updateClick(cursor, sf::Mouse::isButtonPressed(sf::Mouse::Right));
     this->palette->selectPaletteItem(cursor);
 
     return true;
@@ -194,7 +196,8 @@ bool Manager::eventKey(sf::Event& event)
 
 bool Manager::eventMouseReleased(sf::Event& event)
 {
-    this->hud->updateMouseReleased();
+    sf::Vector2f cursor = this->getMousePosition();
+    this->hud->updateMouseReleased(cursor);
     return true;
 }
 
@@ -218,6 +221,24 @@ bool Manager::setCanvas()
     this->canvas->reset(sf::FloatRect(this->canvasPosition.x, this->canvasPosition.y, this->window->getSize().x, this->window->getSize().y));
     this->window->setView(*this->canvas);
     return true;
+}
+
+std::string Manager::setTitle(std::string value)
+{
+    std::string title = this->appName + " - " + value;
+    this->window->setTitle(title);
+    return title;
+}
+
+std::shared_ptr<Texture> Manager::getTexture(std::string filename)
+{
+    for (auto& texture : this->list.textures)
+        if (texture->filename == filename)
+            return texture; 
+
+    std::shared_ptr<Texture> texture = std::make_shared<Texture>(filename);
+    this->list.textures.emplace_back(texture);
+    return texture;
 }
 
 bool Manager::unloadAll()

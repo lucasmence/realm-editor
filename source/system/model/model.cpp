@@ -67,9 +67,9 @@ bool Model::loadSprite(std::string filename, sf::Vector2f position)
 		break;
 	}
 
-	this->texture = std::make_shared<Texture>(jsonFile.value("texturename", ""));
+	this->texture = this->manager->getTexture(jsonFile.value("texturename", ""));
 	this->sprite = std::make_shared<sf::Sprite>();
-	this->sprite->setTexture(*this->texture->texture);
+	this->sprite->setTexture(this->texture->texture);
 	this->sprite->setTextureRect(sf::IntRect(0, 0, dimension.x, dimension.y));
 	this->sprite->setPosition(position);
 
