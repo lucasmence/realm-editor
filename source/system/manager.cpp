@@ -196,7 +196,8 @@ bool Manager::eventKey(sf::Event& event)
 
 bool Manager::eventMouseReleased(sf::Event& event)
 {
-    this->hud->updateMouseReleased();
+    sf::Vector2f cursor = this->getMousePosition();
+    this->hud->updateMouseReleased(cursor);
     return true;
 }
 
