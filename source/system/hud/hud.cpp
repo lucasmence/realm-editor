@@ -13,6 +13,7 @@ Hud::Hud(Manager* manager)
 	this->gridSize = 1;
 	this->brushSize = 0;
 	this->rotation = 0;
+	this->priority = 0;
 	this->scale = 1.f;
 	this->spawnPress = false;
 	this->mousePressed = false;
@@ -383,9 +384,10 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 
 			MapObjectType objectType = MapObjectType::motTerrain;
 			std::string paletteTypeField = "textures/";
-			int priority = 8;
 			std::string texture = this->manager->palette->selectedItem;
 			std::list<MapObjectField> fields = {};
+
+			int priorityValue = this->priority;
 
 			switch (this->manager->palette->type)
 			{
@@ -393,44 +395,51 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 				{
 					objectType = MapObjectType::motTerrain;
 					paletteTypeField += "terrain";
-					priority = 8;
+
 					break;
 				}
 				case (PaletteType::ptProp):
 				{
 					objectType = MapObjectType::motProp;
 					paletteTypeField += "prop";
-					priority = 7;
+
 					break;
 				}
 				case (PaletteType::ptEnvironment):
 				{
 					objectType = MapObjectType::motEnvironment;
 					paletteTypeField += "environment";
-					priority = 6;
+
 					break;
 				}
 				case (PaletteType::ptUnit):
 				{
 					objectType = MapObjectType::motUnit;
 					paletteTypeField = "";
-					priority = 5;
 					texture = this->manager->palette->selectedTexture;
+
 					MapObjectField fieldObject;
 					fieldObject.field = "alliance";
 					fieldObject.valueString = MapObjectFieldString{"enemy", true};
 					fields.emplace_back(fieldObject);
+
+					priorityValue = 0;
+
 					break;
 				}
 				case (PaletteType::ptMerchant):
 				{
 					objectType = MapObjectType::motMerchant;
 					paletteTypeField = "";
-					priority = 5;
 					texture = this->manager->palette->selectedTexture;
+
+					priorityValue = 0;
+
 					break;
 				}
 			}
+
+			priorityValue += this->manager->map->getObjectPriority(objectType);
 
 			sf::Vector2f tilesetPosition(this->shapeHover->shape->getPosition());
 			sf::Vector2f tilesetOrigin(this->shapeHover->shape->getOrigin());
@@ -449,7 +458,7 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 				{
 					std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, 
 																		   tilesetPosition, 
-																		   paletteTypeField +"/" + texture, priority, false, "", this->manager->palette->selectedOrigin);
+																		   paletteTypeField + "/" + texture, priorityValue, false, "", this->manager->palette->selectedOrigin);
 					model->sprite->setOrigin(tilesetOrigin);
 					model->sprite->move(model->sprite->getGlobalBounds().width * x, model->sprite->getGlobalBounds().height * y);
 					model->sprite->setRotation(this->rotation);
@@ -634,6 +643,8 @@ bool Hud::updateEditValues()
 			this->rotation = edit->getValue().integer;
 		else if (edit->name == "edtScale")
 			this->scale = edit->getValue().integer / 100.f;
+		else if (edit->name == "edtPriority")
+			this->priority = edit->getValue().integer;
 		else if (edit->name == "edtMapSizeX")
 			this->manager->map->data.size.x = edit->getValue().integer;
 		else if (edit->name == "edtMapSizeY")
@@ -814,6 +825,18 @@ bool Hud::loadButtons()
 	edtScale->integerMaxValue = 1000;
 	edtScale->setValue("100");
 
+	std::shared_ptr<Label> lblPriority = std::make_shared<Label>(this->manager, "Priority: ", 20, sf::Vector2f(0.f, -50.f), 1, sf::Color(255, 255, 255, 255), "lblPriority");
+	lblPriority->setPosition(position::getSidePosition(lblScale->text->getGlobalBounds(),
+													   lblPriority->text->getGlobalBounds(),
+													   lblPriority->text->getPosition(), sf::Vector2i(0, 1)));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(lblPriority));
+	this->labels.emplace_back(lblPriority);
+
+	std::shared_ptr<Edit> edtPriority = std::make_shared<Edit>(this->manager, EditType::etInteger, "", sf::Vector2f(0.f, -5.f), "edtPriority", 20,
+															   lblPriority->text->getGlobalBounds(), sf::Vector2i(1, 0));
+	edtPriority->integerMaxValue = 100;
+	edtPriority->setValue("0");
+
 	std::shared_ptr<Label> lblMapSize = std::make_shared<Label>(this->manager, "Size: ", 20, sf::Vector2f(-50.f, -85.f), 1, sf::Color(255, 255, 255, 255), "lblMapSize");
 	lblMapSize->setPosition(position::getSidePosition(btnCenterShape->shape->shape->getGlobalBounds(),
 													  lblMapSize->text->getGlobalBounds(),
@@ -890,6 +913,7 @@ bool Hud::loadButtons()
 	this->edits.emplace_back(edtMapName);
 	this->edits.emplace_back(edtMapMusic);
 	this->edits.emplace_back(edtMapVersion);
+	this->edits.emplace_back(edtPriority);
 
 	return true;
 }
