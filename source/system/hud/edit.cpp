@@ -107,3 +107,10 @@ bool Edit::clear()
 	this->shape = nullptr;
 	return true;
 }
+
+bool Edit::setVisible(const bool value)
+{
+	this->label->visible = value;
+	this->shape->visible = value;
+	return value;
+}
