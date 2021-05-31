@@ -417,10 +417,11 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 					objectType = MapObjectType::motUnit;
 					paletteTypeField = "";
 					texture = this->manager->palette->selectedTexture;
+					std::vector<EditValue> extraValues = this->getExtraEditsValue();
 
 					MapObjectField fieldObject;
 					fieldObject.field = "alliance";
-					fieldObject.valueString = MapObjectFieldString{"enemy", true};
+					fieldObject.valueString = MapObjectFieldString{ extraValues.at(0).string, true};
 					fields.emplace_back(fieldObject);
 
 					priorityValue = 0;
@@ -634,6 +635,102 @@ bool Hud::setEditValue(std::string editName, std::string value)
 		}
 
 	return false;
+}
+
+bool Hud::updateExtraEditsValue(std::vector<std::string> caption, std::vector<EditType> type, std::vector<std::string> value, std::vector<int> maxValue)
+{
+	if (caption.size() == 0)
+	{
+		for (int index = 0; index < 5; index++)
+		{
+			for (auto& label : this->labels)
+				if (label->name == "lblExtraField-" + boost::lexical_cast<std::string>(index))
+					label->visible = false;
+
+			for (auto& edit : this->edits)
+				if (edit->name == "edtExtraField-" + boost::lexical_cast<std::string>(index))
+					edit->setVisible(false);
+		}
+
+		return false;	
+	}
+
+	sf::FloatRect extraFieldRegion = sf::FloatRect(0.f, 0.f, 0.f, 0.f);
+	sf::Vector2f extraSpace(45.f, 0.f);
+	sf::Vector2i extraSide(1, 0);
+
+	for (int index = 0; index < caption.size(); index++)
+	{
+		for (auto& label : this->labels)
+			if (label->name == "lblExtraField-" + boost::lexical_cast<std::string>(index))
+			{
+				label->text->setString(caption.at(index));
+				label->visible = true;
+
+				if (index > 0)
+					label->setPosition(position::getSidePosition(extraFieldRegion,
+																 sf::FloatRect(extraSpace.x, extraSpace.y,
+																			   label->text->getGlobalBounds().width,
+																			   label->text->getGlobalBounds().height),
+																 extraSpace, extraSide));
+
+				extraFieldRegion = sf::FloatRect(label->position.x, label->position.y, label->text->getGlobalBounds().width, label->text->getGlobalBounds().height);
+
+				for (auto& edit : this->edits)
+					if (edit->name == "edtExtraField-" + boost::lexical_cast<std::string>(index))
+					{
+						edit->type = type.at(index);
+						edit->setValue(value.at(index));
+
+						switch (edit->type)
+						{
+							case (EditType::etString):
+							{
+								edit->maxLength = maxValue.at(index);
+								break;
+							}
+							case (EditType::etInteger):
+							{
+								edit->integerMaxValue = maxValue.at(index);
+								break;
+							}
+						}
+
+						edit->setVisible(true);
+
+						extraSpace = sf::Vector2f(0.f, 0.f);
+
+						sf::Vector2f positionSide = position::getSidePosition(extraFieldRegion, sf::FloatRect(extraSpace.x, extraSpace.y, 
+																											  edit->shape->shape->getGlobalBounds().width, 
+																											  edit->shape->shape->getGlobalBounds().height), 
+																			  extraSpace, extraSide);
+
+						edit->shape->setPosition(positionSide);
+						edit->label->setPosition(sf::Vector2f(positionSide.x + 5.f, positionSide.y));
+
+						extraFieldRegion = sf::FloatRect(edit->shape->position.x, label->position.y,
+														 edit->shape->shape->getGlobalBounds().width, edit->shape->shape->getGlobalBounds().height);
+						extraSpace = sf::Vector2f(45.f, 0.f);
+
+						break;
+					}
+
+				break;
+			}
+	}
+
+	return true;
+}
+std::vector<EditValue> Hud::getExtraEditsValue()
+{
+	std::vector<EditValue> values = {};
+
+	for (int index = 0; index < 5; index++)
+		for (auto& edit : this->edits)
+			if (edit->name == "edtExtraField-" + boost::lexical_cast<std::string>(index) && edit->label->visible)
+				values.emplace_back(edit->getValue());
+
+	return values;
 }
 
 bool Hud::updateEditValues()
@@ -881,6 +978,34 @@ bool Hud::loadButtons()
 																 edtMapName->shape->shape->getGlobalBounds(), sf::Vector2i(1, 0));
 	edtMapVersion->setValue("1.00");
 	edtMapVersion->maxLength = 16;
+
+	sf::FloatRect extraFieldRegion = btnNew->shape->shape->getGlobalBounds();
+	sf::Vector2f extraSpace(0.f, 45.f);
+	sf::Vector2i extraSide(0, 1);
+
+	for (int index = 0; index < 5; index++)
+	{
+		std::shared_ptr<Label> labelIndex = std::make_shared<Label>(this->manager, "-", 15, extraSpace, 1, sf::Color(255, 255, 255, 255),
+																	"lblExtraField-" + boost::lexical_cast<std::string>(index));
+		labelIndex->setPosition(position::getSidePosition(extraFieldRegion,
+														  labelIndex->text->getGlobalBounds(),
+														  labelIndex->text->getPosition(), extraSide));
+		this->manager->addView(std::static_pointer_cast<ViewElement>(labelIndex));
+		this->labels.emplace_back(labelIndex);
+
+		std::shared_ptr<Edit> edtIndex = std::make_shared<Edit>(this->manager, EditType::etString, "", sf::Vector2f(0.f, -5.f), "edtExtraField-" + boost::lexical_cast<std::string>(index), 15,
+																labelIndex->text->getGlobalBounds(), sf::Vector2i(1, 0));
+		edtIndex->setValue("");
+
+		extraFieldRegion = labelIndex->text->getGlobalBounds();
+		extraSide = sf::Vector2i(1, 0);
+		extraSpace = sf::Vector2f(edtIndex->shape->shape->getGlobalBounds().width + 10.f, -13.f);
+
+		this->edits.emplace_back(edtIndex);
+
+		labelIndex->visible = false;
+		edtIndex->setVisible(false);
+	}
 
 	this->buttons.emplace_back(btnNew);
 	this->buttons.emplace_back(btnOpen);

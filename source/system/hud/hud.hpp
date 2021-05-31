@@ -83,6 +83,8 @@ class Hud
 		bool toggleCenterShape(std::shared_ptr<Button> button);
 		bool toggleMapAreaSize(std::shared_ptr<Button> button);
 		bool help();
+		bool updateExtraEditsValue(std::vector<std::string> caption, std::vector<EditType> type, std::vector<std::string> value, std::vector<int> maxValue);
+		std::vector<EditValue> getExtraEditsValue();
 		bool setEditValue(std::string editName, std::string value);
 		Hud(Manager* manager);
 		~Hud();
