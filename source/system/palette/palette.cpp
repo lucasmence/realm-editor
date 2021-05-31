@@ -167,26 +167,31 @@ bool Palette::selectPalette(PaletteType type)
         case (PaletteType::ptTerrain):
         {
             this->loadPaletteItemList(this->terrain, "terrain");
+            this->manager->hud->updateExtraEditsValue({}, {}, {}, {});
             break;
         }
         case (PaletteType::ptProp):
         {
             this->loadPaletteItemList(this->prop, "prop");
+            this->manager->hud->updateExtraEditsValue({}, {}, {}, {});
             break;
         }
         case (PaletteType::ptEnvironment):
         {
             this->loadPaletteItemList(this->environment, "environment");
+            this->manager->hud->updateExtraEditsValue({}, {}, {}, {});
             break;
         }
         case (PaletteType::ptUnit):
         {
             this->loadPaletteItemList(this->unit, "unit");
+            this->manager->hud->updateExtraEditsValue({"Alliance"}, {EditType::etString}, {"enemy"}, {10, 256, 3});
             break;
         }
         case (PaletteType::ptMerchant):
         {
             this->loadPaletteItemList(this->merchant, "merchant");
+            this->manager->hud->updateExtraEditsValue({}, {}, {}, {});
             break;
         }
     }
