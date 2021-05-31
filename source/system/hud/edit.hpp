@@ -47,6 +47,7 @@ class Edit
 		EditValue getValue();
 		bool updateLabel(std::string value);
 		bool clear();
+		bool setVisible(const bool value);
 
 };
 
