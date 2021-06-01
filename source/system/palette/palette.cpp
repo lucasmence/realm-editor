@@ -44,6 +44,7 @@ bool Palette::loadPalettes()
     this->environment = this->loadFileLists("textures/environment");
     this->unit = this->loadFileLists("characters");
     this->merchant = this->loadFileLists("merchants/stores");
+    this->portal = {"spawner"};
 
     this->selectPalette(this->type);
 
@@ -85,6 +86,15 @@ bool Palette::loadPaletteItemList(std::list<std::string>& list, std::string fiel
                 break;
             }
 
+            case (PaletteType::ptPortal):
+            {
+                model = std::make_shared<Model>(this->manager, position, "", 2, true, "", filename);
+                
+                this->manager->palette->loadPaletteShape(model, filename);
+
+                break;
+            }
+
             default:
             {
                 std::string filenameComplete = field + "/" + filename;
@@ -94,7 +104,8 @@ bool Palette::loadPaletteItemList(std::list<std::string>& list, std::string fiel
 
         if (model != nullptr)
         {
-            model->sprite->setScale(sf::Vector2f(64.f / model->sprite->getGlobalBounds().width, 64.f / model->sprite->getGlobalBounds().height));
+            if (model->sprite)
+                model->sprite->setScale(sf::Vector2f(64.f / model->sprite->getGlobalBounds().width, 64.f / model->sprite->getGlobalBounds().height));
             this->manager->addView(std::static_pointer_cast<ViewElement>(model));
             this->paletteItems.emplace_back(PaletteItem{ model, filename });
         }
@@ -111,6 +122,14 @@ bool Palette::loadPaletteItemList(std::list<std::string>& list, std::string fiel
         if (count >= countLimit)
             break;
     }
+
+    return true;
+}
+
+bool Palette::loadPaletteShape(std::shared_ptr<Model> model, std::string filename)
+{
+    if (filename == "spawner")
+        model->loadShape(sf::Vector2f(32.f, 0), sf::Color(200, 255, 0, 100));
 
     return true;
 }
@@ -185,13 +204,19 @@ bool Palette::selectPalette(PaletteType type)
         case (PaletteType::ptUnit):
         {
             this->loadPaletteItemList(this->unit, "unit");
-            this->manager->hud->updateExtraEditsValue({"Alliance"}, {EditType::etString}, {"enemy"}, {10, 256, 3});
+            this->manager->hud->updateExtraEditsValue({"Alliance"}, {EditType::etString}, {"enemy"}, {10});
             break;
         }
         case (PaletteType::ptMerchant):
         {
             this->loadPaletteItemList(this->merchant, "merchant");
             this->manager->hud->updateExtraEditsValue({}, {}, {}, {});
+            break;
+        }
+
+        case (PaletteType::ptPortal):
+        {
+            this->loadPaletteItemList(this->portal, "portal");
             break;
         }
     }
@@ -220,7 +245,8 @@ bool Palette::clearPaletteItem()
     this->selectedOrigin = "";
     this->manager->hud->shapeHover->visible = false;
     for (auto& item : this->paletteItems)
-            item.model->sprite->setColor(sf::Color(255, 255, 255, 255));
+        if (item.model->sprite)
+            item.model->setColor(sf::Color(255, 255, 255, 255));
 
     return true;
 }
@@ -229,15 +255,16 @@ bool Palette::selectPaletteItem(sf::Vector2f cursor)
 {
     std::string filename = "";
     for (auto& item : this->paletteItems)
-        if (item.model->sprite->getGlobalBounds().contains(cursor))
+        if (item.model->getGlobalBounds().contains(cursor))
         {
-            item.model->sprite->setColor(sf::Color(255,0,0,255));
+            if (item.model->sprite)
+                item.model->setColor(sf::Color(255,0,0,255));
             filename = item.filename;
             this->selectedItem = item.filename;
             this->selectedTexture = item.model->filename;
             this->selectedOrigin = item.model->origin;
-            this->manager->hud->hoverShapeSize = sf::Vector2f(item.model->sprite->getGlobalBounds().width / item.model->sprite->getScale().x,
-                                                              item.model->sprite->getGlobalBounds().height / item.model->sprite->getScale().y);
+            this->manager->hud->hoverShapeSize = sf::Vector2f(item.model->getGlobalBounds().width / item.model->getScale().x,
+                                                              item.model->getGlobalBounds().height / item.model->getScale().y);
             this->manager->hud->updateHoverShapeSize();
             this->manager->hud->shapeHover->visible = true;
             this->status = PaletteStatus::psInsert;
@@ -245,8 +272,12 @@ bool Palette::selectPaletteItem(sf::Vector2f cursor)
         }
 
     for (auto& item : this->paletteItems)
-        if (filename != item.filename)
-            item.model->sprite->setColor(sf::Color(255, 255, 255, 255));
+        if (filename != item.filename && item.model->sprite)
+            item.model->setColor(sf::Color(255, 255, 255, 255));
+
+    if (this->type == PaletteType::ptPortal)
+        if (filename == "spawner")
+            this->manager->hud->updateExtraEditsValue({ "Default", "index" }, { EditType::etInteger, EditType::etInteger }, { "1", "0" }, { 1, 32 });
 
     return true;
 }

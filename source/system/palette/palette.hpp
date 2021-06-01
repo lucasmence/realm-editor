@@ -7,7 +7,7 @@
 #ifndef PALETTE_HPP
 #define PALETTE_HPP
 
-enum class PaletteType {ptTerrain, ptProp, ptEnvironment, ptUnit, ptMerchant};
+enum class PaletteType {ptTerrain, ptProp, ptEnvironment, ptUnit, ptMerchant, ptPortal};
 
 enum class PaletteStatus {psNone, psInsert, psDelete};
 
@@ -35,6 +35,7 @@ class Palette
 		std::list<std::string> environment;
 		std::list<std::string> unit;
 		std::list<std::string> merchant;
+		std::list<std::string> portal;
 		std::list<PaletteItem> paletteItems;
 
 		bool unloadPalettes();
@@ -51,6 +52,7 @@ class Palette
 		bool erasePaletteItem();
 		bool loadPaletteItemList(std::list<std::string>& list, std::string field);
 		std::shared_ptr<Model> loadPaletteItemModel(std::string filename, sf::Vector2f position);
+		bool loadPaletteShape(std::shared_ptr<Model> model, std::string filename);
 
 		Palette(Manager* manager);
 		~Palette();
