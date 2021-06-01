@@ -70,6 +70,11 @@ int Map::getObjectPriority(MapObjectType type)
 			return 5;
 			break;
 		}
+		case (MapObjectType::motPortal):
+		{
+			return 4;
+			break;
+		}
 	}
 
 	return 0;
@@ -88,6 +93,12 @@ std::string Map::getOriginFromField(json line, MapObjectType type)
 		case (MapObjectType::motMerchant):
 		{
 			return line.value("merchant", "");
+			break;
+		}
+
+		case (MapObjectType::motPortal):
+		{
+			return line.value("type", "");
 			break;
 		}
 
@@ -172,8 +183,8 @@ bool Map::renderObject(json& localfile, MapObjectUnit& object)
 {
 	localfile["x"] = object.position.x;
 	localfile["y"] = object.position.y;
-	localfile["scale"] = object.model->sprite->getScale().x;
-	localfile["rotation"] = object.model->sprite->getRotation();
+	localfile["scale"] = object.model->getScale().x;
+	localfile["rotation"] = object.model->getRotation();
 
 	switch (object.type)
 	{
@@ -202,7 +213,7 @@ bool Map::renderMap()
 	this->file["map"]["name"] = this->data.name;
 	this->file["map"]["version"] = this->data.version;
 
-	std::vector<std::string> objectsField = { "terrain", "prop", "environment", "unit", "merchant" };
+	std::vector<std::string> objectsField = { "terrain", "prop", "environment", "unit", "merchant", "portal" };
 
 	for (auto& objectField : objectsField)
 		this->file[objectField].clear();
@@ -240,6 +251,13 @@ bool Map::renderMap()
 			{
 				fieldName = "merchant";
 				fieldCaption = "merchant";
+				filename = object.model->origin;
+				break;
+			}
+			case (MapObjectType::motPortal):
+			{
+				fieldName = "portal";
+				fieldCaption = "type";
 				filename = object.model->origin;
 				break;
 			}
@@ -317,7 +335,7 @@ bool Map::loadMap()
 
 	this->updateMapInfo();
 
-	std::vector<std::string> objectsField = { "terrain", "prop", "environment", "unit", "merchant" };
+	std::vector<std::string> objectsField = { "terrain", "prop", "environment", "unit", "merchant", "portal" };
 
 	for (auto& field : objectsField)
 	{
@@ -331,6 +349,8 @@ bool Map::loadMap()
 			type = MapObjectType::motUnit;
 		else if (field == "merchant")
 			type = MapObjectType::motMerchant;
+		else if (field == "portal")
+			type = MapObjectType::motPortal;
 
 		int priority = this->getObjectPriority(type);
 			
@@ -340,6 +360,8 @@ bool Map::loadMap()
 
 			if (type == MapObjectType::motUnit || type == MapObjectType::motMerchant)
 				texture = this->getTextureFromUnit(this->file[field][index], type);
+			else if (type == MapObjectType::motPortal)
+				texture = Json::getString(this->file[field][index].value("type", ""));
 			else
 				texture = Json::getString(this->file[field][index].value("texture", ""));
 
@@ -353,11 +375,25 @@ bool Map::loadMap()
 				sf::Vector2f position(this->file[field][index][dimensionField][dimensionIndex].value("x", 0.f),
 									  this->file[field][index][dimensionField][dimensionIndex].value("y", 0.f));
 
-				std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, position, "textures/" + texture, priorityIndex, false, "",
-																	   this->getOriginFromField(this->file[field][index], type));
-				model->sprite->setScale(sf::Vector2f(this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f),
-													 this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f)));
-				model->sprite->setRotation(this->file[field][index][dimensionField][dimensionIndex].value("rotation", 0.f));
+				std::shared_ptr<Model> model = nullptr;
+				switch (type)
+				{
+					case (MapObjectType::motPortal):
+					{
+						model = std::make_shared<Model>(this->manager, position, "", priorityIndex, false, "", this->getOriginFromField(this->file[field][index], type));
+						this->manager->palette->loadPaletteShape(model, texture);
+						break;
+					}
+
+					default:
+					{
+						model = std::make_shared<Model>(this->manager, position, "textures/" + texture, priorityIndex, false, "",
+														this->getOriginFromField(this->file[field][index], type));
+						model->sprite->setScale(sf::Vector2f(this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f),
+															 this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f)));
+						model->sprite->setRotation(this->file[field][index][dimensionField][dimensionIndex].value("rotation", 0.f));
+					}
+				}
 				this->manager->addView(std::static_pointer_cast<ViewElement>(model));
 
 				std::vector<std::string> subFieldsExceptions = {"texture", "unit", "merchant", "x", "y", "scale", "rotation", "priority"};
@@ -402,6 +438,7 @@ bool Map::loadMap()
 bool Map::newMap()
 {
 	this->clearObjects();
+	this->manager->palette->clearPaletteItem();
 
 	this->filename = "";
 	this->data.size = sf::Vector2i(1000, 1000);
