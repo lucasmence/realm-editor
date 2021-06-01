@@ -387,6 +387,12 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 			std::string texture = this->manager->palette->selectedItem;
 			std::list<MapObjectField> fields = {};
 
+			sf::Vector2f tilesetPosition(this->shapeHover->shape->getPosition());
+			sf::Vector2f tilesetOrigin(this->shapeHover->shape->getOrigin());
+
+			sf::Vector2f hoverCenter(this->shapeHover->shape->getPosition().x + this->shapeHover->shape->getGlobalBounds().width / 2.f,
+									 this->shapeHover->shape->getPosition().y + this->shapeHover->shape->getGlobalBounds().height / 2.f);
+
 			int priorityValue = this->priority;
 
 			switch (this->manager->palette->type)
@@ -419,10 +425,7 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 					texture = this->manager->palette->selectedTexture;
 					std::vector<EditValue> extraValues = this->getExtraEditsValue();
 
-					MapObjectField fieldObject;
-					fieldObject.field = "alliance";
-					fieldObject.valueString = MapObjectFieldString{ extraValues.at(0).string, true};
-					fields.emplace_back(fieldObject);
+					fields.emplace_back(MapObjectField{ "alliance", MapObjectFieldString{ extraValues.at(0).string, true} });
 
 					priorityValue = 0;
 
@@ -438,15 +441,37 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 
 					break;
 				}
+				case (PaletteType::ptPortal):
+				{
+					objectType = MapObjectType::motPortal;
+					paletteTypeField = "";
+					texture = "";
+
+					std::vector<EditValue> extraValues = this->getExtraEditsValue();
+
+					fields.emplace_back(MapObjectField{ "default", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
+					fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+
+					priorityValue = this->manager->map->getObjectPriority(objectType);
+
+					std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, 
+																		   tilesetPosition, 
+																		   "", priorityValue, false, "", this->manager->palette->selectedOrigin);
+
+					this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin);
+					model->setOrigin(tilesetOrigin);
+					this->manager->addView(std::static_pointer_cast<ViewElement>(model));
+					this->manager->map->addObjectUnit(MapObjectUnit{ objectType, model->getPosition(), 0.f, model, fields });
+
+					this->manager->palette->clearPaletteItem();
+
+					return true;
+
+					break;
+				}
 			}
 
 			priorityValue += this->manager->map->getObjectPriority(objectType);
-
-			sf::Vector2f tilesetPosition(this->shapeHover->shape->getPosition());
-			sf::Vector2f tilesetOrigin(this->shapeHover->shape->getOrigin());
-
-			sf::Vector2f hoverCenter(this->shapeHover->shape->getPosition().x + this->shapeHover->shape->getGlobalBounds().width / 2.f,
-									 this->shapeHover->shape->getPosition().y + this->shapeHover->shape->getGlobalBounds().height / 2.f);
 
 			if (this->mousePressed && this->spawnPress)
 				for (auto& object : this->manager->map->objects)
@@ -475,7 +500,7 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 		{
 			MapObjectUnit objectSelected{ MapObjectType::motTerrain , sf::Vector2f(0.f, 0.f), 0.f, nullptr, {} };
 			for (auto& object : this->manager->map->objects)
-				if (object.model->sprite->getGlobalBounds().contains(cursor))
+				if (object.model->getGlobalBounds().contains(cursor))
 				{
 					if (objectSelected.model != nullptr)
 						if (objectSelected.model->priority < object.model->priority)
@@ -553,6 +578,8 @@ bool Hud::buttonsClick(sf::Vector2f cursor)
 				this->manager->palette->selectPalette(PaletteType::ptUnit);
 			else if (button->name == "btnMerchant")
 				this->manager->palette->selectPalette(PaletteType::ptMerchant);
+			else if (button->name == "btnPortal")
+				this->manager->palette->selectPalette(PaletteType::ptPortal);
 
 			return true;
 			break;
