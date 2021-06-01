@@ -8,6 +8,8 @@
 #ifndef MODEL_HPP
 #define MODEL_HPP
 
+enum class ShapeType {stRectangle, stCircle};
+
 class Manager;
 
 class Model : public ViewElement
@@ -19,6 +21,7 @@ class Model : public ViewElement
 		std::shared_ptr<Texture> texture;
 		std::string filename;
 		std::string origin;
+		ShapeType shapeType;
 
 		Model(Manager* manager, sf::Vector2f position, std::string filename = "", int priority = 2, bool canvasBound = true, std::string name = "", std::string origin = "");
 		~Model();
@@ -26,6 +29,13 @@ class Model : public ViewElement
 		bool loadSprite(std::string filename, sf::Vector2f position);
 		bool loadShape(sf::Vector2f size, sf::Color color);
 		bool setPosition(sf::Vector2f position);
+		bool setColor(sf::Color color);
+		bool setOrigin(sf::Vector2f position);
+		sf::Vector2f getScale();
+		float getRotation();
+		sf::Vector2f getPosition();
+		sf::FloatRect getGlobalBounds();
+		
 		virtual bool draw();
 		virtual bool reset();
 

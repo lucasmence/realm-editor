@@ -13,6 +13,7 @@ Model::Model(Manager* manager, sf::Vector2f position, std::string filename, int 
 	this->name = name;
 	this->filename = filename;
 	this->origin = origin;
+	this->shapeType = ShapeType::stRectangle;
 
 	if (filename != "")
 		this->loadSprite(filename, position);
@@ -83,6 +84,7 @@ bool Model::loadShape(sf::Vector2f size, sf::Color color)
 		this->shape = std::make_shared<sf::RectangleShape>(size);
 		this->shape->setFillColor(color);
 		this->shape->setPosition(this->position);
+		this->shapeType = ShapeType::stRectangle;
 		return true;
 	}
 	else if (size.x > 0.f && size.y <= 0.f)
@@ -90,6 +92,7 @@ bool Model::loadShape(sf::Vector2f size, sf::Color color)
 		this->shape = std::make_shared<sf::CircleShape>(size.x);
 		this->shape->setFillColor(color);
 		this->shape->setPosition(this->position);
+		this->shapeType = ShapeType::stCircle;
 		return true;
 	}
 	return false;
@@ -115,4 +118,62 @@ bool Model::reset()
 		this->shape->setFillColor(sf::Color(this->shape->getFillColor().r, this->shape->getFillColor().g, this->shape->getFillColor().b, 255));
 
 	return ViewElement::reset();
+}
+
+sf::Vector2f Model::getPosition()
+{
+	if (this->sprite)
+		return this->sprite->getPosition();
+	if (this->shape)
+		return this->shape->getPosition();
+
+	return sf::Vector2f(0.f, 0.f);
+}
+
+sf::Vector2f Model::getScale()
+{
+	if (this->sprite)
+		return this->sprite->getScale();
+	if (this->shape)
+		return this->shape->getScale();
+
+	return sf::Vector2f(0.f, 0.f);
+}
+
+float Model::getRotation()
+{
+	if (this->sprite)
+		return this->sprite->getRotation();
+	if (this->shape)
+		return this->shape->getRotation();
+
+	return 0;
+}
+
+sf::FloatRect Model::getGlobalBounds()
+{
+	if (this->sprite)
+		return this->sprite->getGlobalBounds();
+	if (this->shape)
+		return this->shape->getGlobalBounds();
+
+	return sf::FloatRect(0.f, 0.f, 0.f, 0.f);
+}
+
+bool Model::setColor(sf::Color color)
+{
+	if (this->sprite)
+		this->sprite->setColor(color);
+	if (this->shape)
+		this->shape->setFillColor(color);
+	return true;
+}
+
+bool Model::setOrigin(sf::Vector2f position)
+{
+	if (this->sprite)
+		this->sprite->setOrigin(position);
+	if (this->shape)
+		this->shape->setOrigin(position);
+	return true;
 }
