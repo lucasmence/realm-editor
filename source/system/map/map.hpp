@@ -97,8 +97,9 @@ class Map
 		bool renderObjectField(json& localfile, MapObjectField& field);
 		bool saveMap();
 		bool saveMapAs();
-		bool loadMap();
+		bool loadMap(std::string file = "");
 		bool newMap();
+		bool reloadMap();
 
 };
 

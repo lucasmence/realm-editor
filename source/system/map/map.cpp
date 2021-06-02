@@ -312,13 +312,24 @@ bool Map::saveMap()
 	return true;
 }
 
-bool Map::loadMap()
+bool Map::reloadMap()
+{
+	if (this->filename == "")
+		return false;
+	this->loadMap(this->filename);
+	return true;
+}
+
+bool Map::loadMap(std::string file)
 {
 	this->newMap();
 
 	std::string dimensionField = "dimensions";
 
-	this->filename = script::loadFile();
+	if (file == "")
+		this->filename = script::loadFile();
+	else
+		this->filename = file;
 	this->file = Json::loadFromFile(this->filename);
 
 	this->manager->hud->showMessage("Loading map...");
