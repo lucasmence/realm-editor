@@ -1,3 +1,4 @@
+#include <memory>
 #include "model.hpp"
 #include "../library/json.hpp"
 #include "../manager.hpp"
@@ -14,6 +15,7 @@ Model::Model(Manager* manager, sf::Vector2f position, std::string filename, int 
 	this->filename = filename;
 	this->origin = origin;
 	this->shapeType = ShapeType::stRectangle;
+	this->elementType = ElementType::etModel;
 
 	if (filename != "")
 		this->loadSprite(filename, position);
@@ -58,17 +60,43 @@ bool Model::draw()
 
 bool Model::loadSprite(std::string filename, sf::Vector2f position)
 {
-	json jsonFile = Json::loadFromFile("data/" + filename + ".json");
 	this->filename = filename;
-
+	bool textureFound = false;
 	sf::Vector2i dimension(0, 0);
-	for (int index = 0; index < jsonFile["animation"].size(); index++)
+	std::shared_ptr<Model> usedModel = nullptr;
+		
+	if (!usedModel)
+		for (auto& modelIndex : this->manager->list.viewElements)
+			if (modelIndex->elementType == this->elementType)
+				if (std::dynamic_pointer_cast<Model>(modelIndex)->filename == this->filename)
+				{
+					usedModel = std::dynamic_pointer_cast<Model>(modelIndex);
+					break;
+				}
+
+	if (usedModel)
 	{
-		dimension = sf::Vector2i(jsonFile["animation"][index].value("sprite-direction-width", 0), jsonFile["animation"][index].value("sprite-direction-height", 0));
-		break;
+		this->texture = usedModel->texture;
+		sf::IntRect textureRect = usedModel->sprite->getTextureRect();
+		dimension = sf::Vector2i(textureRect.width, textureRect.height);
+		textureFound = true;
 	}
 
-	this->texture = this->manager->getTexture(jsonFile.value("texturename", ""));
+	if (!textureFound)
+	{ 
+		std::string textureName = "";
+		json jsonFile = Json::loadFromFile("data/" + filename + ".json");
+		
+		for (int index = 0; index < jsonFile["animation"].size(); index++)
+		{
+			dimension = sf::Vector2i(jsonFile["animation"][index].value("sprite-direction-width", 0), jsonFile["animation"][index].value("sprite-direction-height", 0));
+			break;
+		}
+
+		textureName = jsonFile.value("texturename", "");
+		this->texture = this->manager->getTexture(textureName);
+	}
+	
 	this->sprite = std::make_shared<sf::Sprite>();
 	this->sprite->setTexture(this->texture->texture);
 	this->sprite->setTextureRect(sf::IntRect(0, 0, dimension.x, dimension.y));
