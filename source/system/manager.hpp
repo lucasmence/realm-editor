@@ -15,6 +15,13 @@
 #ifndef MANAGER_HPP
 #define MANAGER_HPP
 
+struct ManagerConstant
+{
+	std::string fontFilePath;
+	std::vector<int> gridSize;
+	std::vector<int> brushSize;
+};
+
 struct ManagerList
 {
 	std::list<std::shared_ptr<ViewElement>> viewElements;
@@ -31,6 +38,7 @@ class Manager
 		std::shared_ptr<sf::View> canvas;
 		std::shared_ptr<Map> map;
 		ManagerList list;
+		ManagerConstant constant;
 
 		sf::Vector2f canvasPosition;
 		sf::Image icon;
@@ -55,6 +63,7 @@ class Manager
 		bool addViewElement(std::shared_ptr<ViewElement> element);
 		bool moveCanvas(sf::Vector2f position);
 		bool setCanvas();
+		bool loadConstants();
 		std::shared_ptr<Texture> getTexture(std::string filename);
 		std::string setTitle(std::string value);
 		sf::Vector2f getMousePosition();
