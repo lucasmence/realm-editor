@@ -4,12 +4,13 @@
 Manager::Manager()
 {
     this->unloadAll();
+    this->loadConstants();
 
     this->appName = "realm-editor";
 	this->window = std::make_shared<sf::RenderWindow>(sf::VideoMode(1920, 1080), appName, sf::Style::Default);
 
     this->font = std::shared_ptr<sf::Font>(new sf::Font);
-    this->font->loadFromFile("resources/fonts/consola.ttf");
+    this->font->loadFromFile(this->constant.fontFilePath);
     this->icon.loadFromFile("realm-editor.png");
     this->window->setIcon(this->icon.getSize().x, this->icon.getSize().y, this->icon.getPixelsPtr());
 
@@ -239,6 +240,26 @@ std::shared_ptr<Texture> Manager::getTexture(std::string filename)
     std::shared_ptr<Texture> texture = std::make_shared<Texture>(filename);
     this->list.textures.emplace_back(texture);
     return texture;
+}
+
+bool Manager::loadConstants()
+{
+
+    json file = Json::loadFromFile("data/options/realm-editor.json");
+    this->constant.fontFilePath = file.value("font-file-path", "");
+
+    this->constant.gridSize.clear();
+    this->constant.brushSize.clear();
+
+    for (int index = 0; index < file["grid-size"].size(); index++)
+        this->constant.gridSize.emplace_back(file["grid-size"][index]);
+
+    for (int index = 0; index < file["brush-size"].size(); index++)
+        this->constant.brushSize.emplace_back(file["brush-size"][index]);
+
+    file.clear();
+
+    return true;
 }
 
 bool Manager::unloadAll()

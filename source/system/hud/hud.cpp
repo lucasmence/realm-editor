@@ -8,8 +8,8 @@
 Hud::Hud(Manager* manager)
 {
 	this->manager = manager;
-	this->gridSizeList = { 32, 64, 128, 256 };
-	this->brushSizeList = { 1, 4, 16 };
+	this->gridSizeList = this->manager->constant.gridSize;
+	this->brushSizeList = this->manager->constant.brushSize;
 	this->gridSize = 1;
 	this->brushSize = 0;
 	this->rotation = 0;
@@ -387,6 +387,12 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 			std::string texture = this->manager->palette->selectedItem;
 			std::list<MapObjectField> fields = {};
 
+			sf::Vector2f tilesetPosition(this->shapeHover->shape->getPosition());
+			sf::Vector2f tilesetOrigin(this->shapeHover->shape->getOrigin());
+
+			sf::Vector2f hoverCenter(this->shapeHover->shape->getPosition().x + this->shapeHover->shape->getGlobalBounds().width / 2.f,
+									 this->shapeHover->shape->getPosition().y + this->shapeHover->shape->getGlobalBounds().height / 2.f);
+
 			int priorityValue = this->priority;
 
 			switch (this->manager->palette->type)
@@ -417,11 +423,9 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 					objectType = MapObjectType::motUnit;
 					paletteTypeField = "";
 					texture = this->manager->palette->selectedTexture;
+					std::vector<EditValue> extraValues = this->getExtraEditsValue();
 
-					MapObjectField fieldObject;
-					fieldObject.field = "alliance";
-					fieldObject.valueString = MapObjectFieldString{"enemy", true};
-					fields.emplace_back(fieldObject);
+					fields.emplace_back(MapObjectField{ "alliance", MapObjectFieldString{ extraValues.at(0).string, true} });
 
 					priorityValue = 0;
 
@@ -437,15 +441,52 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 
 					break;
 				}
+				case (PaletteType::ptPortal):
+				{
+					objectType = MapObjectType::motPortal;
+					paletteTypeField = "";
+					texture = "";
+
+					priorityValue = this->manager->map->getObjectPriority(objectType);
+
+					std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, 
+																		   tilesetPosition, 
+																		   "", priorityValue, false, "", this->manager->palette->selectedOrigin);
+
+					std::vector<EditValue> extraValues = this->getExtraEditsValue();
+
+					if (this->manager->palette->selectedOrigin == "spawner")
+					{
+						fields.emplace_back(MapObjectField{ "default", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
+						fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+
+						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin);
+					}
+					else if (this->manager->palette->selectedOrigin == "level")
+					{
+						fields.emplace_back(MapObjectField{ "group", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
+						fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+						fields.emplace_back(MapObjectField{ "target-index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
+						fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(3).integer, true } });
+						fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(4).integer, true } });
+						fields.emplace_back(MapObjectField{ "map", MapObjectFieldString{extraValues.at(5).string, true} });
+
+						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(3).integer, extraValues.at(4).integer));
+					}
+
+					model->setOrigin(tilesetOrigin);
+					this->manager->addView(std::static_pointer_cast<ViewElement>(model));
+					this->manager->map->addObjectUnit(MapObjectUnit{ objectType, model->getPosition(), 0.f, model, fields });
+
+					this->manager->palette->clearPaletteItem();
+
+					return true;
+
+					break;
+				}
 			}
 
 			priorityValue += this->manager->map->getObjectPriority(objectType);
-
-			sf::Vector2f tilesetPosition(this->shapeHover->shape->getPosition());
-			sf::Vector2f tilesetOrigin(this->shapeHover->shape->getOrigin());
-
-			sf::Vector2f hoverCenter(this->shapeHover->shape->getPosition().x + this->shapeHover->shape->getGlobalBounds().width / 2.f,
-									 this->shapeHover->shape->getPosition().y + this->shapeHover->shape->getGlobalBounds().height / 2.f);
 
 			if (this->mousePressed && this->spawnPress)
 				for (auto& object : this->manager->map->objects)
@@ -474,7 +515,7 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 		{
 			MapObjectUnit objectSelected{ MapObjectType::motTerrain , sf::Vector2f(0.f, 0.f), 0.f, nullptr, {} };
 			for (auto& object : this->manager->map->objects)
-				if (object.model->sprite->getGlobalBounds().contains(cursor))
+				if (object.model->getGlobalBounds().contains(cursor))
 				{
 					if (objectSelected.model != nullptr)
 						if (objectSelected.model->priority < object.model->priority)
@@ -522,6 +563,10 @@ bool Hud::buttonsClick(sf::Vector2f cursor)
 				this->manager->map->loadMap();
 			else if (button->name == "btnNew")
 				this->manager->map->newMap();
+			else if (button->name == "btnReload")
+				this->manager->map->reloadMap();
+			else if (button->name == "btnReloadConfig")
+				this->manager->loadConstants();
 			else if (button->name == "btnHelp")
 				this->help();
 			else if (button->name == "btnGridSizeIncrease")
@@ -552,6 +597,8 @@ bool Hud::buttonsClick(sf::Vector2f cursor)
 				this->manager->palette->selectPalette(PaletteType::ptUnit);
 			else if (button->name == "btnMerchant")
 				this->manager->palette->selectPalette(PaletteType::ptMerchant);
+			else if (button->name == "btnPortal")
+				this->manager->palette->selectPalette(PaletteType::ptPortal);
 
 			return true;
 			break;
@@ -636,6 +683,100 @@ bool Hud::setEditValue(std::string editName, std::string value)
 	return false;
 }
 
+bool Hud::updateExtraEditsValue(std::vector<std::string> caption, std::vector<EditType> type, std::vector<std::string> value, std::vector<int> maxValue)
+{
+	for (int index = 0; index < 6; index++)
+	{
+		for (auto& label : this->labels)
+			if (label->name == "lblExtraField-" + boost::lexical_cast<std::string>(index))
+				label->visible = false;
+
+		for (auto& edit : this->edits)
+			if (edit->name == "edtExtraField-" + boost::lexical_cast<std::string>(index))
+				edit->setVisible(false);
+	}
+
+	if (caption.size() <= 0)
+		return false;
+
+	sf::FloatRect extraFieldRegion = sf::FloatRect(0.f, 0.f, 0.f, 0.f);
+	sf::Vector2f extraSpace(45.f, 0.f);
+	sf::Vector2i extraSide(1, 0);
+
+	for (int index = 0; index < caption.size(); index++)
+	{
+		for (auto& label : this->labels)
+			if (label->name == "lblExtraField-" + boost::lexical_cast<std::string>(index))
+			{
+				label->text->setString(caption.at(index));
+				label->visible = true;
+
+				if (index > 0)
+					label->setPosition(position::getSidePosition(extraFieldRegion,
+																 sf::FloatRect(extraSpace.x, extraSpace.y,
+																			   label->text->getGlobalBounds().width,
+																			   label->text->getGlobalBounds().height),
+																 extraSpace, extraSide));
+
+				extraFieldRegion = sf::FloatRect(label->position.x, label->position.y, label->text->getGlobalBounds().width, label->text->getGlobalBounds().height);
+
+				for (auto& edit : this->edits)
+					if (edit->name == "edtExtraField-" + boost::lexical_cast<std::string>(index))
+					{
+						edit->type = type.at(index);
+						edit->setValue(value.at(index));
+
+						switch (edit->type)
+						{
+							case (EditType::etString):
+							{
+								edit->maxLength = maxValue.at(index);
+								break;
+							}
+							case (EditType::etInteger):
+							{
+								edit->integerMaxValue = maxValue.at(index);
+								break;
+							}
+						}
+
+						edit->setVisible(true);
+
+						extraSpace = sf::Vector2f(0.f, 0.f);
+
+						sf::Vector2f positionSide = position::getSidePosition(extraFieldRegion, sf::FloatRect(extraSpace.x, extraSpace.y, 
+																											  edit->shape->shape->getGlobalBounds().width, 
+																											  edit->shape->shape->getGlobalBounds().height), 
+																			  extraSpace, extraSide);
+
+						edit->shape->setPosition(positionSide);
+						edit->label->setPosition(sf::Vector2f(positionSide.x + 5.f, positionSide.y));
+
+						extraFieldRegion = sf::FloatRect(edit->shape->position.x, label->position.y,
+														 edit->shape->shape->getGlobalBounds().width, edit->shape->shape->getGlobalBounds().height);
+						extraSpace = sf::Vector2f(45.f, 0.f);
+
+						break;
+					}
+
+				break;
+			}
+	}
+
+	return true;
+}
+std::vector<EditValue> Hud::getExtraEditsValue()
+{
+	std::vector<EditValue> values = {};
+
+	for (int index = 0; index < 6; index++)
+		for (auto& edit : this->edits)
+			if (edit->name == "edtExtraField-" + boost::lexical_cast<std::string>(index) && edit->label->visible)
+				values.emplace_back(edit->getValue());
+
+	return values;
+}
+
 bool Hud::updateEditValues()
 {
 	for (auto& edit : this->edits)
@@ -707,7 +848,9 @@ bool Hud::loadGrid()
 
 	sf::Vector2f distance(this->gridSizeList.at(this->gridSize), this->gridSizeList.at(this->gridSize));
 
-	for (int x = 0; x < (int(40 / (this->gridSize + 1))); x++)
+	float gridSizeValue = this->gridSizeList.at(this->gridSize) / 32.f;
+
+	for (int x = 0; x < (int(40 / gridSizeValue)); x++)
 	{
 		std::shared_ptr<Model> line = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, x * distance.y), "", 3);
 
@@ -716,7 +859,7 @@ bool Hud::loadGrid()
 		this->grid.emplace_back(line);
 	}
 
-	for (int y = 0; y < (int(64 / (this->gridSize + 1))); y++)
+	for (int y = 0; y < (int(64 / gridSizeValue)); y++)
 	{
 		std::shared_ptr<Model> line = std::make_shared<Model>(this->manager, sf::Vector2f(y * distance.x, 0.f), "", 3);
 
@@ -755,9 +898,11 @@ bool Hud::loadButtons()
 {
 	std::shared_ptr<Button> btnNew = std::make_shared<Button>(this->manager, "[New]", sf::Vector2f(15.f, 10.f), "btnNew", 20);
 	std::shared_ptr<Button> btnOpen = std::make_shared<Button>(this->manager, "[Open]", sf::Vector2f(0.f, 0.f), "btnOpen", 20, btnNew, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnSave = std::make_shared<Button>(this->manager, "[Save]", sf::Vector2f(0.f, 0.f), "btnSave", 20, btnOpen, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnReload = std::make_shared<Button>(this->manager, "[Reload]", sf::Vector2f(0.f, 0.f), "btnReload", 20, btnOpen, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnSave = std::make_shared<Button>(this->manager, "[Save]", sf::Vector2f(0.f, 0.f), "btnSave", 20, btnReload, sf::Vector2i(1, 0));
 	std::shared_ptr<Button> btnSaveAs = std::make_shared<Button>(this->manager, "[Save As]", sf::Vector2f(0.f, 0.f), "btnSaveAs", 20, btnSave, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnHelp = std::make_shared<Button>(this->manager, "[Help]", sf::Vector2f(0.f, 0.f), "btnHelp", 20, btnSaveAs, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnReloadConfig = std::make_shared<Button>(this->manager, "[Reload Config]", sf::Vector2f(0.f, 0.f), "btnReloadConfig", 20, btnSaveAs, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnHelp = std::make_shared<Button>(this->manager, "[Help]", sf::Vector2f(0.f, 0.f), "btnHelp", 20, btnReloadConfig, sf::Vector2i(1, 0));
 
 	std::shared_ptr<Button> btnClear = std::make_shared<Button>(this->manager, "[C]", sf::Vector2f(1325.f, 65.f), "btnClear", 20);
 	std::shared_ptr<Button> btnErase = std::make_shared<Button>(this->manager, "[E]", sf::Vector2f(0.f, 0.f), "btnErase", 20, btnClear, sf::Vector2i(-1, 0));
@@ -882,10 +1027,40 @@ bool Hud::loadButtons()
 	edtMapVersion->setValue("1.00");
 	edtMapVersion->maxLength = 16;
 
+	sf::FloatRect extraFieldRegion = btnNew->shape->shape->getGlobalBounds();
+	sf::Vector2f extraSpace(0.f, 45.f);
+	sf::Vector2i extraSide(0, 1);
+
+	for (int index = 0; index < 6; index++)
+	{
+		std::shared_ptr<Label> labelIndex = std::make_shared<Label>(this->manager, "-", 15, extraSpace, 1, sf::Color(255, 255, 255, 255),
+																	"lblExtraField-" + boost::lexical_cast<std::string>(index));
+		labelIndex->setPosition(position::getSidePosition(extraFieldRegion,
+														  labelIndex->text->getGlobalBounds(),
+														  labelIndex->text->getPosition(), extraSide));
+		this->manager->addView(std::static_pointer_cast<ViewElement>(labelIndex));
+		this->labels.emplace_back(labelIndex);
+
+		std::shared_ptr<Edit> edtIndex = std::make_shared<Edit>(this->manager, EditType::etString, "", sf::Vector2f(0.f, -5.f), "edtExtraField-" + boost::lexical_cast<std::string>(index), 15,
+																labelIndex->text->getGlobalBounds(), sf::Vector2i(1, 0));
+		edtIndex->setValue("");
+
+		extraFieldRegion = labelIndex->text->getGlobalBounds();
+		extraSide = sf::Vector2i(1, 0);
+		extraSpace = sf::Vector2f(edtIndex->shape->shape->getGlobalBounds().width + 10.f, -13.f);
+
+		this->edits.emplace_back(edtIndex);
+
+		labelIndex->visible = false;
+		edtIndex->setVisible(false);
+	}
+
 	this->buttons.emplace_back(btnNew);
 	this->buttons.emplace_back(btnOpen);
+	this->buttons.emplace_back(btnReload);
 	this->buttons.emplace_back(btnSave);
 	this->buttons.emplace_back(btnSaveAs);
+	this->buttons.emplace_back(btnReloadConfig);
 	this->buttons.emplace_back(btnHelp);
 	this->buttons.emplace_back(btnClear);
 	this->buttons.emplace_back(btnErase);
