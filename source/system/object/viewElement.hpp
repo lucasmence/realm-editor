@@ -5,6 +5,8 @@
 #ifndef VIEWELEMENT_HPP
 #define VIEWELEMENT_HPP
 
+enum class ElementType {etModel, etLabel};
+
 class ViewElement
 {
 	public:
@@ -18,6 +20,7 @@ class ViewElement
 		float time;
 		float timeSpeed;
 		float fadeSpeed;
+		ElementType elementType;
 
 		virtual ~ViewElement();
 		virtual bool draw();

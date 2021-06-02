@@ -21,6 +21,7 @@ Label::Label(Manager* manager,
 	this->priority = priority;
 	this->name = name;
 	this->canvasBound = canvasBound;
+	this->elementType = ElementType::etLabel;
 }
 
 Label::~Label()
