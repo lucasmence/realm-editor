@@ -15,6 +15,7 @@ Hud::Hud(Manager* manager)
 	this->rotation = 0;
 	this->priority = 0;
 	this->scale = 1.f;
+	this->gridSpawn = true;
 	this->spawnPress = false;
 	this->mousePressed = false;
 	this->centerShape = false;
@@ -108,14 +109,19 @@ bool Hud::updateCursor(sf::Vector2f cursor)
 				return false;
 			}
 	
-	sf::Vector2f positionCenter(0.f, 0.f);
-	if (this->centerShape)
-		positionCenter = sf::Vector2f(this->shapeHover->shape->getGlobalBounds().width / 2.f, this->shapeHover->shape->getGlobalBounds().height / 2.f);
-
 	this->shapeHover->visible = true;
-	this->shapeHover->shape->setPosition(position::getGridPosition(sf::Vector2f(this->gridSizeList.at(this->gridSize) / 2.f + (positionCenter.x),
-																				this->gridSizeList.at(this->gridSize) / 2.f + (positionCenter.y)),
-																				cursor));
+
+	sf::Vector2f shapePosition(0.f, 0.f);
+	if (this->centerShape)
+		shapePosition = sf::Vector2f(this->shapeHover->shape->getGlobalBounds().width / 2.f, this->shapeHover->shape->getGlobalBounds().height / 2.f);
+
+	if (this->gridSpawn)
+		shapePosition = position::getGridPosition(sf::Vector2f(this->gridSizeList.at(this->gridSize) / 2.f + (shapePosition.x),
+															   this->gridSizeList.at(this->gridSize) / 2.f + (shapePosition.y)), cursor);
+	else 
+		shapePosition = sf::Vector2f(cursor.x - shapePosition.x, cursor.y - shapePosition.y);
+	
+	this->shapeHover->shape->setPosition(shapePosition);
 
 	return true;
 }
@@ -263,6 +269,13 @@ bool Hud::toggleMapAreaSize(std::shared_ptr<Button> button)
 {
 	button->selected = !button->selected;
 	this->shapeMapArea->visible = button->selected;
+	return true;
+}
+
+bool Hud::toggleGridSpawn(std::shared_ptr<Button> button)
+{
+	button->selected = !button->selected;
+	this->gridSpawn = !button->selected;
 	return true;
 }
 
@@ -598,6 +611,8 @@ bool Hud::buttonsClick(sf::Vector2f cursor)
 				this->toggleMapAreaSize(button);
 			else if (button->name == "btnMatrix")
 				this->toggleMatrixTriggered(button);
+			else if (button->name == "btnGridSpawn")
+				this->toggleGridSpawn(button);
 			else if (button->name == "btnTerrain")
 				this->manager->palette->selectPalette(PaletteType::ptTerrain);
 			else if (button->name == "btnProp")
@@ -922,6 +937,7 @@ bool Hud::loadButtons()
 	std::shared_ptr<Button> btnCenterShape = std::make_shared<Button>(this->manager, "[S]", sf::Vector2f(0.f, 0.f), "btnCenterShape", 20, btnSpawnPress, sf::Vector2i(-1, 0));
 	std::shared_ptr<Button> btnMatrix = std::make_shared<Button>(this->manager, "[M]", sf::Vector2f(0.f, 0.f), "btnMatrix", 20, btnCenterShape, sf::Vector2i(-1, 0));
 	std::shared_ptr<Button> btnMapAreaSize = std::make_shared<Button>(this->manager, "[A]", sf::Vector2f(0.f, 0.f), "btnMapAreaSize", 20, btnGridVisibilityToggle, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnGridSpawn = std::make_shared<Button>(this->manager, "[D]", sf::Vector2f(0.f, 0.f), "btnGridSpawn", 20, btnMapAreaSize, sf::Vector2i(1, 0));
 	
 	std::shared_ptr<Button> btnUnit = std::make_shared<Button>(this->manager, "[Units]", sf::Vector2f(1650.f, 200.f), "btnUnit", 20);
 	std::shared_ptr<Button> btnMerchant = std::make_shared<Button>(this->manager, "[Merchants]", sf::Vector2f(0.f, 0.f), "btnMerchant", 20, btnUnit, sf::Vector2i(1, 0));
@@ -1079,6 +1095,7 @@ bool Hud::loadButtons()
 	this->buttons.emplace_back(btnSpawnPress);
 	this->buttons.emplace_back(btnCenterShape);
 	this->buttons.emplace_back(btnMapAreaSize);
+	this->buttons.emplace_back(btnGridSpawn);
 	this->buttons.emplace_back(btnUnit);
 	this->buttons.emplace_back(btnMerchant);
 	this->buttons.emplace_back(btnProp);
