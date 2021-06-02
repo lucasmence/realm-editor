@@ -8,8 +8,8 @@
 Hud::Hud(Manager* manager)
 {
 	this->manager = manager;
-	this->gridSizeList = { 32, 64, 128, 256 };
-	this->brushSizeList = { 1, 4, 16 };
+	this->gridSizeList = this->manager->constant.gridSize;
+	this->brushSizeList = this->manager->constant.brushSize;
 	this->gridSize = 1;
 	this->brushSize = 0;
 	this->rotation = 0;
@@ -563,6 +563,10 @@ bool Hud::buttonsClick(sf::Vector2f cursor)
 				this->manager->map->loadMap();
 			else if (button->name == "btnNew")
 				this->manager->map->newMap();
+			else if (button->name == "btnReload")
+				this->manager->map->reloadMap();
+			else if (button->name == "btnReloadConfig")
+				this->manager->loadConstants();
 			else if (button->name == "btnHelp")
 				this->help();
 			else if (button->name == "btnGridSizeIncrease")
@@ -844,7 +848,9 @@ bool Hud::loadGrid()
 
 	sf::Vector2f distance(this->gridSizeList.at(this->gridSize), this->gridSizeList.at(this->gridSize));
 
-	for (int x = 0; x < (int(40 / (this->gridSize + 1))); x++)
+	float gridSizeValue = this->gridSizeList.at(this->gridSize) / 32.f;
+
+	for (int x = 0; x < (int(40 / gridSizeValue)); x++)
 	{
 		std::shared_ptr<Model> line = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, x * distance.y), "", 3);
 
@@ -853,7 +859,7 @@ bool Hud::loadGrid()
 		this->grid.emplace_back(line);
 	}
 
-	for (int y = 0; y < (int(64 / (this->gridSize + 1))); y++)
+	for (int y = 0; y < (int(64 / gridSizeValue)); y++)
 	{
 		std::shared_ptr<Model> line = std::make_shared<Model>(this->manager, sf::Vector2f(y * distance.x, 0.f), "", 3);
 
@@ -892,9 +898,11 @@ bool Hud::loadButtons()
 {
 	std::shared_ptr<Button> btnNew = std::make_shared<Button>(this->manager, "[New]", sf::Vector2f(15.f, 10.f), "btnNew", 20);
 	std::shared_ptr<Button> btnOpen = std::make_shared<Button>(this->manager, "[Open]", sf::Vector2f(0.f, 0.f), "btnOpen", 20, btnNew, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnSave = std::make_shared<Button>(this->manager, "[Save]", sf::Vector2f(0.f, 0.f), "btnSave", 20, btnOpen, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnReload = std::make_shared<Button>(this->manager, "[Reload]", sf::Vector2f(0.f, 0.f), "btnReload", 20, btnOpen, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnSave = std::make_shared<Button>(this->manager, "[Save]", sf::Vector2f(0.f, 0.f), "btnSave", 20, btnReload, sf::Vector2i(1, 0));
 	std::shared_ptr<Button> btnSaveAs = std::make_shared<Button>(this->manager, "[Save As]", sf::Vector2f(0.f, 0.f), "btnSaveAs", 20, btnSave, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnHelp = std::make_shared<Button>(this->manager, "[Help]", sf::Vector2f(0.f, 0.f), "btnHelp", 20, btnSaveAs, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnReloadConfig = std::make_shared<Button>(this->manager, "[Reload Config]", sf::Vector2f(0.f, 0.f), "btnReloadConfig", 20, btnSaveAs, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnHelp = std::make_shared<Button>(this->manager, "[Help]", sf::Vector2f(0.f, 0.f), "btnHelp", 20, btnReloadConfig, sf::Vector2i(1, 0));
 
 	std::shared_ptr<Button> btnClear = std::make_shared<Button>(this->manager, "[C]", sf::Vector2f(1325.f, 65.f), "btnClear", 20);
 	std::shared_ptr<Button> btnErase = std::make_shared<Button>(this->manager, "[E]", sf::Vector2f(0.f, 0.f), "btnErase", 20, btnClear, sf::Vector2i(-1, 0));
@@ -1049,8 +1057,10 @@ bool Hud::loadButtons()
 
 	this->buttons.emplace_back(btnNew);
 	this->buttons.emplace_back(btnOpen);
+	this->buttons.emplace_back(btnReload);
 	this->buttons.emplace_back(btnSave);
 	this->buttons.emplace_back(btnSaveAs);
+	this->buttons.emplace_back(btnReloadConfig);
 	this->buttons.emplace_back(btnHelp);
 	this->buttons.emplace_back(btnClear);
 	this->buttons.emplace_back(btnErase);
