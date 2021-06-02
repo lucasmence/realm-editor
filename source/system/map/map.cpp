@@ -381,7 +381,8 @@ bool Map::loadMap()
 					case (MapObjectType::motPortal):
 					{
 						model = std::make_shared<Model>(this->manager, position, "", priorityIndex, false, "", this->getOriginFromField(this->file[field][index], type));
-						this->manager->palette->loadPaletteShape(model, texture);
+						this->manager->palette->loadPaletteShape(model, texture, sf::Vector2f(this->file[field][index][dimensionField][dimensionIndex].value("width", 0.f),
+																							  this->file[field][index][dimensionField][dimensionIndex].value("height", 0.f)));
 						break;
 					}
 
