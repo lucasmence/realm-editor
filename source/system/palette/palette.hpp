@@ -52,7 +52,7 @@ class Palette
 		bool erasePaletteItem();
 		bool loadPaletteItemList(std::list<std::string>& list, std::string field);
 		std::shared_ptr<Model> loadPaletteItemModel(std::string filename, sf::Vector2f position);
-		bool loadPaletteShape(std::shared_ptr<Model> model, std::string filename);
+		bool loadPaletteShape(std::shared_ptr<Model> model, std::string filename, sf::Vector2f size = sf::Vector2f(0.f, 0.f));
 
 		Palette(Manager* manager);
 		~Palette();
