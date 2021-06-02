@@ -447,18 +447,33 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 					paletteTypeField = "";
 					texture = "";
 
-					std::vector<EditValue> extraValues = this->getExtraEditsValue();
-
-					fields.emplace_back(MapObjectField{ "default", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
-					fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
-
 					priorityValue = this->manager->map->getObjectPriority(objectType);
 
 					std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, 
 																		   tilesetPosition, 
 																		   "", priorityValue, false, "", this->manager->palette->selectedOrigin);
 
-					this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin);
+					std::vector<EditValue> extraValues = this->getExtraEditsValue();
+
+					if (this->manager->palette->selectedOrigin == "spawner")
+					{
+						fields.emplace_back(MapObjectField{ "default", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
+						fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+
+						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin);
+					}
+					else if (this->manager->palette->selectedOrigin == "level")
+					{
+						fields.emplace_back(MapObjectField{ "group", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
+						fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+						fields.emplace_back(MapObjectField{ "target-index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
+						fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(3).integer, true } });
+						fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(4).integer, true } });
+						fields.emplace_back(MapObjectField{ "map", MapObjectFieldString{extraValues.at(5).string, true} });
+
+						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(3).integer, extraValues.at(4).integer));
+					}
+
 					model->setOrigin(tilesetOrigin);
 					this->manager->addView(std::static_pointer_cast<ViewElement>(model));
 					this->manager->map->addObjectUnit(MapObjectUnit{ objectType, model->getPosition(), 0.f, model, fields });
@@ -666,21 +681,19 @@ bool Hud::setEditValue(std::string editName, std::string value)
 
 bool Hud::updateExtraEditsValue(std::vector<std::string> caption, std::vector<EditType> type, std::vector<std::string> value, std::vector<int> maxValue)
 {
-	if (caption.size() == 0)
+	for (int index = 0; index < 6; index++)
 	{
-		for (int index = 0; index < 5; index++)
-		{
-			for (auto& label : this->labels)
-				if (label->name == "lblExtraField-" + boost::lexical_cast<std::string>(index))
-					label->visible = false;
+		for (auto& label : this->labels)
+			if (label->name == "lblExtraField-" + boost::lexical_cast<std::string>(index))
+				label->visible = false;
 
-			for (auto& edit : this->edits)
-				if (edit->name == "edtExtraField-" + boost::lexical_cast<std::string>(index))
-					edit->setVisible(false);
-		}
-
-		return false;	
+		for (auto& edit : this->edits)
+			if (edit->name == "edtExtraField-" + boost::lexical_cast<std::string>(index))
+				edit->setVisible(false);
 	}
+
+	if (caption.size() <= 0)
+		return false;
 
 	sf::FloatRect extraFieldRegion = sf::FloatRect(0.f, 0.f, 0.f, 0.f);
 	sf::Vector2f extraSpace(45.f, 0.f);
@@ -752,7 +765,7 @@ std::vector<EditValue> Hud::getExtraEditsValue()
 {
 	std::vector<EditValue> values = {};
 
-	for (int index = 0; index < 5; index++)
+	for (int index = 0; index < 6; index++)
 		for (auto& edit : this->edits)
 			if (edit->name == "edtExtraField-" + boost::lexical_cast<std::string>(index) && edit->label->visible)
 				values.emplace_back(edit->getValue());
@@ -1010,7 +1023,7 @@ bool Hud::loadButtons()
 	sf::Vector2f extraSpace(0.f, 45.f);
 	sf::Vector2i extraSide(0, 1);
 
-	for (int index = 0; index < 5; index++)
+	for (int index = 0; index < 6; index++)
 	{
 		std::shared_ptr<Label> labelIndex = std::make_shared<Label>(this->manager, "-", 15, extraSpace, 1, sf::Color(255, 255, 255, 255),
 																	"lblExtraField-" + boost::lexical_cast<std::string>(index));
