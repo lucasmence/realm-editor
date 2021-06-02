@@ -44,7 +44,7 @@ bool Palette::loadPalettes()
     this->environment = this->loadFileLists("textures/environment");
     this->unit = this->loadFileLists("characters");
     this->merchant = this->loadFileLists("merchants/stores");
-    this->portal = {"spawner", "level"};
+    this->portal = {"spawner", "level", "generator"};
 
     this->selectPalette(this->type);
 
@@ -137,6 +137,8 @@ bool Palette::loadPaletteShape(std::shared_ptr<Model> model, std::string filenam
         else
             model->loadShape(size, sf::Color(50, 50, 255, 100));
     }   
+    if (filename == "generator")
+        model->loadShape(sf::Vector2f(32.f, 0), sf::Color(255, 0, 0, 100));
 
     return true;
 }
@@ -290,6 +292,10 @@ bool Palette::selectPaletteItem(sf::Vector2f cursor)
             this->manager->hud->updateExtraEditsValue({ "Group", "Index", "Target Index", "Width", "Height", "Map"}, 
                                                       { EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etString },
                                                       { "1", "1", "1", "100", "100", "" }, { 99, 99, 99, 999, 999, 255 });
+        else if (filename == "generator")
+            this->manager->hud->updateExtraEditsValue({"Alliance", "Index", "Target X", "Target Y", "Cooldown", "Unit" },
+                { EditType::etString, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etString },
+                { "enemy", "1", "0", "0", "5", "" }, {12, 99, 99999, 99999, 9999, 255});
     }
 
     return true;
