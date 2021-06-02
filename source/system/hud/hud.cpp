@@ -10,7 +10,7 @@ Hud::Hud(Manager* manager)
 	this->manager = manager;
 	this->gridSizeList = this->manager->constant.gridSize;
 	this->brushSizeList = this->manager->constant.brushSize;
-	this->gridSize = 1;
+	this->gridSize = 2;
 	this->brushSize = 0;
 	this->rotation = 0;
 	this->priority = 0;
@@ -472,6 +472,17 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 						fields.emplace_back(MapObjectField{ "map", MapObjectFieldString{extraValues.at(5).string, true} });
 
 						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(3).integer, extraValues.at(4).integer));
+					}
+					else if (this->manager->palette->selectedOrigin == "generator")
+					{
+						fields.emplace_back(MapObjectField{ "alliance", MapObjectFieldString{ extraValues.at(0).string, true } });
+						fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+						fields.emplace_back(MapObjectField{ "target-x", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
+						fields.emplace_back(MapObjectField{ "target-y", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(3).integer, true } });
+						fields.emplace_back(MapObjectField{ "cooldown", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(4).integer, true } });
+						fields.emplace_back(MapObjectField{ "unit", MapObjectFieldString{ "characters/" + extraValues.at(5).string, true } });
+
+						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin);
 					}
 
 					model->setOrigin(tilesetOrigin);
@@ -1096,7 +1107,7 @@ bool Hud::loadLabels()
 {
 	std::shared_ptr<Label> lblCoordinates = std::make_shared<Label>(this->manager, "0, 0", 20, sf::Vector2f(1630.f, 70.f), 1, sf::Color(255, 255, 255, 255), "lblCoordinates");
 	std::shared_ptr<Label> lblPaletteItem = std::make_shared<Label>(this->manager, "0, 0", 20, sf::Vector2f(0.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblPaletteItem");
-	std::shared_ptr<Label> lblVersion = std::make_shared<Label>(this->manager, "0.02", 20, sf::Vector2f(1870.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblVersion");
+	std::shared_ptr<Label> lblVersion = std::make_shared<Label>(this->manager, "0.03", 20, sf::Vector2f(1870.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblVersion");
 	std::shared_ptr<Label> lblPaletteStatus = std::make_shared<Label>(this->manager, "- - -", 30, sf::Vector2f(0.f, 960.f), 1, sf::Color(255, 255, 255, 255), "lblPaletteStatus");
 	std::shared_ptr<Label> lblMessageBox = std::make_shared<Label>(this->manager, "", 20, sf::Vector2f(0.f, 900.f), 1, sf::Color(255, 255, 255, 255), "lblMessageBox");
 
