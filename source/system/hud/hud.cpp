@@ -415,6 +415,13 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 					objectType = MapObjectType::motTerrain;
 					paletteTypeField += "terrain";
 
+					std::vector<EditValue> extraValues = this->getExtraEditsValue();
+
+					fields.emplace_back(MapObjectField{ "allow-teleport", MapObjectFieldString{ "", false},
+																		  MapObjectFieldInt{ 0, false },
+																		  MapObjectFieldFloat{ 0.f, false },
+																		  MapObjectFieldBool{ extraValues.at(0).boolean, true } });
+
 					break;
 				}
 				case (PaletteType::ptProp):
@@ -762,6 +769,12 @@ bool Hud::updateExtraEditsValue(std::vector<std::string> caption, std::vector<Ed
 							case (EditType::etInteger):
 							{
 								edit->integerMaxValue = maxValue.at(index);
+								break;
+							}
+							case (EditType::etBoolean):
+							{
+								edit->maxLength = 4;
+								edit->integerMaxValue = 1;
 								break;
 							}
 						}
