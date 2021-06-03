@@ -504,6 +504,13 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 
 						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin);
 					}
+					else if (this->manager->palette->selectedOrigin == "wall")
+					{
+						fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
+						fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+
+						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(0).integer, extraValues.at(1).integer));
+					}		
 
 					model->setOrigin(tilesetOrigin);
 					this->manager->addView(std::static_pointer_cast<ViewElement>(model));
