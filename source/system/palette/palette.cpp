@@ -195,7 +195,7 @@ bool Palette::selectPalette(PaletteType type)
         case (PaletteType::ptTerrain):
         {
             this->loadPaletteItemList(this->terrain, "terrain");
-            this->manager->hud->updateExtraEditsValue({}, {}, {}, {});
+            this->manager->hud->updateExtraEditsValue({ "Allow Teleport" }, { EditType::etBoolean }, { "true" }, { 4 });
             break;
         }
         case (PaletteType::ptProp):
