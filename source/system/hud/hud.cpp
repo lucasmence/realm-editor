@@ -461,6 +461,16 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 
 					break;
 				}
+				case (PaletteType::ptItem):
+				{
+					objectType = MapObjectType::motItem;
+					paletteTypeField = "";
+					texture = this->manager->palette->selectedTexture;
+
+					priorityValue = 0;
+
+					break;
+				}
 				case (PaletteType::ptPortal):
 				{
 					objectType = MapObjectType::motPortal;
@@ -639,6 +649,8 @@ bool Hud::buttonsClick(sf::Vector2f cursor)
 				this->manager->palette->selectPalette(PaletteType::ptMerchant);
 			else if (button->name == "btnPortal")
 				this->manager->palette->selectPalette(PaletteType::ptPortal);
+			else if (button->name == "btnItem")
+				this->manager->palette->selectPalette(PaletteType::ptItem);
 
 			return true;
 			break;
@@ -963,9 +975,10 @@ bool Hud::loadButtons()
 	std::shared_ptr<Button> btnMerchant = std::make_shared<Button>(this->manager, "[Merchants]", sf::Vector2f(0.f, 0.f), "btnMerchant", 20, btnUnit, sf::Vector2i(1, 0));
 	std::shared_ptr<Button> btnProp = std::make_shared<Button>(this->manager, "[Props]", sf::Vector2f(0.f, 0.f), "btnProp", 20, btnUnit, sf::Vector2i(0, 1));
 	std::shared_ptr<Button> btnEnvironment = std::make_shared<Button>(this->manager, "[Environments]", sf::Vector2f(0.f, 0.f), "btnEnvironment", 20, btnProp, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnTerrain = std::make_shared<Button>(this->manager, "[Terrain]", sf::Vector2f(0.f, 0.f), "btnTerrain", 20, btnProp, sf::Vector2i(0, 1));
-	std::shared_ptr<Button> btnPortal = std::make_shared<Button>(this->manager, "[Portals]", sf::Vector2f(0.f, 0.f), "btnPortal", 20, btnTerrain, sf::Vector2i(1, 0));
-
+	std::shared_ptr<Button> btnTerrain = std::make_shared<Button>(this->manager, "[Terrain]", sf::Vector2f(0.f, 0.f), "btnTerrain", 18, btnProp, sf::Vector2i(0, 1));
+	std::shared_ptr<Button> btnPortal = std::make_shared<Button>(this->manager, "[Portals]", sf::Vector2f(0.f, 0.f), "btnPortal", 18, btnTerrain, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnItem = std::make_shared<Button>(this->manager, "[Item]", sf::Vector2f(0.f, 0.f), "btnItem", 18, btnPortal, sf::Vector2i(1, 0));
+	
 	std::shared_ptr<Button> btnPalettePrevious = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, 15.f), "btnPalettePrevious", 20, btnTerrain, sf::Vector2i(0, 1));
 	std::shared_ptr<Button> btnPaletteBack = std::make_shared<Button>(this->manager, "[>]", sf::Vector2f(175.f, 0.f), "btnPaletteNext", 20, btnPalettePrevious, sf::Vector2i(1, 0));
 	std::shared_ptr<Label> lblPalettePage = std::make_shared<Label>(this->manager, "1", 20, sf::Vector2f(85.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblPalettePage");
@@ -1122,6 +1135,7 @@ bool Hud::loadButtons()
 	this->buttons.emplace_back(btnEnvironment);
 	this->buttons.emplace_back(btnTerrain);
 	this->buttons.emplace_back(btnPortal);
+	this->buttons.emplace_back(btnItem);
 	this->buttons.emplace_back(btnPalettePrevious);
 	this->buttons.emplace_back(btnPaletteBack);
 	this->buttons.emplace_back(btnGridSizeDecrease);
