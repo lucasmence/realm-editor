@@ -651,6 +651,8 @@ bool Hud::buttonsClick(sf::Vector2f cursor)
 				this->manager->map->reloadMap();
 			else if (button->name == "btnReloadConfig")
 				this->manager->loadConstants();
+			else if (button->name == "btnTrigger")
+				this->manager->map->createTriggerFile();
 			else if (button->name == "btnHelp")
 				this->help();
 			else if (button->name == "btnGridSizeIncrease")
@@ -1025,7 +1027,8 @@ bool Hud::loadButtons()
 	std::shared_ptr<Button> btnSave = std::make_shared<Button>(this->manager, "[Save]", sf::Vector2f(0.f, 0.f), "btnSave", 20, btnReload, sf::Vector2i(1, 0));
 	std::shared_ptr<Button> btnSaveAs = std::make_shared<Button>(this->manager, "[Save As]", sf::Vector2f(0.f, 0.f), "btnSaveAs", 20, btnSave, sf::Vector2i(1, 0));
 	std::shared_ptr<Button> btnReloadConfig = std::make_shared<Button>(this->manager, "[Reload Config]", sf::Vector2f(0.f, 0.f), "btnReloadConfig", 20, btnSaveAs, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnHelp = std::make_shared<Button>(this->manager, "[Help]", sf::Vector2f(0.f, 0.f), "btnHelp", 20, btnReloadConfig, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnTrigger = std::make_shared<Button>(this->manager, "[Trigger]", sf::Vector2f(0.f, 0.f), "btnTrigger", 20, btnReloadConfig, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnHelp = std::make_shared<Button>(this->manager, "[Help]", sf::Vector2f(0.f, 0.f), "btnHelp", 20, btnTrigger, sf::Vector2i(1, 0));
 
 	std::shared_ptr<Button> btnClear = std::make_shared<Button>(this->manager, "[C]", sf::Vector2f(1325.f, 65.f), "btnClear", 20);
 	std::shared_ptr<Button> btnErase = std::make_shared<Button>(this->manager, "[E]", sf::Vector2f(0.f, 0.f), "btnErase", 20, btnClear, sf::Vector2i(-1, 0));
@@ -1197,6 +1200,7 @@ bool Hud::loadButtons()
 	this->buttons.emplace_back(btnSave);
 	this->buttons.emplace_back(btnSaveAs);
 	this->buttons.emplace_back(btnReloadConfig);
+	this->buttons.emplace_back(btnTrigger);
 	this->buttons.emplace_back(btnHelp);
 	this->buttons.emplace_back(btnClear);
 	this->buttons.emplace_back(btnErase);
