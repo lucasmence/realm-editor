@@ -1,6 +1,8 @@
 #include <regex>
 #include <typeinfo>
 #include <boost/lexical_cast.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/dll.hpp>
 #include "map.hpp"
 #include "../manager.hpp"
 #include "../library/script.hpp"
@@ -526,5 +528,43 @@ bool Map::newMap()
 
 	this->manager->setTitle("New");
 
+	return true;
+}
+
+bool Map::createTriggerFile()
+{
+	if (this->filename == "")
+	{
+		this->manager->hud->showMessage("Failed: Save the map to create a trigger file!");
+		return false;
+	}
+
+	boost::filesystem::path filenameBoost = this->filename, mainPath = boost::filesystem::current_path() /= "templates/";
+	std::string parentPath = Json::convertPathToString(filenameBoost.parent_path()) + "/trigger";
+
+	if (!boost::filesystem::exists(parentPath))
+		boost::filesystem::create_directory(parentPath);
+	
+	std::string filePath = Json::convertPathToString(mainPath);
+
+	parentPath = parentPath + "/" + Json::convertPathToString(filenameBoost.filename());
+
+	if (boost::filesystem::exists(parentPath))
+	{
+		this->manager->hud->showMessage("Failed: The trigger file already exists!");
+		return false;
+	}
+
+	boost::filesystem::copy_file(filePath + "trigger.json", parentPath);
+
+	std::string originalPath = parentPath, regionField = "data/maps/";
+	boost::erase_all(originalPath, ".json ");
+
+	std::size_t pos = originalPath.find(regionField);
+	std::string fieldPath = originalPath.substr(pos + regionField.size());
+
+	this->file["trigger"][0]["script"] = fieldPath;
+
+	this->manager->hud->showMessage("Trigger file created! Path -> " + fieldPath, 5.f);
 	return true;
 }
