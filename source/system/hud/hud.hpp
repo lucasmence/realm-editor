@@ -36,6 +36,7 @@ class Hud
 		bool matrixActivated;
 		bool matrixTriggered;
 		bool matrixPosSpawn;
+		bool gridSpawn;
 		std::vector<int> gridSizeList;
 		std::vector<int> brushSizeList;
 		std::list<std::shared_ptr<Button>> buttons;
@@ -82,6 +83,7 @@ class Hud
 		bool toggleSpawnPress(std::shared_ptr<Button> button);
 		bool toggleCenterShape(std::shared_ptr<Button> button);
 		bool toggleMapAreaSize(std::shared_ptr<Button> button);
+		bool toggleGridSpawn(std::shared_ptr<Button> button);
 		bool help();
 		bool updateExtraEditsValue(std::vector<std::string> caption, std::vector<EditType> type, std::vector<std::string> value, std::vector<int> maxValue);
 		std::vector<EditValue> getExtraEditsValue();

@@ -13,7 +13,7 @@ Edit::Edit(Manager* manager,
 		   sf::Vector2i side)
 {
 	this->type = type;
-	this->value = EditValue{ "", 0 };
+	this->value = EditValue{ "", 0, false };
 	this->maxLength = 0;
 	this->integerMaxValue = 0;
 	this->integerMinValue = 0;
@@ -82,6 +82,23 @@ bool Edit::setValue(std::string value)
 			this->updateLabel(value);
 			this->value.string = value;
 			this->value.integer = valueInteger;
+			break;
+		}
+		case EditType::etBoolean:
+		{
+			if (value == "true")
+				this->value.boolean = true;
+			else if (value == "false")
+				this->value.boolean = false;
+			else
+				this->value.boolean = !this->value.boolean;
+
+			if (this->value.boolean)
+				this->value.string = "true";
+			else if (!this->value.boolean)
+				this->value.string = "false";
+			this->value.integer = this->value.boolean;
+			this->updateLabel(this->value.string);
 			break;
 		}
 	}
