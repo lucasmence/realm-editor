@@ -102,6 +102,7 @@ class Map
 		bool loadMap(std::string file = "");
 		bool newMap();
 		bool reloadMap();
+		bool createTriggerFile();
 
 };
 
