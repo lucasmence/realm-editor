@@ -7,7 +7,7 @@
 #ifndef PALETTE_HPP
 #define PALETTE_HPP
 
-enum class PaletteType {ptTerrain, ptProp, ptEnvironment, ptUnit, ptMerchant, ptPortal};
+enum class PaletteType {ptTerrain, ptProp, ptEnvironment, ptUnit, ptMerchant, ptPortal, ptItem};
 
 enum class PaletteStatus {psNone, psInsert, psDelete};
 
@@ -35,6 +35,7 @@ class Palette
 		std::list<std::string> environment;
 		std::list<std::string> unit;
 		std::list<std::string> merchant;
+		std::list<std::string> item;
 		std::list<std::string> portal;
 		std::list<PaletteItem> paletteItems;
 

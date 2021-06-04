@@ -34,6 +34,7 @@ bool Palette::unloadPalettes()
     this->environment.clear();
     this->unit.clear();
     this->merchant.clear();
+    this->item.clear();
     return true;
 }
 bool Palette::loadPalettes()
@@ -44,6 +45,7 @@ bool Palette::loadPalettes()
     this->environment = this->loadFileLists("textures/environment");
     this->unit = this->loadFileLists("characters");
     this->merchant = this->loadFileLists("merchants/stores");
+    this->item = this->loadFileLists("items");
     this->portal = {"spawner", "level", "generator", "wall"};
 
     this->selectPalette(this->type);
@@ -80,7 +82,7 @@ bool Palette::loadPaletteItemList(std::list<std::string>& list, std::string fiel
 
         switch (this->type)
         {
-            case (PaletteType::ptUnit): case (PaletteType::ptMerchant):
+            case (PaletteType::ptUnit): case (PaletteType::ptMerchant): case (PaletteType::ptItem):
             {
                 model = this->loadPaletteItemModel(filename, position);
                 break;
@@ -183,6 +185,23 @@ std::shared_ptr<Model> Palette::loadPaletteItemModel(std::string filename, sf::V
 
             break;
         }
+
+        case (PaletteType::ptItem):
+        { 
+            json file = Json::loadFromFile("data/items/" + filename + ".json");
+
+            std::string texture = Json::getString(file.value("texture", ""));
+            file.clear();
+
+            if (texture == "")
+                return nullptr;
+
+            
+
+            return std::make_shared<Model>(this->manager, position, "textures/" + texture, 2, true, "", "items/" + filename);
+
+            break;
+        }
     }
 
     return nullptr;
@@ -233,6 +252,12 @@ bool Palette::selectPalette(PaletteType type)
         case (PaletteType::ptPortal):
         {
             this->loadPaletteItemList(this->portal, "portal");
+            break;
+        }
+
+        case (PaletteType::ptItem):
+        {
+            this->loadPaletteItemList(this->item, "item");
             break;
         }
     }
