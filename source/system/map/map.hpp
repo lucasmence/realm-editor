@@ -7,7 +7,7 @@
 #ifndef MAP_HPP
 #define MAP_HPP
 
-enum class MapObjectType {motTerrain, motProp, motEnvironment, motUnit, motMerchant, motPortal};
+enum class MapObjectType {motTerrain, motProp, motEnvironment, motUnit, motMerchant, motPortal, motItem};
 
 class Manager;
 class Model;
