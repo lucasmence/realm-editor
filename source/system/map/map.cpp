@@ -70,6 +70,11 @@ int Map::getObjectPriority(MapObjectType type)
 			return 5;
 			break;
 		}
+		case (MapObjectType::motItem):
+		{
+			return 5;
+			break;
+		}
 		case (MapObjectType::motPortal):
 		{
 			return 4;
@@ -99,6 +104,12 @@ std::string Map::getOriginFromField(json line, MapObjectType type)
 		case (MapObjectType::motPortal):
 		{
 			return line.value("type", "");
+			break;
+		}
+
+		case (MapObjectType::motItem):
+		{
+			return line.value("item", "");
 			break;
 		}
 
@@ -143,6 +154,22 @@ std::string Map::getTextureFromUnit(json line, MapObjectType type)
 			subFile.clear();
 
 			return texture;
+			break;
+		}
+
+		case (MapObjectType::motItem):
+		{
+			std::string subFilename = line.value("item", "");
+			if (subFilename == "")
+				return "";
+
+			json subFile = Json::loadFromFile("data/" + subFilename + ".json");
+
+			std::string texture = Json::getString(subFile.value("texture", ""));
+			subFile.clear();
+
+			return texture;
+
 			break;
 		}
 	}
@@ -213,7 +240,7 @@ bool Map::renderMap()
 	this->file["map"]["name"] = this->data.name;
 	this->file["map"]["version"] = this->data.version;
 
-	std::vector<std::string> objectsField = { "terrain", "prop", "environment", "unit", "merchant", "portal" };
+	std::vector<std::string> objectsField = { "terrain", "prop", "environment", "unit", "merchant", "portal", "item" };
 
 	for (auto& objectField : objectsField)
 		this->file[objectField].clear();
@@ -251,6 +278,13 @@ bool Map::renderMap()
 			{
 				fieldName = "merchant";
 				fieldCaption = "merchant";
+				filename = object.model->origin;
+				break;
+			}
+			case (MapObjectType::motItem):
+			{
+				fieldName = "item";
+				fieldCaption = "item";
 				filename = object.model->origin;
 				break;
 			}
@@ -346,7 +380,7 @@ bool Map::loadMap(std::string file)
 
 	this->updateMapInfo();
 
-	std::vector<std::string> objectsField = { "terrain", "prop", "environment", "unit", "merchant", "portal" };
+	std::vector<std::string> objectsField = { "terrain", "prop", "environment", "unit", "merchant", "portal", "item" };
 
 	for (auto& field : objectsField)
 	{
@@ -362,6 +396,8 @@ bool Map::loadMap(std::string file)
 			type = MapObjectType::motMerchant;
 		else if (field == "portal")
 			type = MapObjectType::motPortal;
+		else if (field == "item")
+			type = MapObjectType::motItem;
 
 		int priority = this->getObjectPriority(type);
 			
@@ -369,7 +405,7 @@ bool Map::loadMap(std::string file)
 		{
 			std::string texture = "";
 
-			if (type == MapObjectType::motUnit || type == MapObjectType::motMerchant)
+			if (type == MapObjectType::motUnit || type == MapObjectType::motMerchant || type == MapObjectType::motItem)
 				texture = this->getTextureFromUnit(this->file[field][index], type);
 			else if (type == MapObjectType::motPortal)
 				texture = Json::getString(this->file[field][index].value("type", ""));
@@ -408,7 +444,7 @@ bool Map::loadMap(std::string file)
 				}
 				this->manager->addView(std::static_pointer_cast<ViewElement>(model));
 
-				std::vector<std::string> subFieldsExceptions = {"texture", "unit", "merchant", "x", "y", "scale", "rotation", "priority"};
+				std::vector<std::string> subFieldsExceptions = {"texture", "unit", "merchant", "item", "x", "y", "scale", "rotation", "priority"};
 				std::list<MapObjectField> subFields = {};
 				for (auto& subFieldIndex : this->file[field][index][dimensionField][dimensionIndex].items())
 				{
