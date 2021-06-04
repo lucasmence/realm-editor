@@ -28,6 +28,8 @@ class Button
 			   sf::Vector2i side = sf::Vector2i(0, 0));
 		~Button();
 		bool clear();
+		bool setVisible(const bool value);
+		bool getVisible();
 
 };
 
