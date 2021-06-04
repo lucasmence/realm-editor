@@ -34,6 +34,7 @@ bool Palette::unloadPalettes()
     this->environment.clear();
     this->unit.clear();
     this->merchant.clear();
+    this->item.clear();
     return true;
 }
 bool Palette::loadPalettes()
@@ -44,7 +45,8 @@ bool Palette::loadPalettes()
     this->environment = this->loadFileLists("textures/environment");
     this->unit = this->loadFileLists("characters");
     this->merchant = this->loadFileLists("merchants/stores");
-    this->portal = {"spawner", "level"};
+    this->item = this->loadFileLists("items");
+    this->portal = {"spawner", "level", "generator", "wall"};
 
     this->selectPalette(this->type);
 
@@ -80,7 +82,7 @@ bool Palette::loadPaletteItemList(std::list<std::string>& list, std::string fiel
 
         switch (this->type)
         {
-            case (PaletteType::ptUnit): case (PaletteType::ptMerchant):
+            case (PaletteType::ptUnit): case (PaletteType::ptMerchant): case (PaletteType::ptItem):
             {
                 model = this->loadPaletteItemModel(filename, position);
                 break;
@@ -137,6 +139,15 @@ bool Palette::loadPaletteShape(std::shared_ptr<Model> model, std::string filenam
         else
             model->loadShape(size, sf::Color(50, 50, 255, 100));
     }   
+    if (filename == "generator")
+        model->loadShape(sf::Vector2f(32.f, 0), sf::Color(255, 0, 0, 100));
+    if (filename == "wall")
+    {
+        if (size.x <= 0.f && size.y <= 0.f)
+            model->loadShape(sf::Vector2f(32.f, 0), sf::Color(255, 255, 255, 100));
+        else
+            model->loadShape(size, sf::Color(255, 255, 255, 100));
+    }
 
     return true;
 }
@@ -174,6 +185,23 @@ std::shared_ptr<Model> Palette::loadPaletteItemModel(std::string filename, sf::V
 
             break;
         }
+
+        case (PaletteType::ptItem):
+        { 
+            json file = Json::loadFromFile("data/items/" + filename + ".json");
+
+            std::string texture = Json::getString(file.value("texture", ""));
+            file.clear();
+
+            if (texture == "")
+                return nullptr;
+
+            
+
+            return std::make_shared<Model>(this->manager, position, "textures/" + texture, 2, true, "", "items/" + filename);
+
+            break;
+        }
     }
 
     return nullptr;
@@ -193,7 +221,7 @@ bool Palette::selectPalette(PaletteType type)
         case (PaletteType::ptTerrain):
         {
             this->loadPaletteItemList(this->terrain, "terrain");
-            this->manager->hud->updateExtraEditsValue({}, {}, {}, {});
+            this->manager->hud->updateExtraEditsValue({ "Allow Teleport" }, { EditType::etBoolean }, { "true" }, { 4 });
             break;
         }
         case (PaletteType::ptProp):
@@ -224,6 +252,12 @@ bool Palette::selectPalette(PaletteType type)
         case (PaletteType::ptPortal):
         {
             this->loadPaletteItemList(this->portal, "portal");
+            break;
+        }
+
+        case (PaletteType::ptItem):
+        {
+            this->loadPaletteItemList(this->item, "item");
             break;
         }
     }
@@ -290,6 +324,14 @@ bool Palette::selectPaletteItem(sf::Vector2f cursor)
             this->manager->hud->updateExtraEditsValue({ "Group", "Index", "Target Index", "Width", "Height", "Map"}, 
                                                       { EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etString },
                                                       { "1", "1", "1", "100", "100", "" }, { 99, 99, 99, 999, 999, 255 });
+        else if (filename == "generator")
+            this->manager->hud->updateExtraEditsValue({"Alliance", "Index", "Target X", "Target Y", "Cooldown", "Unit" },
+                { EditType::etString, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etString },
+                { "enemy", "1", "0", "0", "5", "" }, {12, 99, 99999, 99999, 9999, 255});
+        else if (filename == "wall")
+            this->manager->hud->updateExtraEditsValue({ "Width", "Height" },
+                { EditType::etInteger, EditType::etInteger },
+                { "100", "100" }, { 99999, 99999 });
     }
 
     return true;

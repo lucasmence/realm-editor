@@ -8,12 +8,13 @@
 #ifndef EDIT_HPP
 #define EDIT_HPP
 
-enum class EditType {etString, etInteger};
+enum class EditType {etString, etInteger, etBoolean};
 
 struct EditValue
 {
 	std::string string;
 	int integer;
+	bool boolean;
 };
 
 class Manager;
