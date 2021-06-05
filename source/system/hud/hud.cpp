@@ -478,6 +478,7 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 					std::vector<EditValue> extraValues = this->getExtraEditsValue();
 
 					fields.emplace_back(MapObjectField{ "alliance", MapObjectFieldString{ extraValues.at(0).string, true} });
+					fields.emplace_back(MapObjectField{ "item-drop", MapObjectFieldString{ extraValues.at(1).string, true} });
 
 					priorityValue = 0;
 
