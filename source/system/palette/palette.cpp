@@ -237,7 +237,7 @@ bool Palette::selectPalette(PaletteType type)
         case (PaletteType::ptUnit):
         {
             this->loadPaletteItemList(this->unit, "unit");
-            this->manager->hud->updateExtraEditsValue({"Alliance"}, {EditType::etString}, {"enemy"}, {10});
+            this->manager->hud->updateExtraEditsValue({ "Alliance", "Item drop" }, { EditType::etString, EditType::etString }, {"enemy", ""}, {10, 64});
             break;
         }
         case (PaletteType::ptMerchant):
