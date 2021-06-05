@@ -42,3 +42,16 @@ bool Button::clear()
 	this->shape = nullptr;
 	return true;
 }
+
+bool Button::setVisible(const bool value)
+{
+	this->shape->visible = value;
+	this->label->visible = value;
+
+	return true;
+}
+
+bool Button::getVisible()
+{
+	return (this->shape->visible && this->label->visible);
+}
