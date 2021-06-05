@@ -1,4 +1,6 @@
 #include "json.hpp"
+#include <fstream>
+#include <sstream>
 
 namespace Json
 {
@@ -25,5 +27,14 @@ namespace Json
 
         index = rand() % file.size();
         return file[index].value(field, "");
+    }
+
+    std::string convertPathToString(boost::filesystem::path path)
+    {
+        std::ostringstream stringStream;
+        stringStream << path;
+        std::string result = getString(stringStream.str());
+        boost::algorithm::replace_all(result, "\\", "/");
+        return result;
     }
 }

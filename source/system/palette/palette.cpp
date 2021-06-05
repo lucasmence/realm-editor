@@ -196,8 +196,6 @@ std::shared_ptr<Model> Palette::loadPaletteItemModel(std::string filename, sf::V
             if (texture == "")
                 return nullptr;
 
-            
-
             return std::make_shared<Model>(this->manager, position, "textures/" + texture, 2, true, "", "items/" + filename);
 
             break;
@@ -221,7 +219,7 @@ bool Palette::selectPalette(PaletteType type)
         case (PaletteType::ptTerrain):
         {
             this->loadPaletteItemList(this->terrain, "terrain");
-            this->manager->hud->updateExtraEditsValue({ "Allow Teleport" }, { EditType::etBoolean }, { "true" }, { 4 });
+            this->manager->hud->updateExtraEditsValue({ "Allow Teleport", "Background" }, { EditType::etBoolean, EditType::etBoolean }, { "true", "false" }, { 5, 5 });
             break;
         }
         case (PaletteType::ptProp):
@@ -239,7 +237,7 @@ bool Palette::selectPalette(PaletteType type)
         case (PaletteType::ptUnit):
         {
             this->loadPaletteItemList(this->unit, "unit");
-            this->manager->hud->updateExtraEditsValue({"Alliance"}, {EditType::etString}, {"enemy"}, {10});
+            this->manager->hud->updateExtraEditsValue({ "Alliance", "Item drop" }, { EditType::etString, EditType::etString }, {"enemy", ""}, {10, 64});
             break;
         }
         case (PaletteType::ptMerchant):
@@ -252,12 +250,14 @@ bool Palette::selectPalette(PaletteType type)
         case (PaletteType::ptPortal):
         {
             this->loadPaletteItemList(this->portal, "portal");
+            this->manager->hud->updateExtraEditsValue({}, {}, {}, {});
             break;
         }
 
         case (PaletteType::ptItem):
         {
             this->loadPaletteItemList(this->item, "item");
+            this->manager->hud->updateExtraEditsValue({}, {}, {}, {});
             break;
         }
     }

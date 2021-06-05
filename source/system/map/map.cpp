@@ -1,6 +1,8 @@
 #include <regex>
 #include <typeinfo>
 #include <boost/lexical_cast.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/dll.hpp>
 #include "map.hpp"
 #include "../manager.hpp"
 #include "../library/script.hpp"
@@ -240,10 +242,16 @@ bool Map::renderMap()
 	this->file["map"]["name"] = this->data.name;
 	this->file["map"]["version"] = this->data.version;
 
-	std::vector<std::string> objectsField = { "terrain", "prop", "environment", "unit", "merchant", "portal", "item" };
+	std::vector<std::string> objectsField = { "terrain", "terrain-default", "prop", "environment", "unit", "merchant", "portal", "item" };
 
 	for (auto& objectField : objectsField)
 		this->file[objectField].clear();
+
+	if (this->data.textureBackground.model != nullptr)
+	{
+		this->file["terrain-default"]["texture"] = std::regex_replace(this->data.textureBackground.model->filename, std::regex("textures/"), "");
+		this->renderObject(this->file["terrain-default"], this->data.textureBackground);
+	}		
 
 	for (auto& object : this->objects)
 	{
@@ -354,11 +362,40 @@ bool Map::reloadMap()
 	return true;
 }
 
+std::list<MapObjectField> Map::getSubfieldsFromLine(json line)
+{
+	std::vector<std::string> subFieldsExceptions = { "texture", "unit", "merchant", "item", "x", "y", "scale", "rotation", "priority" };
+	std::list<MapObjectField> subFields = {};
+	for (auto& subFieldIndex : line.items())
+	{
+		bool found = false;
+		for (auto& exception : subFieldsExceptions)
+			if (exception == subFieldIndex.key())
+			{
+				found = true;
+				break;
+			}
+
+		if (found)
+			continue;
+
+		MapObjectField subFieldObject;
+		subFieldObject.field = subFieldIndex.key();
+		if (subFieldIndex.value().type_name() == "string")
+			subFieldObject.valueString = MapObjectFieldString{ subFieldIndex.value(), true };
+		else if (subFieldIndex.value().type_name() == "number")
+			subFieldObject.valueFloat = MapObjectFieldFloat{ subFieldIndex.value(), true };
+		else if (subFieldIndex.value().type_name() == "boolean")
+			subFieldObject.valueBool = MapObjectFieldBool{ subFieldIndex.value(), true };
+
+		subFields.emplace_back(subFieldObject);
+	}
+	return subFields;
+}
+
 bool Map::loadMap(std::string file)
 {
 	this->newMap();
-
-	std::string dimensionField = "dimensions";
 
 	if (file == "")
 		this->filename = script::loadFile();
@@ -378,6 +415,24 @@ bool Map::loadMap(std::string file)
 		this->data.version = this->file["map"].value("version", "1.0");
 	}
 
+	if (this->file["terrain-default"].size() > 0)
+	{
+		std::string texture = Json::getString(this->file["terrain-default"].value("texture", ""));
+		
+		sf::Vector2f position(this->file["terrain-default"].value("x", 0.f),
+							  this->file["terrain-default"].value("y", 0.f));
+
+		std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, position, "textures/" + texture, 0, false, "",
+															   this->getOriginFromField(this->file["terrain-default"], MapObjectType::motTerrain));
+
+		this->data.textureBackground = MapObjectUnit{ MapObjectType::motTerrain, position, 0.f, model, this->getSubfieldsFromLine(this->file["terrain-default"]) };
+
+		this->manager->hud->getButton("btnRemoveBackground")->setVisible(true);
+		std::shared_ptr<Label> label = this->manager->hud->getLabel("lblBackground");
+		label->text->setString(texture);
+		label->visible = true;
+	}
+		
 	this->updateMapInfo();
 
 	std::vector<std::string> objectsField = { "terrain", "prop", "environment", "unit", "merchant", "portal", "item" };
@@ -400,6 +455,7 @@ bool Map::loadMap(std::string file)
 			type = MapObjectType::motItem;
 
 		int priority = this->getObjectPriority(type);
+		std::string dimensionField = "dimensions";
 			
 		for (int index = 0; index < this->file[field].size(); index++)
 		{
@@ -444,34 +500,7 @@ bool Map::loadMap(std::string file)
 				}
 				this->manager->addView(std::static_pointer_cast<ViewElement>(model));
 
-				std::vector<std::string> subFieldsExceptions = {"texture", "unit", "merchant", "item", "x", "y", "scale", "rotation", "priority"};
-				std::list<MapObjectField> subFields = {};
-				for (auto& subFieldIndex : this->file[field][index][dimensionField][dimensionIndex].items())
-				{
-					bool found = false;
-					for (auto& exception : subFieldsExceptions)
-						if (exception == subFieldIndex.key())
-						{
-							found = true;
-							break;
-						}
-
-					if (found)
-						continue;
-
-					MapObjectField subFieldObject;
-					subFieldObject.field = subFieldIndex.key();
-					if (subFieldIndex.value().type_name() == "string")
-						subFieldObject.valueString = MapObjectFieldString{ subFieldIndex.value(), true };				
-					else if (subFieldIndex.value().type_name() == "number")
-						subFieldObject.valueFloat = MapObjectFieldFloat{ subFieldIndex.value(), true };
-					else if (subFieldIndex.value().type_name() == "boolean")
-						subFieldObject.valueBool = MapObjectFieldBool{ subFieldIndex.value(), true };						
-
-					subFields.emplace_back(subFieldObject);
-				}
-
-				this->addObjectUnit(MapObjectUnit{ type, position, 0.f, model, subFields });
+				this->addObjectUnit(MapObjectUnit{ type, position, 0.f, model, this->getSubfieldsFromLine(this->file[field][index][dimensionField][dimensionIndex]) });
 			}
 		}
 	}
@@ -487,6 +516,7 @@ bool Map::newMap()
 {
 	this->clearObjects();
 	this->manager->palette->clearPaletteItem();
+	this->manager->hud->removeBackground(this->manager->hud->getButton("btnRemoveBackground"), false);
 
 	this->filename = "";
 	this->data.size = sf::Vector2i(1000, 1000);
@@ -498,5 +528,43 @@ bool Map::newMap()
 
 	this->manager->setTitle("New");
 
+	return true;
+}
+
+bool Map::createTriggerFile()
+{
+	if (this->filename == "")
+	{
+		this->manager->hud->showMessage("Failed: Save the map to create a trigger file!");
+		return false;
+	}
+
+	boost::filesystem::path filenameBoost = this->filename, mainPath = boost::filesystem::current_path() /= "templates/";
+	std::string parentPath = Json::convertPathToString(filenameBoost.parent_path()) + "/trigger";
+
+	if (!boost::filesystem::exists(parentPath))
+		boost::filesystem::create_directory(parentPath);
+	
+	std::string filePath = Json::convertPathToString(mainPath);
+
+	parentPath = parentPath + "/" + Json::convertPathToString(filenameBoost.filename());
+
+	if (boost::filesystem::exists(parentPath))
+	{
+		this->manager->hud->showMessage("Failed: The trigger file already exists!");
+		return false;
+	}
+
+	boost::filesystem::copy_file(filePath + "trigger.json", parentPath);
+
+	std::string originalPath = parentPath, regionField = "data/maps/";
+	boost::erase_all(originalPath, ".json ");
+
+	std::size_t pos = originalPath.find(regionField);
+	std::string fieldPath = originalPath.substr(pos + regionField.size());
+
+	this->file["trigger"][0]["script"] = fieldPath;
+
+	this->manager->hud->showMessage("Trigger file created! Path -> " + fieldPath, 5.f);
 	return true;
 }

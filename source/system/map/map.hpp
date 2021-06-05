@@ -70,6 +70,7 @@ struct MapData
 {
 	std::string name = "", version = "1.00", music = "village";
 	sf::Vector2i size = sf::Vector2i(1000, 1000);
+	MapObjectUnit textureBackground = MapObjectUnit{ MapObjectType::motTerrain, sf::Vector2f(-200.f, -200.f), 0.f, nullptr, {} };
 };
 
 class Map
@@ -89,6 +90,7 @@ class Map
 		bool clearObjects();
 		std::string getTextureFromUnit(json line, MapObjectType type);
 		std::string getOriginFromField(json line, MapObjectType type);
+		std::list<MapObjectField> getSubfieldsFromLine(json line);
 		bool updateMapInfo();
 		int getObjectPriority(MapObjectType type);
 
@@ -100,6 +102,7 @@ class Map
 		bool loadMap(std::string file = "");
 		bool newMap();
 		bool reloadMap();
+		bool createTriggerFile();
 
 };
 
