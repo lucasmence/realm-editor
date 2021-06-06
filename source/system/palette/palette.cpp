@@ -225,19 +225,19 @@ bool Palette::selectPalette(PaletteType type)
         case (PaletteType::ptProp):
         {
             this->loadPaletteItemList(this->prop, "prop");
-            this->manager->hud->updateExtraEditsValue({}, {}, {}, {});
+            this->manager->hud->updateExtraEditsValue({ "Variable" }, { EditType::etString }, { "" }, { 48 });
             break;
         }
         case (PaletteType::ptEnvironment):
         {
             this->loadPaletteItemList(this->environment, "environment");
-            this->manager->hud->updateExtraEditsValue({}, {}, {}, {});
+            this->manager->hud->updateExtraEditsValue({ "Variable" }, { EditType::etString }, { "" }, { 48 });
             break;
         }
         case (PaletteType::ptUnit):
         {
             this->loadPaletteItemList(this->unit, "unit");
-            this->manager->hud->updateExtraEditsValue({ "Alliance", "Item drop" }, { EditType::etString, EditType::etString }, {"enemy", ""}, {10, 64});
+            this->manager->hud->updateExtraEditsValue({ "Alliance", "Item drop", "Variable" }, { EditType::etString, EditType::etString, EditType::etString }, {"enemy", "", ""}, {10, 48, 48});
             break;
         }
         case (PaletteType::ptMerchant):
