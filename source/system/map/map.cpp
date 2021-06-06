@@ -344,6 +344,12 @@ bool Map::saveMap()
 	if (this->filename == "")
 		this->filename = script::saveFile();
 
+	if (!boost::filesystem::exists(this->filename))
+	{
+		this->manager->hud->showMessage("Failed: File not selected!");
+		return false;
+	}
+
 	std::ofstream fileStream(filename);
 	fileStream << this->file;
 
@@ -401,6 +407,13 @@ bool Map::loadMap(std::string file)
 		this->filename = script::loadFile();
 	else
 		this->filename = file;
+	
+	if (!boost::filesystem::exists(this->filename))
+	{
+		this->manager->hud->showMessage("Failed: File not selected!");
+		return false;
+	}
+
 	this->file = Json::loadFromFile(this->filename);
 
 	this->manager->hud->showMessage("Loading map...");
