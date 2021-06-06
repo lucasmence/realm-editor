@@ -461,12 +461,20 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 					objectType = MapObjectType::motProp;
 					paletteTypeField += "prop";
 
+					std::vector<EditValue> extraValues = this->getExtraEditsValue();
+
+					fields.emplace_back(MapObjectField{ "variable", MapObjectFieldString{ extraValues.at(0).string, true} });
+
 					break;
 				}
 				case (PaletteType::ptEnvironment):
 				{
 					objectType = MapObjectType::motEnvironment;
 					paletteTypeField += "environment";
+
+					std::vector<EditValue> extraValues = this->getExtraEditsValue();
+
+					fields.emplace_back(MapObjectField{ "variable", MapObjectFieldString{ extraValues.at(0).string, true} });
 
 					break;
 				}
@@ -479,6 +487,7 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 
 					fields.emplace_back(MapObjectField{ "alliance", MapObjectFieldString{ extraValues.at(0).string, true} });
 					fields.emplace_back(MapObjectField{ "item-drop", MapObjectFieldString{ extraValues.at(1).string, true} });
+					fields.emplace_back(MapObjectField{ "variable", MapObjectFieldString{ extraValues.at(2).string, true} });
 
 					priorityValue = 0;
 
@@ -828,22 +837,27 @@ bool Hud::updateExtraEditsValue(std::vector<std::string> caption, std::vector<Ed
 						edit->type = type.at(index);
 						edit->setValue(value.at(index));
 
+						int extraWidth = 0.f;
+
 						switch (edit->type)
 						{
 							case (EditType::etString):
 							{
 								edit->maxLength = maxValue.at(index);
+								extraWidth = edit->maxLength;
 								break;
 							}
 							case (EditType::etInteger):
 							{
 								edit->integerMaxValue = maxValue.at(index);
+								extraWidth = boost::lexical_cast<std::string>(edit->integerMaxValue).size();
 								break;
 							}
 							case (EditType::etBoolean):
 							{
 								edit->maxLength = 5;
 								edit->integerMaxValue = 1;
+								extraWidth = edit->maxLength;
 								break;
 							}
 						}
@@ -862,7 +876,7 @@ bool Hud::updateExtraEditsValue(std::vector<std::string> caption, std::vector<Ed
 
 						extraFieldRegion = sf::FloatRect(edit->shape->position.x, label->position.y,
 														 edit->shape->shape->getGlobalBounds().width, edit->shape->shape->getGlobalBounds().height);
-						extraSpace = sf::Vector2f(45.f, 0.f);
+						extraSpace = sf::Vector2f(0.f + (extraWidth * 8.f), 0.f);
 
 						break;
 					}
@@ -1173,7 +1187,7 @@ bool Hud::loadButtons()
 
 	for (int index = 0; index < 6; index++)
 	{
-		std::shared_ptr<Label> labelIndex = std::make_shared<Label>(this->manager, "-", 15, extraSpace, 1, sf::Color(255, 255, 255, 255),
+		std::shared_ptr<Label> labelIndex = std::make_shared<Label>(this->manager, "-", 14, extraSpace, 1, sf::Color(255, 255, 255, 255),
 																	"lblExtraField-" + boost::lexical_cast<std::string>(index));
 		labelIndex->setPosition(position::getSidePosition(extraFieldRegion,
 														  labelIndex->text->getGlobalBounds(),
@@ -1181,7 +1195,7 @@ bool Hud::loadButtons()
 		this->manager->addView(std::static_pointer_cast<ViewElement>(labelIndex));
 		this->labels.emplace_back(labelIndex);
 
-		std::shared_ptr<Edit> edtIndex = std::make_shared<Edit>(this->manager, EditType::etString, "", sf::Vector2f(0.f, -5.f), "edtExtraField-" + boost::lexical_cast<std::string>(index), 15,
+		std::shared_ptr<Edit> edtIndex = std::make_shared<Edit>(this->manager, EditType::etString, "", sf::Vector2f(0.f, -5.f), "edtExtraField-" + boost::lexical_cast<std::string>(index), 14,
 																labelIndex->text->getGlobalBounds(), sf::Vector2i(1, 0));
 		edtIndex->setValue("");
 
