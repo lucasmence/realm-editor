@@ -549,6 +549,7 @@ bool Map::newMap()
 	this->clearObjects();
 	this->manager->palette->clearPaletteItem();
 	this->manager->hud->removeBackground(this->manager->hud->getButton("btnRemoveBackground"), false);
+	this->manager->hud->zoomMapReset();
 
 	this->filename = "";
 	this->data.size = sf::Vector2i(1000, 1000);
