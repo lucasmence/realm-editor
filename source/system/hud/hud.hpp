@@ -4,6 +4,8 @@
 #include <vector>
 #include "button.hpp"
 #include "edit.hpp"
+#include "../palette/palette.hpp"
+#include "../map/map.hpp"
 
 #pragma once
 
@@ -37,6 +39,8 @@ class Hud
 		bool matrixTriggered;
 		bool matrixPosSpawn;
 		bool gridSpawn;
+		bool itemSelect;
+		bool itemSelected;
 		std::vector<int> gridSizeList;
 		std::vector<int> brushSizeList;
 		std::list<std::shared_ptr<Button>> buttons;
@@ -47,6 +51,8 @@ class Hud
 		std::shared_ptr<Model> shapeHover;
 		std::shared_ptr<Model> shapeMapArea;
 		std::shared_ptr<Model> shapeMatrix;
+		std::shared_ptr<Model> shapeItemSelected;
+		std::shared_ptr<Model> itemModelSelected;
 		MessageBox messageBox;
 
 		bool unloadLists();
@@ -69,6 +75,7 @@ class Hud
 		bool buttonsClick(sf::Vector2f cursor);
 		bool editsClick(sf::Vector2f cursor);
 		bool spawnClick(sf::Vector2f cursor);
+		std::list<MapObjectField> getExtraEditValuesByType();
 		bool matrixActivate(sf::Vector2f cursor);
 		bool matrixDeactivate(sf::Vector2f cursor);
 		bool matrixGenerate(sf::Vector2f cursor);
@@ -77,6 +84,7 @@ class Hud
 		bool changeBrushSize(int order);
 		bool updateHoverShapeSize();
 		bool updateHoverMapSize();
+		bool updateHoverGeneral();
 		bool updateShapeMatrix(sf::Vector2f cursor);
 		bool toggleGridVisibility();
 		bool toggleMatrixTriggered(std::shared_ptr<Button> button);
@@ -85,8 +93,14 @@ class Hud
 		bool toggleMapAreaSize(std::shared_ptr<Button> button);
 		bool toggleGridSpawn(std::shared_ptr<Button> button);
 		bool removeBackground(std::shared_ptr<Button> button, const bool message = true);
+		bool enableItemSelect(std::shared_ptr<Button> button);
+		bool selectItem(sf::Vector2f cursor);
+		bool deleteSelectedItem();
+		bool selectedItemUpdate();
+		bool checkMapClick(sf::Vector2f cursor);
 		bool help();
-		bool updateExtraEditsValue(std::vector<std::string> caption, std::vector<EditType> type, std::vector<std::string> value, std::vector<int> maxValue);
+		bool getPaletteType(PaletteType &paletteType, MapObjectType type);
+		bool updateExtraEditsValue(std::vector<std::string> caption, std::vector<EditType> type, std::vector<std::string> value, std::vector<int> maxValue, std::vector<std::string> origin);
 		bool setExtraEditsValue(std::vector<std::string> value);
 		std::vector<EditValue> getExtraEditsValue();
 		bool setEditValue(std::string editName, std::string value);
