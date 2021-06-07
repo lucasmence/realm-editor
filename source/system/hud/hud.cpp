@@ -15,6 +15,7 @@ Hud::Hud(Manager* manager)
 	this->rotation = 0;
 	this->priority = 0;
 	this->scale = 1.f;
+	this->zoom = 1.f;
 	this->gridSpawn = true;
 	this->spawnPress = false;
 	this->mousePressed = false;
@@ -219,6 +220,20 @@ bool Hud::updateLabelPaletteStatus(std::shared_ptr<sf::Text> text)
 			break;
 		}
 	}
+	return true;
+}
+
+bool Hud::zoomMap(int value)
+{
+	this->zoom += 0.05f * value;
+	this->manager->canvas->zoom(this->zoom);
+	return true;
+}
+
+bool Hud::zoomMapReset()
+{
+	this->zoom = 1.f;
+	this->manager->canvas->zoom(this->zoom);
 	return true;
 }
 
@@ -1316,17 +1331,17 @@ bool Hud::loadButtons()
 	std::shared_ptr<Button> btnTrigger = std::make_shared<Button>(this->manager, "[Trigger]", sf::Vector2f(0.f, 0.f), "btnTrigger", 20, btnReloadConfig, sf::Vector2i(1, 0));
 	std::shared_ptr<Button> btnHelp = std::make_shared<Button>(this->manager, "[Help]", sf::Vector2f(0.f, 0.f), "btnHelp", 20, btnTrigger, sf::Vector2i(1, 0));
 
-	std::shared_ptr<Button> btnClear = std::make_shared<Button>(this->manager, "[C]", sf::Vector2f(1325.f, 65.f), "btnClear", 20);
-	std::shared_ptr<Button> btnErase = std::make_shared<Button>(this->manager, "[E]", sf::Vector2f(0.f, 0.f), "btnErase", 20, btnClear, sf::Vector2i(-1, 0));
-	std::shared_ptr<Button> btnGridVisibilityToggle = std::make_shared<Button>(this->manager, "[G]", sf::Vector2f(0.f, 0.f), "btnGridVisibilityToggle", 20, btnClear, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnSpawnPress = std::make_shared<Button>(this->manager, "[P]", sf::Vector2f(0.f, 0.f), "btnSpawnPress", 20, btnErase, sf::Vector2i(-1, 0));
-	std::shared_ptr<Button> btnCenterShape = std::make_shared<Button>(this->manager, "[S]", sf::Vector2f(0.f, 0.f), "btnCenterShape", 20, btnSpawnPress, sf::Vector2i(-1, 0));
-	std::shared_ptr<Button> btnMatrix = std::make_shared<Button>(this->manager, "[M]", sf::Vector2f(0.f, 0.f), "btnMatrix", 20, btnCenterShape, sf::Vector2i(-1, 0));
-	std::shared_ptr<Button> btnDragCursor = std::make_shared<Button>(this->manager, "[^]", sf::Vector2f(0.f, 0.f), "btnDragCursor", 20, btnMatrix, sf::Vector2i(-1, 0));
-	std::shared_ptr<Button> btnMapAreaSize = std::make_shared<Button>(this->manager, "[A]", sf::Vector2f(0.f, 0.f), "btnMapAreaSize", 20, btnGridVisibilityToggle, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnGridSpawn = std::make_shared<Button>(this->manager, "[D]", sf::Vector2f(0.f, 0.f), "btnGridSpawn", 20, btnMapAreaSize, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnSelectItem = std::make_shared<Button>(this->manager, "[I]", sf::Vector2f(0.f, 0.f), "btnSelectItem", 20, btnGridSpawn, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnSelectItemMove = std::make_shared<Button>(this->manager, "[->]", sf::Vector2f(0.f, 0.f), "btnSelectItemMove", 20, btnSelectItem, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnClear = std::make_shared<Button>(this->manager, "[C]", sf::Vector2f(1275.f, 65.f), "btnClear", 18);
+	std::shared_ptr<Button> btnErase = std::make_shared<Button>(this->manager, "[E]", sf::Vector2f(0.f, 0.f), "btnErase", 18, btnClear, sf::Vector2i(-1, 0));
+	std::shared_ptr<Button> btnGridVisibilityToggle = std::make_shared<Button>(this->manager, "[G]", sf::Vector2f(0.f, 0.f), "btnGridVisibilityToggle", 18, btnClear, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnSpawnPress = std::make_shared<Button>(this->manager, "[P]", sf::Vector2f(0.f, 0.f), "btnSpawnPress", 18, btnErase, sf::Vector2i(-1, 0));
+	std::shared_ptr<Button> btnCenterShape = std::make_shared<Button>(this->manager, "[S]", sf::Vector2f(0.f, 0.f), "btnCenterShape", 18, btnSpawnPress, sf::Vector2i(-1, 0));
+	std::shared_ptr<Button> btnMatrix = std::make_shared<Button>(this->manager, "[M]", sf::Vector2f(0.f, 0.f), "btnMatrix", 18, btnCenterShape, sf::Vector2i(-1, 0));
+	std::shared_ptr<Button> btnDragCursor = std::make_shared<Button>(this->manager, "[^]", sf::Vector2f(0.f, 0.f), "btnDragCursor", 18, btnMatrix, sf::Vector2i(-1, 0));
+	std::shared_ptr<Button> btnMapAreaSize = std::make_shared<Button>(this->manager, "[A]", sf::Vector2f(0.f, 0.f), "btnMapAreaSize", 18, btnGridVisibilityToggle, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnGridSpawn = std::make_shared<Button>(this->manager, "[D]", sf::Vector2f(0.f, 0.f), "btnGridSpawn", 18, btnMapAreaSize, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnSelectItem = std::make_shared<Button>(this->manager, "[I]", sf::Vector2f(0.f, 0.f), "btnSelectItem", 18, btnGridSpawn, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnSelectItemMove = std::make_shared<Button>(this->manager, "[->]", sf::Vector2f(0.f, 0.f), "btnSelectItemMove", 18, btnSelectItem, sf::Vector2i(1, 0));
 	
 	std::shared_ptr<Button> btnUnit = std::make_shared<Button>(this->manager, "[Units]", sf::Vector2f(1650.f, 200.f), "btnUnit", 20);
 	std::shared_ptr<Button> btnMerchant = std::make_shared<Button>(this->manager, "[Merchants]", sf::Vector2f(0.f, 0.f), "btnMerchant", 20, btnUnit, sf::Vector2i(1, 0));

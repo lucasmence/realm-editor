@@ -32,6 +32,7 @@ class Hud
 		int rotation;
 		int priority;
 		float scale;
+		float zoom;
 		bool mousePressed;
 		bool spawnPress;
 		bool centerShape;
@@ -105,6 +106,8 @@ class Hud
 		bool selectedItemUpdate();
 		bool checkMapClick(sf::Vector2f cursor);
 		bool updateDragCursor(sf::Vector2f cursor);
+		bool zoomMap(int value);
+		bool zoomMapReset();
 		bool help();
 
 		bool getPaletteType(PaletteType &paletteType, MapObjectType type);
