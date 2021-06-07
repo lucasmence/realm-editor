@@ -190,6 +190,11 @@ bool Manager::eventKey(sf::Event& event)
             this->moveCanvas(this->canvasPosition);
             break;
         }
+        case (sf::Keyboard::Delete):
+        {
+            this->hud->deleteSelectedItem();
+            break;
+        }
     }
 
     return true;
