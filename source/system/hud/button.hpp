@@ -17,6 +17,7 @@ class Button
 		std::shared_ptr<Model> shape;
 		std::shared_ptr<Label> label;
 		std::string name;
+		std::string hint;
 		bool selected;
 
 		Button(Manager* manager, 
@@ -25,7 +26,8 @@ class Button
 			   std::string name, 
 			   int size = 20, 
 			   std::shared_ptr<Button> neighbor = nullptr, 
-			   sf::Vector2i side = sf::Vector2i(0, 0));
+			   sf::Vector2i side = sf::Vector2i(0, 0),
+			   std::string hint = "");
 		~Button();
 		bool clear();
 		bool setVisible(const bool value);
