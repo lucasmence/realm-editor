@@ -25,6 +25,7 @@ Hud::Hud(Manager* manager)
 	this->matrixPosSpawn = false;
 	this->itemSelect = false;
 	this->itemSelected = false;
+	this->itemSelectedMove = false;
 	this->hoverShapeSize = sf::Vector2f(0.f, 0.f);
 	this->messageBox = MessageBox{ nullptr, nullptr };
 
@@ -1010,7 +1011,7 @@ bool Hud::updateEditsColor(sf::Vector2f cursor)
 
 bool Hud::setEditValue(std::string editName, std::string value)
 {
-	if (editName == "" || value == "")
+	if (editName == "")
 		return false;
 
 	for (auto& edit : this->edits)
@@ -1175,6 +1176,10 @@ bool Hud::updateEditValues()
 			this->manager->map->data.music = edit->getValue().string;
 		else if (edit->name == "edtMapVersion")
 			this->manager->map->data.version = edit->getValue().string;
+		else if (edit->name == "edtWeatherChance")
+			this->manager->map->data.weatherChance = edit->getValue().integer;
+		else if (edit->name == "edtWeatherName")
+			this->manager->map->data.weatherName = edit->getValue().string;
 	return true;
 }
 
@@ -1313,6 +1318,30 @@ bool Hud::loadButtons()
 	lblBackground->visible = false;
 	this->manager->addView(std::static_pointer_cast<ViewElement>(lblBackground));
 	this->labels.emplace_back(lblBackground);
+
+	std::shared_ptr<Label> lblWeatherChance = std::make_shared<Label>(this->manager, "Weather Chance: ", 15, sf::Vector2f(0.f, 12.f), 1, sf::Color(255, 255, 255, 255), "lblWeatherChance");
+	lblWeatherChance->setPosition(position::getSidePosition(lblBackground->text->getGlobalBounds(),
+														    lblWeatherChance->text->getGlobalBounds(),
+														    lblWeatherChance->text->getPosition(), sf::Vector2i(0, 1)));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(lblWeatherChance));
+	this->labels.emplace_back(lblWeatherChance);
+
+	std::shared_ptr<Edit> edtWeatherChance = std::make_shared<Edit>(this->manager, EditType::etInteger, "100", sf::Vector2f(0.f, 0.f), "edtWeatherChance", 15,
+															  lblWeatherChance->text->getGlobalBounds(), sf::Vector2i(1, 0));
+	edtWeatherChance->setValue("100");
+	edtWeatherChance->integerMaxValue = 100;
+
+	std::shared_ptr<Label> lblWeatherName = std::make_shared<Label>(this->manager, "Weather Name: ", 15, sf::Vector2f(0.f, 3.f), 1, sf::Color(255, 255, 255, 255), "lblWeatherName");
+	lblWeatherName->setPosition(position::getSidePosition(lblWeatherChance->text->getGlobalBounds(),
+														  lblWeatherName->text->getGlobalBounds(),
+														  lblWeatherName->text->getPosition(), sf::Vector2i(0, 1)));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(lblWeatherName));
+	this->labels.emplace_back(lblWeatherName);
+
+	std::shared_ptr<Edit> edtWeatherName = std::make_shared<Edit>(this->manager, EditType::etString, "", sf::Vector2f(0.f, 0.f), "edtWeatherName", 15,
+																  lblWeatherName->text->getGlobalBounds(), sf::Vector2i(1, 0));
+	edtWeatherName->setValue("");
+	edtWeatherName->maxLength = 64;
 
 	std::shared_ptr<Button> btnPalettePrevious = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, 15.f), "btnPalettePrevious", 20, btnTerrain, sf::Vector2i(0, 1));
 	std::shared_ptr<Button> btnPaletteBack = std::make_shared<Button>(this->manager, "[>]", sf::Vector2f(175.f, 0.f), "btnPaletteNext", 20, btnPalettePrevious, sf::Vector2i(1, 0));
@@ -1482,6 +1511,8 @@ bool Hud::loadButtons()
 	this->buttons.emplace_back(btnBrushSizeDecrease);
 	this->buttons.emplace_back(btnBrushSizeIncrease);
 	this->buttons.emplace_back(btnMatrix);
+	this->edits.emplace_back(edtWeatherChance);
+	this->edits.emplace_back(edtWeatherName);
 	this->edits.emplace_back(edtRotation);
 	this->edits.emplace_back(edtScale);
 	this->edits.emplace_back(edtMapSizeX);
