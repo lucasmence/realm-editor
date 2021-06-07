@@ -23,6 +23,8 @@ Hud::Hud(Manager* manager)
 	this->matrixActivated = false;
 	this->matrixTriggered = false;
 	this->matrixPosSpawn = false;
+	this->itemSelect = false;
+	this->itemSelected = false;
 	this->hoverShapeSize = sf::Vector2f(0.f, 0.f);
 	this->messageBox = MessageBox{ nullptr, nullptr };
 
@@ -40,7 +42,14 @@ Hud::Hud(Manager* manager)
 	this->shapeMatrix->loadShape(sf::Vector2f(1.f, 1.f), sf::Color(150, 255, 0, 150));
 	this->manager->addView(std::static_pointer_cast<ViewElement>(this->shapeMatrix));
 	this->shapeMatrix->visible = false;
-	
+
+	this->shapeItemSelected = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, 0.f), "", 0, false);
+	this->shapeItemSelected->loadShape(sf::Vector2f(1.f, 1.f), sf::Color(255, 255, 255, 100));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(this->shapeItemSelected));
+	this->shapeItemSelected->visible = false;
+
+	this->itemModelSelected = nullptr;
+
 	this->loadLists();
 }
 
@@ -49,6 +58,8 @@ Hud::~Hud()
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeHover));
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeMapArea));
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeMatrix));
+	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeItemSelected));
+	this->itemModelSelected = nullptr;
 	this->unloadLists();
 }
 
@@ -62,6 +73,7 @@ bool Hud::update(sf::Vector2f cursor)
 	this->updateHoverShapeSize();
 	this->updateHoverMapSize();
 	this->updateMousePressed(cursor);
+	this->updateHoverGeneral();
 
 	return true;
 }
@@ -70,10 +82,12 @@ bool Hud::updateClick(sf::Vector2f cursor, bool rightButton)
 {
 	this->mousePressed = true;
 	this->mouseRightButton = rightButton;
+	this->selectedItemUpdate();
 	this->buttonsClick(cursor);
 	this->matrixActivate(cursor);
 	this->spawnClick(cursor);
 	this->editsClick(cursor);
+	this->selectItem(cursor);
 
 	return true;
 }
@@ -163,7 +177,10 @@ bool Hud::updateLabelPaletteStatus(std::shared_ptr<sf::Text> text)
 		}
 		default: 
 		{
-			text->setString("- - -");
+			if (this->itemSelect)
+				text->setString("S E L E C T");
+			else
+				text->setString("- - -");
 			text->setFillColor(sf::Color(255, 255, 255, 255));
 			break;
 		}
@@ -221,6 +238,12 @@ bool Hud::updateHoverMapSize()
 
 	std::static_pointer_cast<sf::RectangleShape>(this->shapeMapArea->shape)->setSize(sf::Vector2f(this->manager->map->data.size.x, this->manager->map->data.size.y));
 
+	return true;
+}
+
+bool Hud::updateHoverGeneral()
+{
+	this->shapeItemSelected->visible = this->itemSelected;
 	return true;
 }
 
@@ -288,6 +311,166 @@ bool Hud::removeBackground(std::shared_ptr<Button> button, const bool message)
 	label->visible = false;
 	if (message)
 		this->manager->hud->showMessage("Terrain background removed!");
+	return true;
+}
+
+bool Hud::enableItemSelect(std::shared_ptr<Button> button)
+{
+	this->manager->palette->clearPaletteItem();
+	this->itemSelect = true;
+	return true;
+}
+
+bool Hud::checkMapClick(sf::Vector2f cursor)
+{
+	for (auto& model : this->models)
+		if (model->getGlobalBounds().contains(cursor))
+			return false;
+
+	return true;
+}
+
+bool Hud::selectedItemUpdate()
+{
+	if (!this->itemSelected)
+		return false;
+
+	std::list<MapObjectField> fields = this->getExtraEditValuesByType();
+
+	for (auto& object : this->manager->map->objects)
+		if (object.model == this->itemModelSelected)
+		{
+			object.fields = fields;
+			return true;
+		}
+
+	return false;
+}
+
+bool Hud::deleteSelectedItem()
+{
+	if (!this->itemModelSelected)
+		return false;
+
+	MapObjectUnit objectSelected{ MapObjectType::motTerrain , sf::Vector2f(0.f, 0.f), 0.f, nullptr, {} };
+	for (auto& object : this->manager->map->objects)
+		if (object.model == this->itemModelSelected)
+		{
+			objectSelected = object;
+			break;
+		}
+
+	if (!objectSelected.model)
+		return false;
+
+	this->manager->palette->clearPaletteItem();
+	this->manager->map->removeObjectUnit(objectSelected);
+	return true;
+}
+
+bool Hud::selectItem(sf::Vector2f cursor)
+{
+	if (!this->itemSelect || !this->checkMapClick(cursor))
+		return false;
+
+	MapObjectUnit objectSelected{ MapObjectType::motTerrain , sf::Vector2f(0.f, 0.f), 0.f, nullptr, {} };
+	for (auto& object : this->manager->map->objects)
+		if (object.model->getGlobalBounds().contains(cursor))
+		{
+			if (objectSelected.model != nullptr)
+				if (objectSelected.model->priority < object.model->priority)
+					continue;
+
+			objectSelected = object;
+		}
+
+	if (!objectSelected.model)
+		return false;
+
+	PaletteType paletteType = PaletteType::ptTerrain;
+	this->getPaletteType(paletteType, objectSelected.type);
+	this->manager->palette->selectPalette(paletteType);
+
+	if (paletteType == PaletteType::ptPortal)
+		this->manager->palette->selectPaletteItem(sf::Vector2f(0.f, 0.f), objectSelected.model);
+
+	this->itemSelected = true;
+	std::static_pointer_cast<sf::RectangleShape>(this->shapeItemSelected->shape)->setSize(sf::Vector2f(objectSelected.model->getGlobalBounds().width, 
+																									   objectSelected.model->getGlobalBounds().height));
+	this->shapeItemSelected->setPosition(objectSelected.model->getPosition());
+	this->itemModelSelected = objectSelected.model;
+
+	for (auto& field : objectSelected.fields)
+	{
+		std::string value = "";
+		if (field.valueString.active)
+			value = field.valueString.value;
+		else if (field.valueInt.active)
+			value = boost::lexical_cast<std::string>(field.valueInt.value);
+		else if (field.valueFloat.active)
+			value = boost::lexical_cast<std::string>(field.valueFloat.value);
+		else if (field.valueBool.active)
+		{
+			if (field.valueBool.value)
+				value = "true";
+			else
+				value = "false";
+		}
+
+		for (int index = 0; index < 6; index++)
+			for (auto& edit : this->edits)
+				if (edit->name == "edtExtraField-" + boost::lexical_cast<std::string>(index))
+					if (edit->origin == field.field)
+					{
+						edit->setValue(value);
+						break;
+					}			
+	}
+
+	return false;
+}
+
+bool Hud::getPaletteType(PaletteType& paletteType, MapObjectType type)
+{
+	switch (type)
+	{
+		case (MapObjectType::motTerrain):
+		{
+			paletteType = PaletteType::ptTerrain;
+			break;
+		}
+		case (MapObjectType::motProp):
+		{
+			paletteType = PaletteType::ptProp;
+			break;
+		}
+		case (MapObjectType::motEnvironment):
+		{
+			paletteType = PaletteType::ptEnvironment;
+			break;
+		}
+		case (MapObjectType::motUnit):
+		{
+			paletteType = PaletteType::ptUnit;
+			break;
+		}
+		case (MapObjectType::motMerchant):
+		{
+			paletteType = PaletteType::ptMerchant;
+			break;
+		}
+		case (MapObjectType::motItem):
+		{
+			paletteType = PaletteType::ptItem;
+			break;
+		}
+		case (MapObjectType::motPortal):
+		{
+			paletteType = PaletteType::ptPortal;
+			break;
+		}
+	}
+
 	return true;
 }
 
@@ -385,6 +568,81 @@ bool Hud::matrixGenerate(sf::Vector2f cursor)
 	return true;
 }
 
+std::list<MapObjectField> Hud::getExtraEditValuesByType()
+{
+	std::list<MapObjectField> fields = {};
+	std::vector<EditValue> extraValues = this->getExtraEditsValue();
+
+	switch (this->manager->palette->type)
+	{
+		case (PaletteType::ptTerrain) :
+		{
+			fields.emplace_back(MapObjectField{ "allow-teleport", MapObjectFieldString{ "", false},
+																	MapObjectFieldInt{ 0, false },
+																	MapObjectFieldFloat{ 0.f, false },
+																	MapObjectFieldBool{ extraValues.at(0).boolean, true } });
+			break;
+		}
+		case (PaletteType::ptProp):
+		{
+			fields.emplace_back(MapObjectField{ "variable", MapObjectFieldString{ extraValues.at(0).string, true} });
+
+			break;
+		}
+		case (PaletteType::ptEnvironment):
+		{
+			fields.emplace_back(MapObjectField{ "variable", MapObjectFieldString{ extraValues.at(0).string, true} });
+
+			break;
+		}
+		case (PaletteType::ptUnit):
+		{
+			fields.emplace_back(MapObjectField{ "alliance", MapObjectFieldString{ extraValues.at(0).string, true} });
+			fields.emplace_back(MapObjectField{ "item-drop", MapObjectFieldString{ extraValues.at(1).string, true} });
+			fields.emplace_back(MapObjectField{ "variable", MapObjectFieldString{ extraValues.at(2).string, true} });
+			break;
+		}
+		case (PaletteType::ptPortal):
+		{
+			if (this->manager->palette->selectedOrigin == "spawner")
+			{
+				fields.emplace_back(MapObjectField{ "default", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
+				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+			}
+			else if (this->manager->palette->selectedOrigin == "level")
+			{
+				fields.emplace_back(MapObjectField{ "group", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
+				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+				fields.emplace_back(MapObjectField{ "target-index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
+				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(3).integer, true } });
+				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(4).integer, true } });
+				fields.emplace_back(MapObjectField{ "map", MapObjectFieldString{extraValues.at(5).string, true} });
+			}
+			else if (this->manager->palette->selectedOrigin == "generator")
+			{
+				std::string unitTypePrefix = "characters/", unitTypeField = extraValues.at(5).string;
+				boost::erase_all(unitTypeField, unitTypePrefix);
+				unitTypeField = unitTypePrefix + unitTypeField;
+
+				fields.emplace_back(MapObjectField{ "alliance", MapObjectFieldString{ extraValues.at(0).string, true } });
+				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+				fields.emplace_back(MapObjectField{ "target-x", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
+				fields.emplace_back(MapObjectField{ "target-y", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(3).integer, true } });
+				fields.emplace_back(MapObjectField{ "cooldown", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(4).integer, true } });
+				fields.emplace_back(MapObjectField{ "unit-type", MapObjectFieldString{ unitTypeField, true } });
+			}
+			else if (this->manager->palette->selectedOrigin == "wall")
+			{
+				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
+				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+			}		
+			break;
+		}
+	}
+
+	return fields;
+}
+
 bool Hud::spawnClick(sf::Vector2f cursor)
 {
 	if (this->matrixTriggered)
@@ -410,7 +668,7 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 			MapObjectType objectType = MapObjectType::motTerrain;
 			std::string paletteTypeField = "textures/";
 			std::string texture = this->manager->palette->selectedItem;
-			std::list<MapObjectField> fields = {};
+			std::list<MapObjectField> fields = this->getExtraEditValuesByType();
 
 			sf::Vector2f tilesetPosition(this->shapeHover->shape->getPosition());
 			sf::Vector2f tilesetOrigin(this->shapeHover->shape->getOrigin());
@@ -420,20 +678,15 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 
 			int priorityValue = this->priority;
 
+			std::vector<EditValue> extraValues = this->getExtraEditsValue();
+
 			switch (this->manager->palette->type)
 			{
 				case (PaletteType::ptTerrain) :
 				{
 					objectType = MapObjectType::motTerrain;
 					paletteTypeField += "terrain";
-
-					std::vector<EditValue> extraValues = this->getExtraEditsValue();
-
-					fields.emplace_back(MapObjectField{ "allow-teleport", MapObjectFieldString{ "", false},
-																		  MapObjectFieldInt{ 0, false },
-																		  MapObjectFieldFloat{ 0.f, false },
-																		  MapObjectFieldBool{ extraValues.at(0).boolean, true } });
-
+					
 					if (extraValues.at(1).boolean)
 					{
 						std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, 
@@ -460,22 +713,12 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 				{
 					objectType = MapObjectType::motProp;
 					paletteTypeField += "prop";
-
-					std::vector<EditValue> extraValues = this->getExtraEditsValue();
-
-					fields.emplace_back(MapObjectField{ "variable", MapObjectFieldString{ extraValues.at(0).string, true} });
-
 					break;
 				}
 				case (PaletteType::ptEnvironment):
 				{
 					objectType = MapObjectType::motEnvironment;
 					paletteTypeField += "environment";
-
-					std::vector<EditValue> extraValues = this->getExtraEditsValue();
-
-					fields.emplace_back(MapObjectField{ "variable", MapObjectFieldString{ extraValues.at(0).string, true} });
-
 					break;
 				}
 				case (PaletteType::ptUnit):
@@ -483,11 +726,6 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 					objectType = MapObjectType::motUnit;
 					paletteTypeField = "";
 					texture = this->manager->palette->selectedTexture;
-					std::vector<EditValue> extraValues = this->getExtraEditsValue();
-
-					fields.emplace_back(MapObjectField{ "alliance", MapObjectFieldString{ extraValues.at(0).string, true} });
-					fields.emplace_back(MapObjectField{ "item-drop", MapObjectFieldString{ extraValues.at(1).string, true} });
-					fields.emplace_back(MapObjectField{ "variable", MapObjectFieldString{ extraValues.at(2).string, true} });
 
 					priorityValue = 0;
 
@@ -525,44 +763,14 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 																		   tilesetPosition, 
 																		   "", priorityValue, false, "", this->manager->palette->selectedOrigin);
 
-					std::vector<EditValue> extraValues = this->getExtraEditsValue();
-
-					if (this->manager->palette->selectedOrigin == "spawner")
-					{
-						fields.emplace_back(MapObjectField{ "default", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
-						fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
-
+					if (this->manager->palette->selectedOrigin == "spawner")	
 						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin);
-					}
 					else if (this->manager->palette->selectedOrigin == "level")
-					{
-						fields.emplace_back(MapObjectField{ "group", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
-						fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
-						fields.emplace_back(MapObjectField{ "target-index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
-						fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(3).integer, true } });
-						fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(4).integer, true } });
-						fields.emplace_back(MapObjectField{ "map", MapObjectFieldString{extraValues.at(5).string, true} });
-
 						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(3).integer, extraValues.at(4).integer));
-					}
 					else if (this->manager->palette->selectedOrigin == "generator")
-					{
-						fields.emplace_back(MapObjectField{ "alliance", MapObjectFieldString{ extraValues.at(0).string, true } });
-						fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
-						fields.emplace_back(MapObjectField{ "target-x", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
-						fields.emplace_back(MapObjectField{ "target-y", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(3).integer, true } });
-						fields.emplace_back(MapObjectField{ "cooldown", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(4).integer, true } });
-						fields.emplace_back(MapObjectField{ "unit", MapObjectFieldString{ "characters/" + extraValues.at(5).string, true } });
-
 						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin);
-					}
 					else if (this->manager->palette->selectedOrigin == "wall")
-					{
-						fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
-						fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
-
 						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(0).integer, extraValues.at(1).integer));
-					}		
 
 					model->setOrigin(tilesetOrigin);
 					this->manager->addView(std::static_pointer_cast<ViewElement>(model));
@@ -603,9 +811,8 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 
 		case (PaletteStatus::psDelete):
 		{
-			for (auto& model : this->models)
-				if (model->getGlobalBounds().contains(cursor))
-					return false;
+			if (!this->checkMapClick(cursor))
+				return false;
 
 			MapObjectUnit objectSelected{ MapObjectType::motTerrain , sf::Vector2f(0.f, 0.f), 0.f, nullptr, {} };
 			for (auto& object : this->manager->map->objects)
@@ -685,6 +892,8 @@ bool Hud::buttonsClick(sf::Vector2f cursor)
 				this->toggleMatrixTriggered(button);
 			else if (button->name == "btnGridSpawn")
 				this->toggleGridSpawn(button);
+			else if (button->name == "btnSelectItem")
+				this->enableItemSelect(button);
 			else if (button->name == "btnTerrain")
 				this->manager->palette->selectPalette(PaletteType::ptTerrain);
 			else if (button->name == "btnProp")
@@ -794,7 +1003,7 @@ bool Hud::setExtraEditsValue(std::vector<std::string> value)
 	return true;
 }
 
-bool Hud::updateExtraEditsValue(std::vector<std::string> caption, std::vector<EditType> type, std::vector<std::string> value, std::vector<int> maxValue)
+bool Hud::updateExtraEditsValue(std::vector<std::string> caption, std::vector<EditType> type, std::vector<std::string> value, std::vector<int> maxValue, std::vector<std::string> origin)
 {
 	for (int index = 0; index < 6; index++)
 	{
@@ -836,6 +1045,7 @@ bool Hud::updateExtraEditsValue(std::vector<std::string> caption, std::vector<Ed
 					{
 						edit->type = type.at(index);
 						edit->setValue(value.at(index));
+						edit->origin = origin.at(index);
 
 						int extraWidth = 0.f;
 
@@ -1053,6 +1263,7 @@ bool Hud::loadButtons()
 	std::shared_ptr<Button> btnMatrix = std::make_shared<Button>(this->manager, "[M]", sf::Vector2f(0.f, 0.f), "btnMatrix", 20, btnCenterShape, sf::Vector2i(-1, 0));
 	std::shared_ptr<Button> btnMapAreaSize = std::make_shared<Button>(this->manager, "[A]", sf::Vector2f(0.f, 0.f), "btnMapAreaSize", 20, btnGridVisibilityToggle, sf::Vector2i(1, 0));
 	std::shared_ptr<Button> btnGridSpawn = std::make_shared<Button>(this->manager, "[D]", sf::Vector2f(0.f, 0.f), "btnGridSpawn", 20, btnMapAreaSize, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnSelectItem = std::make_shared<Button>(this->manager, "[I]", sf::Vector2f(0.f, 0.f), "btnSelectItem", 20, btnGridSpawn, sf::Vector2i(1, 0));
 	
 	std::shared_ptr<Button> btnUnit = std::make_shared<Button>(this->manager, "[Units]", sf::Vector2f(1650.f, 200.f), "btnUnit", 20);
 	std::shared_ptr<Button> btnMerchant = std::make_shared<Button>(this->manager, "[Merchants]", sf::Vector2f(0.f, 0.f), "btnMerchant", 20, btnUnit, sf::Vector2i(1, 0));
@@ -1224,6 +1435,7 @@ bool Hud::loadButtons()
 	this->buttons.emplace_back(btnCenterShape);
 	this->buttons.emplace_back(btnMapAreaSize);
 	this->buttons.emplace_back(btnGridSpawn);
+	this->buttons.emplace_back(btnSelectItem);
 	this->buttons.emplace_back(btnUnit);
 	this->buttons.emplace_back(btnMerchant);
 	this->buttons.emplace_back(btnProp);
