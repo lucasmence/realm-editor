@@ -215,8 +215,8 @@ bool Map::renderObjectField(json& localfile, MapObjectField& field)
 
 bool Map::renderObject(json& localfile, MapObjectUnit& object)
 {
-	localfile["x"] = object.position.x;
-	localfile["y"] = object.position.y;
+	localfile["x"] = object.model->getPosition().x;
+	localfile["y"] = object.model->getPosition().y;
 	localfile["scale"] = object.model->getScale().x;
 	localfile["rotation"] = object.model->getRotation();
 
