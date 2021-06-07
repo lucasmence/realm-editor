@@ -31,7 +31,7 @@ Label::~Label()
 
 bool Label::draw()
 {
-	if (!this->visible)
+	if (!this->visible || (this->canvasBound && this->manager->hud->zoom != 1.f))
 		return ViewElement::draw();
 
 	if (this->canvasBound)

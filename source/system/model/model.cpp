@@ -28,7 +28,7 @@ Model::~Model()
 
 bool Model::draw()
 {
-	if (!this->visible)
+	if (!this->visible || (this->canvasBound && this->manager->hud->zoom != 1.f))
 		return ViewElement::draw();
 
 	if (this->sprite)
@@ -46,7 +46,9 @@ bool Model::draw()
 	if (this->shape)
 	{
 		if (this->canvasBound)
-			this->shape->setPosition(this->manager->canvasPosition.x + this->position.x, this->manager->canvasPosition.y + this->position.y);
+			this->shape->setPosition(this->manager->canvasPosition.x + this->position.x, 
+									 this->manager->canvasPosition.y + this->position.y);
+			
 		if (this->fading)
 		{
 			this->shape->setFillColor(sf::Color(this->shape->getFillColor().r, this->shape->getFillColor().g, this->shape->getFillColor().b, this->shape->getFillColor().a - this->fadeSpeed));
