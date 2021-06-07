@@ -28,6 +28,7 @@ class Edit
 		std::shared_ptr<Model> shape;
 		std::shared_ptr<Label> label;
 		std::string name;
+		std::string origin;
 		bool selected;
 		int maxLength;
 		int integerMaxValue;
