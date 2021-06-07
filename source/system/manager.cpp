@@ -78,16 +78,24 @@ bool Manager::update()
     this->event();
 
     this->window->clear();
-    this->setCanvas();
 
+    this->setCanvas();
+    
     this->hud->update(this->getMousePosition());
 
+    this->display();
+
+	return true;
+}
+
+bool Manager::display()
+{
     for (auto& element : this->list.viewElements)
         element->draw();
 
     this->window->display();
 
-	return true;
+    return true;
 }
 
 sf::Vector2f Manager::getMousePosition()
@@ -144,7 +152,13 @@ bool Manager::event()
                 this->eventMouseReleased(event);
                 break;
             }
-        }            
+
+            case sf::Event::MouseMoved:
+            {
+                this->eventMouseMoved(event);
+                break;
+            }
+        }
     }
 
 	return true;
@@ -207,6 +221,11 @@ bool Manager::eventMouseReleased(sf::Event& event)
     return true;
 }
 
+bool Manager::eventMouseMoved(sf::Event& event)
+{
+    return true;
+}
+
 bool Manager::eventType(sf::Event& event)
 {
     this->hud->updateEdit(static_cast<char>(event.text.unicode));
@@ -219,6 +238,16 @@ bool Manager::moveCanvas(sf::Vector2f position)
     this->canvasPosition.x = position.x;
     this->canvasPosition.y = position.y;
     this->window->setView(*this->canvas);
+    return true;
+}
+
+bool Manager::setCanvasCenter(sf::Vector2f position)
+{
+    this->canvas->move(position.x, position.y);
+    this->canvasPosition.x = position.x + this->canvasPosition.x;
+    this->canvasPosition.y = position.y + this->canvasPosition.y;
+    this->window->setView(*this->canvas);
+
     return true;
 }
 

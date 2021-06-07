@@ -58,12 +58,15 @@ class Manager
 		bool eventKey(sf::Event& event);
 		bool eventType(sf::Event& event);
 		bool eventMouseReleased(sf::Event& event);
+		bool eventMouseMoved(sf::Event& event);
 		bool addView(std::shared_ptr<ViewElement> element);
 		bool removeView(std::shared_ptr<ViewElement> element);
 		bool addViewElement(std::shared_ptr<ViewElement> element);
 		bool moveCanvas(sf::Vector2f position);
+		bool setCanvasCenter(sf::Vector2f position);
 		bool setCanvas();
 		bool loadConstants();
+		bool display();
 		std::shared_ptr<Texture> getTexture(std::string filename);
 		std::string setTitle(std::string value);
 		sf::Vector2f getMousePosition();
