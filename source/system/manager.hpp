@@ -67,6 +67,7 @@ class Manager
 		bool setCanvas();
 		bool loadConstants();
 		bool display();
+		bool resetView();
 		std::shared_ptr<Texture> getTexture(std::string filename);
 		std::string setTitle(std::string value);
 		sf::Vector2f getMousePosition();

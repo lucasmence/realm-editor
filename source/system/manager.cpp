@@ -198,10 +198,19 @@ bool Manager::eventKey(sf::Event& event)
             this->moveCanvas(sf::Vector2f(this->canvasPosition.x, this->canvasPosition.y + 64.f));
             break;
         }
+        case (sf::Keyboard::Add):
+        {
+            this->hud->zoomMap(-1);
+            break;
+        }
+        case (sf::Keyboard::Subtract):
+        {
+            this->hud->zoomMap(1);
+            break;
+        }
         case (sf::Keyboard::Space):
         {
-            this->canvasPosition = sf::Vector2f(0.f, -115.f);
-            this->moveCanvas(this->canvasPosition);
+            this->resetView();
             break;
         }
         case (sf::Keyboard::Delete):
@@ -232,6 +241,16 @@ bool Manager::eventType(sf::Event& event)
     return true;
 }
 
+bool Manager::resetView()
+{
+    if (this->hud->zoom != 1.f)
+        return this->hud->zoomMapReset();
+    
+    this->canvasPosition = sf::Vector2f(0.f, -115.f);
+    this->moveCanvas(this->canvasPosition);
+    return true;
+}
+
 bool Manager::moveCanvas(sf::Vector2f position)
 {
     this->canvas->move(position.x - this->canvasPosition.x, position.y - this->canvasPosition.y);
@@ -254,6 +273,7 @@ bool Manager::setCanvasCenter(sf::Vector2f position)
 bool Manager::setCanvas()
 {
     this->canvas->reset(sf::FloatRect(this->canvasPosition.x, this->canvasPosition.y, this->window->getSize().x, this->window->getSize().y));
+    this->canvas->zoom(this->hud->zoom);
     this->window->setView(*this->canvas);
     return true;
 }
