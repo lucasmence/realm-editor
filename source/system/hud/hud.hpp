@@ -26,6 +26,7 @@ class Hud
 		Manager* manager;
 
 		sf::Vector2f hoverShapeSize;
+		sf::Vector2f mousePressPosition;
 		int gridSize;
 		int brushSize;
 		int rotation;
@@ -42,6 +43,7 @@ class Hud
 		bool itemSelect;
 		bool itemSelected;
 		bool itemSelectedMove;
+		bool dragCursor;
 		std::vector<int> gridSizeList;
 		std::vector<int> brushSizeList;
 		std::list<std::shared_ptr<Button>> buttons;
@@ -95,13 +97,16 @@ class Hud
 		bool toggleMapAreaSize(std::shared_ptr<Button> button);
 		bool toggleGridSpawn(std::shared_ptr<Button> button);
 		bool toggleItemSelectedMove(std::shared_ptr<Button> button);
+		bool toggleDragCursor(std::shared_ptr<Button> button);
 		bool removeBackground(std::shared_ptr<Button> button, const bool message = true);
 		bool enableItemSelect(std::shared_ptr<Button> button);
 		bool selectItem(sf::Vector2f cursor);
 		bool deleteSelectedItem();
 		bool selectedItemUpdate();
 		bool checkMapClick(sf::Vector2f cursor);
+		bool updateDragCursor(sf::Vector2f cursor);
 		bool help();
+
 		bool getPaletteType(PaletteType &paletteType, MapObjectType type);
 		bool updateExtraEditsValue(std::vector<std::string> caption, std::vector<EditType> type, std::vector<std::string> value, std::vector<int> maxValue, std::vector<std::string> origin);
 		bool setExtraEditsValue(std::vector<std::string> value);
