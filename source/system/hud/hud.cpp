@@ -63,12 +63,15 @@ Hud::~Hud()
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeMapArea));
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeMatrix));
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeItemSelected));
+	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeTooltip));
+	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->labelTooltip));
 	this->itemModelSelected = nullptr;
 	this->unloadLists();
 }
 
 bool Hud::update(sf::Vector2f cursor)
 {
+	this->resetTooltip();
 	this->updateCursor(cursor);
 	this->updateLabels(cursor);
 	this->updateButtonsColor(cursor);
@@ -235,6 +238,31 @@ bool Hud::zoomMapReset()
 	this->zoom = 1.f;
 	this->manager->canvas->zoom(this->zoom);
 	return true;
+}
+
+bool Hud::setTooltip(std::string hint, sf::Vector2f cursor)
+{
+	if (hint == "")
+		return false;
+
+	this->labelTooltip->text->setString(hint);
+	this->labelTooltip->visible = true;
+	this->shapeTooltip->visible = true;
+
+	this->labelTooltip->setPosition(sf::Vector2f(cursor.x, cursor.y - 15.f));
+
+	std::static_pointer_cast<sf::RectangleShape>(this->shapeTooltip->shape)->setSize(sf::Vector2f(this->labelTooltip->text->getGlobalBounds().width + 10.f, 
+																								  this->labelTooltip->text->getGlobalBounds().height + 10.f));
+	this->shapeTooltip->setPosition(sf::Vector2f(cursor.x - 5.f, cursor.y - 15.f));
+	return true;
+}
+
+bool Hud::resetTooltip()
+{
+	this->labelTooltip->text->setString("");
+	this->labelTooltip->visible = false;
+	this->shapeTooltip->visible = false;
+	return false;
 }
 
 bool Hud::help()
@@ -1010,10 +1038,13 @@ bool Hud::editsClick(sf::Vector2f cursor)
 bool Hud::updateButtonsColor(sf::Vector2f cursor)
 {
 	for (auto& button : this->buttons)
-		if (button->shape->shape->getGlobalBounds().contains(cursor))
+		if (button->shape->shape->getGlobalBounds().contains(cursor) && button->getVisible())
 		{
 			button->shape->shape->setFillColor(sf::Color(200, 200, 50, 100));
 			button->label->text->setFillColor(sf::Color(200, 200, 50, 255));
+
+			this->setTooltip(button->hint, cursor);
+			
 		}
 		else if (button->selected)
 		{
@@ -1032,10 +1063,12 @@ bool Hud::updateButtonsColor(sf::Vector2f cursor)
 bool Hud::updateEditsColor(sf::Vector2f cursor)
 {
 	for (auto& edit : this->edits)
-		if (edit->shape->shape->getGlobalBounds().contains(cursor))
+		if (edit->shape->shape->getGlobalBounds().contains(cursor) && edit->shape->visible)
 		{
 			edit->shape->shape->setFillColor(sf::Color(50, 200, 50, 100));
 			edit->label->text->setFillColor(sf::Color(50, 200, 50, 255));
+
+			this->setTooltip(edit->hint, cursor);
 		}
 		else if (edit->selected)
 		{
@@ -1322,28 +1355,28 @@ bool Hud::loadModels()
 }
 bool Hud::loadButtons()
 {
-	std::shared_ptr<Button> btnNew = std::make_shared<Button>(this->manager, "[New]", sf::Vector2f(15.f, 10.f), "btnNew", 20);
-	std::shared_ptr<Button> btnOpen = std::make_shared<Button>(this->manager, "[Open]", sf::Vector2f(0.f, 0.f), "btnOpen", 20, btnNew, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnReload = std::make_shared<Button>(this->manager, "[Reload]", sf::Vector2f(0.f, 0.f), "btnReload", 20, btnOpen, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnSave = std::make_shared<Button>(this->manager, "[Save]", sf::Vector2f(0.f, 0.f), "btnSave", 20, btnReload, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnSaveAs = std::make_shared<Button>(this->manager, "[Save As]", sf::Vector2f(0.f, 0.f), "btnSaveAs", 20, btnSave, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnReloadConfig = std::make_shared<Button>(this->manager, "[Reload Config]", sf::Vector2f(0.f, 0.f), "btnReloadConfig", 20, btnSaveAs, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnTrigger = std::make_shared<Button>(this->manager, "[Trigger]", sf::Vector2f(0.f, 0.f), "btnTrigger", 20, btnReloadConfig, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnHelp = std::make_shared<Button>(this->manager, "[Help]", sf::Vector2f(0.f, 0.f), "btnHelp", 20, btnTrigger, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnNew = std::make_shared<Button>(this->manager, "[New]", sf::Vector2f(15.f, 10.f), "btnNew", 20, nullptr, sf::Vector2i(0, 0), "Create a new map");
+	std::shared_ptr<Button> btnOpen = std::make_shared<Button>(this->manager, "[Open]", sf::Vector2f(0.f, 0.f), "btnOpen", 20, btnNew, sf::Vector2i(1, 0), "Select a file to open an existing map");
+	std::shared_ptr<Button> btnReload = std::make_shared<Button>(this->manager, "[Reload]", sf::Vector2f(0.f, 0.f), "btnReload", 20, btnOpen, sf::Vector2i(1, 0), "Reload the current loaded map");
+	std::shared_ptr<Button> btnSave = std::make_shared<Button>(this->manager, "[Save]", sf::Vector2f(0.f, 0.f), "btnSave", 20, btnReload, sf::Vector2i(1, 0), "Save the current map");
+	std::shared_ptr<Button> btnSaveAs = std::make_shared<Button>(this->manager, "[Save As]", sf::Vector2f(0.f, 0.f), "btnSaveAs", 20, btnSave, sf::Vector2i(1, 0), "Save the current map always verifying the path");
+	std::shared_ptr<Button> btnReloadConfig = std::make_shared<Button>(this->manager, "[Reload Config]", sf::Vector2f(0.f, 0.f), "btnReloadConfig", 20, btnSaveAs, sf::Vector2i(1, 0), "Reload editor configuration file");
+	std::shared_ptr<Button> btnTrigger = std::make_shared<Button>(this->manager, "[Trigger]", sf::Vector2f(0.f, 0.f), "btnTrigger", 20, btnReloadConfig, sf::Vector2i(1, 0), "Auto-create the trigger file");
+	std::shared_ptr<Button> btnHelp = std::make_shared<Button>(this->manager, "[Help]", sf::Vector2f(0.f, 0.f), "btnHelp", 20, btnTrigger, sf::Vector2i(1, 0), "Open the help section (external)");
 
-	std::shared_ptr<Button> btnClear = std::make_shared<Button>(this->manager, "[C]", sf::Vector2f(1275.f, 65.f), "btnClear", 18);
-	std::shared_ptr<Button> btnErase = std::make_shared<Button>(this->manager, "[E]", sf::Vector2f(0.f, 0.f), "btnErase", 18, btnClear, sf::Vector2i(-1, 0));
-	std::shared_ptr<Button> btnGridVisibilityToggle = std::make_shared<Button>(this->manager, "[G]", sf::Vector2f(0.f, 0.f), "btnGridVisibilityToggle", 18, btnClear, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnSpawnPress = std::make_shared<Button>(this->manager, "[P]", sf::Vector2f(0.f, 0.f), "btnSpawnPress", 18, btnErase, sf::Vector2i(-1, 0));
-	std::shared_ptr<Button> btnCenterShape = std::make_shared<Button>(this->manager, "[S]", sf::Vector2f(0.f, 0.f), "btnCenterShape", 18, btnSpawnPress, sf::Vector2i(-1, 0));
-	std::shared_ptr<Button> btnMatrix = std::make_shared<Button>(this->manager, "[M]", sf::Vector2f(0.f, 0.f), "btnMatrix", 18, btnCenterShape, sf::Vector2i(-1, 0));
-	std::shared_ptr<Button> btnDragCursor = std::make_shared<Button>(this->manager, "[^]", sf::Vector2f(0.f, 0.f), "btnDragCursor", 18, btnMatrix, sf::Vector2i(-1, 0));
-	std::shared_ptr<Button> btnMapAreaSize = std::make_shared<Button>(this->manager, "[A]", sf::Vector2f(0.f, 0.f), "btnMapAreaSize", 18, btnGridVisibilityToggle, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnGridSpawn = std::make_shared<Button>(this->manager, "[D]", sf::Vector2f(0.f, 0.f), "btnGridSpawn", 18, btnMapAreaSize, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnSelectItem = std::make_shared<Button>(this->manager, "[I]", sf::Vector2f(0.f, 0.f), "btnSelectItem", 18, btnGridSpawn, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnSelectItemMove = std::make_shared<Button>(this->manager, "[->]", sf::Vector2f(0.f, 0.f), "btnSelectItemMove", 18, btnSelectItem, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnClear = std::make_shared<Button>(this->manager, "[C]", sf::Vector2f(1275.f, 65.f), "btnClear", 18, nullptr, sf::Vector2i(0, 0), "Clear the selection");
+	std::shared_ptr<Button> btnErase = std::make_shared<Button>(this->manager, "[E]", sf::Vector2f(0.f, 0.f), "btnErase", 18, btnClear, sf::Vector2i(-1, 0), "Enable erase-on-click mode");
+	std::shared_ptr<Button> btnGridVisibilityToggle = std::make_shared<Button>(this->manager, "[G]", sf::Vector2f(0.f, 0.f), "btnGridVisibilityToggle", 18, btnClear, sf::Vector2i(1, 0), "Toggle grid visible ON/OFF");
+	std::shared_ptr<Button> btnSpawnPress = std::make_shared<Button>(this->manager, "[P]", sf::Vector2f(0.f, 0.f), "btnSpawnPress", 18, btnErase, sf::Vector2i(-1, 0), "Toggle spawn-press mode");
+	std::shared_ptr<Button> btnCenterShape = std::make_shared<Button>(this->manager, "[S]", sf::Vector2f(0.f, 0.f), "btnCenterShape", 18, btnSpawnPress, sf::Vector2i(-1, 0), "Makes the spawn shape at center of cursor");
+	std::shared_ptr<Button> btnMatrix = std::make_shared<Button>(this->manager, "[M]", sf::Vector2f(0.f, 0.f), "btnMatrix", 18, btnCenterShape, sf::Vector2i(-1, 0), "Toggle matrix spawn mode");
+	std::shared_ptr<Button> btnDragCursor = std::make_shared<Button>(this->manager, "[^]", sf::Vector2f(0.f, 0.f), "btnDragCursor", 18, btnMatrix, sf::Vector2i(-1, 0), "Toggle drag cursor to move the map");
+	std::shared_ptr<Button> btnMapAreaSize = std::make_shared<Button>(this->manager, "[A]", sf::Vector2f(0.f, 0.f), "btnMapAreaSize", 18, btnGridVisibilityToggle, sf::Vector2i(1, 0), "Toggle map area visible ON/OFF");
+	std::shared_ptr<Button> btnGridSpawn = std::make_shared<Button>(this->manager, "[D]", sf::Vector2f(0.f, 0.f), "btnGridSpawn", 18, btnMapAreaSize, sf::Vector2i(1, 0), "Toggle disable grid-spawn ON/OFF");
+	std::shared_ptr<Button> btnSelectItem = std::make_shared<Button>(this->manager, "[I]", sf::Vector2f(0.f, 0.f), "btnSelectItem", 18, btnGridSpawn, sf::Vector2i(1, 0), "Enable the item selection");
+	std::shared_ptr<Button> btnSelectItemMove = std::make_shared<Button>(this->manager, "[->]", sf::Vector2f(0.f, 0.f), "btnSelectItemMove", 18, btnSelectItem, sf::Vector2i(1, 0), "Toggle item selected move");
 	
-	std::shared_ptr<Button> btnUnit = std::make_shared<Button>(this->manager, "[Units]", sf::Vector2f(1650.f, 200.f), "btnUnit", 20);
+	std::shared_ptr<Button> btnUnit = std::make_shared<Button>(this->manager, "[Units]", sf::Vector2f(1650.f, 200.f), "btnUnit", 20, nullptr, sf::Vector2i(0, 0));
 	std::shared_ptr<Button> btnMerchant = std::make_shared<Button>(this->manager, "[Merchants]", sf::Vector2f(0.f, 0.f), "btnMerchant", 20, btnUnit, sf::Vector2i(1, 0));
 	std::shared_ptr<Button> btnProp = std::make_shared<Button>(this->manager, "[Props]", sf::Vector2f(0.f, 0.f), "btnProp", 20, btnUnit, sf::Vector2i(0, 1));
 	std::shared_ptr<Button> btnEnvironment = std::make_shared<Button>(this->manager, "[Environments]", sf::Vector2f(0.f, 0.f), "btnEnvironment", 20, btnProp, sf::Vector2i(1, 0));
@@ -1351,7 +1384,7 @@ bool Hud::loadButtons()
 	std::shared_ptr<Button> btnPortal = std::make_shared<Button>(this->manager, "[Portals]", sf::Vector2f(0.f, 0.f), "btnPortal", 18, btnTerrain, sf::Vector2i(1, 0));
 	std::shared_ptr<Button> btnItem = std::make_shared<Button>(this->manager, "[Item]", sf::Vector2f(0.f, 0.f), "btnItem", 18, btnPortal, sf::Vector2i(1, 0));
 
-	std::shared_ptr<Button> btnRemoveBackground = std::make_shared<Button>(this->manager, "[Remove Background]", sf::Vector2f(0.f, 65.f), "btnRemoveBackground", 15, btnUnit, sf::Vector2i(0, -1));
+	std::shared_ptr<Button> btnRemoveBackground = std::make_shared<Button>(this->manager, "[Remove Background]", sf::Vector2f(0.f, 65.f), "btnRemoveBackground", 15, btnUnit, sf::Vector2i(0, -1), "Remove the \ncurrent terrain \nbackground");
 	btnRemoveBackground->setVisible(false);
 
 	std::shared_ptr<Label> lblBackground = std::make_shared<Label>(this->manager, "-", 15, sf::Vector2f(0.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblBackground");
@@ -1386,8 +1419,8 @@ bool Hud::loadButtons()
 	edtWeatherName->setValue("");
 	edtWeatherName->maxLength = 64;
 
-	std::shared_ptr<Button> btnPalettePrevious = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, 15.f), "btnPalettePrevious", 20, btnTerrain, sf::Vector2i(0, 1));
-	std::shared_ptr<Button> btnPaletteBack = std::make_shared<Button>(this->manager, "[>]", sf::Vector2f(175.f, 0.f), "btnPaletteNext", 20, btnPalettePrevious, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnPalettePrevious = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, 15.f), "btnPalettePrevious", 20, btnTerrain, sf::Vector2i(0, 1), "Previous page");
+	std::shared_ptr<Button> btnPaletteBack = std::make_shared<Button>(this->manager, "[>]", sf::Vector2f(175.f, 0.f), "btnPaletteNext", 20, btnPalettePrevious, sf::Vector2i(1, 0), "Next page");
 	std::shared_ptr<Label> lblPalettePage = std::make_shared<Label>(this->manager, "1", 20, sf::Vector2f(85.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblPalettePage");
 	lblPalettePage->setPosition(position::getSidePosition(btnPalettePrevious->shape->shape->getGlobalBounds(), 
 														  lblPalettePage->text->getGlobalBounds(), 
@@ -1395,8 +1428,8 @@ bool Hud::loadButtons()
 	this->manager->addView(std::static_pointer_cast<ViewElement>(lblPalettePage));
 	this->labels.emplace_back(lblPalettePage);
 
-	std::shared_ptr<Button> btnGridSizeDecrease = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, 700.f), "btnGridSizeDecrease", 20, btnTerrain, sf::Vector2i(0, 1));
-	std::shared_ptr<Button> btnGridSizeIncrease = std::make_shared<Button>(this->manager, "[>]", sf::Vector2f(175.f, 0.f), "btnGridSizeIncrease", 20, btnGridSizeDecrease, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnGridSizeDecrease = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, 700.f), "btnGridSizeDecrease", 20, btnTerrain, sf::Vector2i(0, 1), "Decrease \ngrid size");
+	std::shared_ptr<Button> btnGridSizeIncrease = std::make_shared<Button>(this->manager, "[>]", sf::Vector2f(175.f, 0.f), "btnGridSizeIncrease", 20, btnGridSizeDecrease, sf::Vector2i(1, 0), "Increase \ngrid size");
 	std::shared_ptr<Label> lblGridSize = std::make_shared<Label>(this->manager, "64px", 20, sf::Vector2f(65.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblGridSize");
 	lblGridSize->setPosition(position::getSidePosition(btnGridSizeDecrease->shape->shape->getGlobalBounds(),
 													   lblGridSize->text->getGlobalBounds(),
@@ -1404,8 +1437,8 @@ bool Hud::loadButtons()
 	this->manager->addView(std::static_pointer_cast<ViewElement>(lblGridSize));
 	this->labels.emplace_back(lblGridSize);
 
-	std::shared_ptr<Button> btnBrushSizeDecrease = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, -50.f), "btnBrushSizeDecrease", 20, btnGridSizeDecrease, sf::Vector2i(0, 1));
-	std::shared_ptr<Button> btnBrushSizeIncrease = std::make_shared<Button>(this->manager, "[>]", sf::Vector2f(175.f, 0.f), "btnBrushSizeIncrease", 20, btnBrushSizeDecrease, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnBrushSizeDecrease = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, -50.f), "btnBrushSizeDecrease", 20, btnGridSizeDecrease, sf::Vector2i(0, 1), "Decrease \nbrush size");
+	std::shared_ptr<Button> btnBrushSizeIncrease = std::make_shared<Button>(this->manager, "[>]", sf::Vector2f(175.f, 0.f), "btnBrushSizeIncrease", 20, btnBrushSizeDecrease, sf::Vector2i(1, 0), "Increase \nbrush size");
 	std::shared_ptr<Label> lblBrushSize = std::make_shared<Label>(this->manager, "1x", 20, sf::Vector2f(75.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblBrushSize");
 	lblBrushSize->setPosition(position::getSidePosition(btnBrushSizeDecrease->shape->shape->getGlobalBounds(),
 													   lblBrushSize->text->getGlobalBounds(),
@@ -1575,6 +1608,7 @@ bool Hud::loadLabels()
 	std::shared_ptr<Label> lblVersion = std::make_shared<Label>(this->manager, "0.04", 20, sf::Vector2f(1870.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblVersion");
 	std::shared_ptr<Label> lblPaletteStatus = std::make_shared<Label>(this->manager, "- - -", 30, sf::Vector2f(0.f, 960.f), 1, sf::Color(255, 255, 255, 255), "lblPaletteStatus");
 	std::shared_ptr<Label> lblMessageBox = std::make_shared<Label>(this->manager, "", 20, sf::Vector2f(0.f, 900.f), 1, sf::Color(255, 255, 255, 255), "lblMessageBox");
+	
 
 	lblPaletteItem->setPosition(position::getSidePosition(lblCoordinates->text->getGlobalBounds(),
 														  lblPaletteItem->text->getGlobalBounds(), 
@@ -1595,6 +1629,17 @@ bool Hud::loadLabels()
 	lblMessageBox->visible = false;
 	this->messageBox.label = lblMessageBox;
 
+	this->shapeTooltip = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, 0.f), "", 1, false);
+	this->shapeTooltip->loadShape(sf::Vector2f(1.f, 1.f), sf::Color(0, 0, 0, 255));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(this->shapeTooltip));
+	this->shapeTooltip->visible = false;
+
+	this->labelTooltip = std::make_shared<Label>(this->manager, "", 15, sf::Vector2f(0.f, 0.f), 1, sf::Color(255, 255, 0, 255), "lblTooltip");
+	this->labelTooltip->canvasBound = false;
+	this->manager->addView(std::static_pointer_cast<ViewElement>(labelTooltip));
+	this->labels.emplace_back(labelTooltip);
+	this->labelTooltip->visible = false;
+
 	return true;
 }
 
@@ -1606,7 +1651,6 @@ bool Hud::loadLists()
 	this->loadModels();
 	this->loadButtons();
 	this->loadLabels();	
-	
 
 	return true;
 }

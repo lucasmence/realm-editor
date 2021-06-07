@@ -52,9 +52,11 @@ class Hud
 		std::list<std::shared_ptr<Label>> labels;
 		std::list<std::shared_ptr<Model>> models;
 		std::list<std::shared_ptr<Model>> grid;
+		std::shared_ptr<Label> labelTooltip;
 		std::shared_ptr<Model> shapeHover;
 		std::shared_ptr<Model> shapeMapArea;
 		std::shared_ptr<Model> shapeMatrix;
+		std::shared_ptr<Model> shapeTooltip;
 		std::shared_ptr<Model> shapeItemSelected;
 		std::shared_ptr<Model> itemModelSelected;
 		MessageBox messageBox;
@@ -108,6 +110,8 @@ class Hud
 		bool updateDragCursor(sf::Vector2f cursor);
 		bool zoomMap(int value);
 		bool zoomMapReset();
+		bool setTooltip(std::string hint, sf::Vector2f cursor);
+		bool resetTooltip();
 		bool help();
 
 		bool getPaletteType(PaletteType &paletteType, MapObjectType type);
