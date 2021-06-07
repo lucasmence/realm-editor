@@ -43,6 +43,11 @@ bool Map::updateMapInfo()
 	return true;
 }
 
+std::vector<std::string> Map::getSubFieldsExceptionsList()
+{
+	return { "texture", "unit", "merchant", "item", "x", "y", "scale", "rotation", "priority" };
+}
+
 int Map::getObjectPriority(MapObjectType type)
 {
 	switch (type)
@@ -370,7 +375,7 @@ bool Map::reloadMap()
 
 std::list<MapObjectField> Map::getSubfieldsFromLine(json line)
 {
-	std::vector<std::string> subFieldsExceptions = { "texture", "unit", "merchant", "item", "x", "y", "scale", "rotation", "priority" };
+	std::vector<std::string> subFieldsExceptions = this->getSubFieldsExceptionsList();
 	std::list<MapObjectField> subFields = {};
 	for (auto& subFieldIndex : line.items())
 	{
