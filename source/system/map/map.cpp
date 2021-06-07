@@ -39,6 +39,8 @@ bool Map::updateMapInfo()
 	this->manager->hud->setEditValue("edtMapName", boost::lexical_cast<std::string>(this->data.name));
 	this->manager->hud->setEditValue("edtMapMusic", boost::lexical_cast<std::string>(this->data.music));
 	this->manager->hud->setEditValue("edtMapVersion", boost::lexical_cast<std::string>(this->data.version));
+	this->manager->hud->setEditValue("edtWeatherChance", boost::lexical_cast<std::string>(this->data.weatherChance));
+	this->manager->hud->setEditValue("edtWeatherName", boost::lexical_cast<std::string>(this->data.weatherName));
 
 	return true;
 }
@@ -247,10 +249,16 @@ bool Map::renderMap()
 	this->file["map"]["name"] = this->data.name;
 	this->file["map"]["version"] = this->data.version;
 
-	std::vector<std::string> objectsField = { "terrain", "terrain-default", "prop", "environment", "unit", "merchant", "portal", "item" };
+	std::vector<std::string> objectsField = { "terrain", "terrain-default", "prop", "environment", "unit", "merchant", "portal", "item", "weather" };
 
 	for (auto& objectField : objectsField)
 		this->file[objectField].clear();
+
+	if (this->data.weatherName != "")
+	{
+		this->file["weather"]["chance"] = this->data.weatherChance;
+		this->file["weather"]["name"] = this->data.weatherName;
+	}
 
 	if (this->data.textureBackground.model != nullptr)
 	{
@@ -433,6 +441,12 @@ bool Map::loadMap(std::string file)
 		this->data.version = this->file["map"].value("version", "1.0");
 	}
 
+	if (this->file["weather"].size() > 0)
+	{
+		this->data.weatherName = this->file["weather"].value("name", "");
+		this->data.weatherChance = this->file["weather"].value("chance", 0.f);
+	}
+
 	if (this->file["terrain-default"].size() > 0)
 	{
 		std::string texture = Json::getString(this->file["terrain-default"].value("texture", ""));
@@ -541,6 +555,8 @@ bool Map::newMap()
 	this->data.name = "another_map";
 	this->data.music = "village";
 	this->data.version = "1.00";
+	this->data.weatherName = "";
+	this->data.weatherChance = 100.f;
 
 	this->updateMapInfo();
 
