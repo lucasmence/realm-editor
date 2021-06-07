@@ -83,6 +83,7 @@ bool Hud::updateClick(sf::Vector2f cursor, bool rightButton)
 	this->mousePressed = true;
 	this->mouseRightButton = rightButton;
 	this->selectedItemUpdate();
+	this->updateItemSelectedMove(cursor);
 	this->buttonsClick(cursor);
 	this->matrixActivate(cursor);
 	this->spawnClick(cursor);
@@ -90,6 +91,22 @@ bool Hud::updateClick(sf::Vector2f cursor, bool rightButton)
 	this->selectItem(cursor);
 
 	return true;
+}
+
+bool Hud::updateItemSelectedMove(sf::Vector2f cursor)
+{
+	if (!this->itemSelected || !this->itemSelectedMove || !this->checkMapClick(cursor))
+		return false;
+
+	for (auto& object : this->manager->map->objects)
+		if (object.model == this->itemModelSelected)
+		{
+			object.model->setPosition(sf::Vector2f(cursor.x - object.model->getGlobalBounds().width / 2.f, cursor.y - object.model->getGlobalBounds().height / 2.f));
+			this->shapeItemSelected->setPosition(object.model->getPosition());
+			return true;
+		}
+
+	return false;
 }
 
 bool Hud::updateMouseReleased(sf::Vector2f cursor)
@@ -299,6 +316,16 @@ bool Hud::toggleGridSpawn(std::shared_ptr<Button> button)
 {
 	button->selected = !button->selected;
 	this->gridSpawn = !button->selected;
+	return true;
+}
+
+bool Hud::toggleItemSelectedMove(std::shared_ptr<Button> button)
+{
+	if (!this->itemSelected)
+		button->selected = false;
+	else
+		button->selected = !button->selected;
+	this->itemSelectedMove = button->selected;
 	return true;
 }
 
@@ -645,7 +672,7 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 
 bool Hud::spawnClick(sf::Vector2f cursor)
 {
-	if (this->matrixTriggered)
+	if (this->matrixTriggered || this->itemSelectedMove)
 		return false;
 
 	if (this->matrixPosSpawn)
@@ -894,6 +921,8 @@ bool Hud::buttonsClick(sf::Vector2f cursor)
 				this->toggleGridSpawn(button);
 			else if (button->name == "btnSelectItem")
 				this->enableItemSelect(button);
+			else if (button->name == "btnSelectItemMove")
+				this->toggleItemSelectedMove(button);
 			else if (button->name == "btnTerrain")
 				this->manager->palette->selectPalette(PaletteType::ptTerrain);
 			else if (button->name == "btnProp")
@@ -1264,6 +1293,7 @@ bool Hud::loadButtons()
 	std::shared_ptr<Button> btnMapAreaSize = std::make_shared<Button>(this->manager, "[A]", sf::Vector2f(0.f, 0.f), "btnMapAreaSize", 20, btnGridVisibilityToggle, sf::Vector2i(1, 0));
 	std::shared_ptr<Button> btnGridSpawn = std::make_shared<Button>(this->manager, "[D]", sf::Vector2f(0.f, 0.f), "btnGridSpawn", 20, btnMapAreaSize, sf::Vector2i(1, 0));
 	std::shared_ptr<Button> btnSelectItem = std::make_shared<Button>(this->manager, "[I]", sf::Vector2f(0.f, 0.f), "btnSelectItem", 20, btnGridSpawn, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnSelectItemMove = std::make_shared<Button>(this->manager, "[(I)]", sf::Vector2f(0.f, 0.f), "btnSelectItemMove", 20, btnSelectItem, sf::Vector2i(1, 0));
 	
 	std::shared_ptr<Button> btnUnit = std::make_shared<Button>(this->manager, "[Units]", sf::Vector2f(1650.f, 200.f), "btnUnit", 20);
 	std::shared_ptr<Button> btnMerchant = std::make_shared<Button>(this->manager, "[Merchants]", sf::Vector2f(0.f, 0.f), "btnMerchant", 20, btnUnit, sf::Vector2i(1, 0));
@@ -1436,6 +1466,7 @@ bool Hud::loadButtons()
 	this->buttons.emplace_back(btnMapAreaSize);
 	this->buttons.emplace_back(btnGridSpawn);
 	this->buttons.emplace_back(btnSelectItem);
+	this->buttons.emplace_back(btnSelectItemMove);
 	this->buttons.emplace_back(btnUnit);
 	this->buttons.emplace_back(btnMerchant);
 	this->buttons.emplace_back(btnProp);

@@ -41,6 +41,7 @@ class Hud
 		bool gridSpawn;
 		bool itemSelect;
 		bool itemSelected;
+		bool itemSelectedMove;
 		std::vector<int> gridSizeList;
 		std::vector<int> brushSizeList;
 		std::list<std::shared_ptr<Button>> buttons;
@@ -67,6 +68,7 @@ class Hud
 		bool updateEditsColor(sf::Vector2f cursor);
 		bool updateMouseReleased(sf::Vector2f cursor);
 		bool updateMousePressed(sf::Vector2f cursor);
+		bool updateItemSelectedMove(sf::Vector2f cursor);
 		bool updateEdit(char text);
 		bool updateEditValues();
 		bool updateLabels(sf::Vector2f cursor);
@@ -92,6 +94,7 @@ class Hud
 		bool toggleCenterShape(std::shared_ptr<Button> button);
 		bool toggleMapAreaSize(std::shared_ptr<Button> button);
 		bool toggleGridSpawn(std::shared_ptr<Button> button);
+		bool toggleItemSelectedMove(std::shared_ptr<Button> button);
 		bool removeBackground(std::shared_ptr<Button> button, const bool message = true);
 		bool enableItemSelect(std::shared_ptr<Button> button);
 		bool selectItem(sf::Vector2f cursor);
