@@ -219,45 +219,45 @@ bool Palette::selectPalette(PaletteType type)
         case (PaletteType::ptTerrain):
         {
             this->loadPaletteItemList(this->terrain, "terrain");
-            this->manager->hud->updateExtraEditsValue({ "Allow Teleport", "Background" }, { EditType::etBoolean, EditType::etBoolean }, { "true", "false" }, { 5, 5 });
+            this->manager->hud->updateExtraEditsValue({ "Allow Teleport", "Background" }, { EditType::etBoolean, EditType::etBoolean }, { "true", "false" }, { 5, 5 }, {"allow-origin", "background"});
             break;
         }
         case (PaletteType::ptProp):
         {
             this->loadPaletteItemList(this->prop, "prop");
-            this->manager->hud->updateExtraEditsValue({ "Variable" }, { EditType::etString }, { "" }, { 48 });
+            this->manager->hud->updateExtraEditsValue({ "Variable" }, { EditType::etString }, { "" }, { 48 }, {"variable"});
             break;
         }
         case (PaletteType::ptEnvironment):
         {
             this->loadPaletteItemList(this->environment, "environment");
-            this->manager->hud->updateExtraEditsValue({ "Variable" }, { EditType::etString }, { "" }, { 48 });
+            this->manager->hud->updateExtraEditsValue({ "Variable" }, { EditType::etString }, { "" }, { 48 }, {"variable"});
             break;
         }
         case (PaletteType::ptUnit):
         {
             this->loadPaletteItemList(this->unit, "unit");
-            this->manager->hud->updateExtraEditsValue({ "Alliance", "Item drop", "Variable" }, { EditType::etString, EditType::etString, EditType::etString }, {"enemy", "", ""}, {10, 48, 48});
+            this->manager->hud->updateExtraEditsValue({ "Alliance", "Item drop", "Variable" }, { EditType::etString, EditType::etString, EditType::etString }, {"enemy", "", ""}, {10, 48, 48}, {"alliance", "item-drop", "variable"});
             break;
         }
         case (PaletteType::ptMerchant):
         {
             this->loadPaletteItemList(this->merchant, "merchant");
-            this->manager->hud->updateExtraEditsValue({}, {}, {}, {});
+            this->manager->hud->updateExtraEditsValue({}, {}, {}, {}, {});
             break;
         }
 
         case (PaletteType::ptPortal):
         {
             this->loadPaletteItemList(this->portal, "portal");
-            this->manager->hud->updateExtraEditsValue({}, {}, {}, {});
+            this->manager->hud->updateExtraEditsValue({}, {}, {}, {}, {});
             break;
         }
 
         case (PaletteType::ptItem):
         {
             this->loadPaletteItemList(this->item, "item");
-            this->manager->hud->updateExtraEditsValue({}, {}, {}, {});
+            this->manager->hud->updateExtraEditsValue({}, {}, {}, {}, {});
             break;
         }
     }
@@ -285,6 +285,9 @@ bool Palette::clearPaletteItem()
     this->selectedTexture = "";
     this->selectedOrigin = "";
     this->manager->hud->shapeHover->visible = false;
+    this->manager->hud->itemSelect = false;
+    this->manager->hud->itemSelected = false;
+    this->manager->hud->itemModelSelected = nullptr;
     for (auto& item : this->paletteItems)
         if (item.model->sprite)
             item.model->setColor(sf::Color(255, 255, 255, 255));
@@ -292,11 +295,19 @@ bool Palette::clearPaletteItem()
     return true;
 }
 
-bool Palette::selectPaletteItem(sf::Vector2f cursor)
+bool Palette::checkModels(std::shared_ptr<Model> modelX, std::shared_ptr<Model> modelY)
+{
+    if (!modelX || !modelY)
+        return false;
+
+    return (modelX->origin == modelY->origin);
+}
+
+bool Palette::selectPaletteItem(sf::Vector2f cursor, std::shared_ptr<Model> model)
 {
     std::string filename = "";
     for (auto& item : this->paletteItems)
-        if (item.model->getGlobalBounds().contains(cursor))
+        if (item.model->getGlobalBounds().contains(cursor) || this->checkModels(model, item.model))
         {
             if (item.model->sprite)
                 item.model->setColor(sf::Color(255,0,0,255));
@@ -319,19 +330,25 @@ bool Palette::selectPaletteItem(sf::Vector2f cursor)
     if (this->type == PaletteType::ptPortal)
     {
         if (filename == "spawner")
-            this->manager->hud->updateExtraEditsValue({ "Default", "index" }, { EditType::etInteger, EditType::etInteger }, { "1", "0" }, { 1, 32 });
+            this->manager->hud->updateExtraEditsValue({ "Default", "index" }, { EditType::etInteger, EditType::etInteger }, { "1", "0" }, { 1, 32 }, {"default", "index"});
         else if (filename == "level")
             this->manager->hud->updateExtraEditsValue({ "Group", "Index", "Target Index", "Width", "Height", "Map"}, 
                                                       { EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etString },
-                                                      { "1", "1", "1", "100", "100", "" }, { 99, 99, 99, 999, 999, 255 });
+                                                      { "1", "1", "1", "100", "100", "" }, { 99, 99, 99, 999, 999, 255 }, {"group", "index", "target-index", "width", "height", "map"});
         else if (filename == "generator")
-            this->manager->hud->updateExtraEditsValue({"Alliance", "Index", "Target X", "Target Y", "Cooldown", "Unit" },
+            this->manager->hud->updateExtraEditsValue({"Alliance", "Index", "Target X", "Target Y", "Cooldown", "Unit type" },
                 { EditType::etString, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etString },
-                { "enemy", "1", "0", "0", "5", "" }, {12, 99, 99999, 99999, 9999, 255});
+                { "enemy", "1", "0", "0", "5", "" }, {12, 99, 99999, 99999, 9999, 255}, {"alliance", "index", "target-x", "target-y", "cooldown", "unit-type"});
         else if (filename == "wall")
             this->manager->hud->updateExtraEditsValue({ "Width", "Height" },
                 { EditType::etInteger, EditType::etInteger },
-                { "100", "100" }, { 99999, 99999 });
+                { "100", "100" }, { 99999, 99999 }, {"width", "height"});
+    }
+
+    if (filename != "")
+    {
+        this->manager->hud->itemSelected = false;
+        this->manager->hud->itemModelSelected = nullptr;
     }
 
     return true;
