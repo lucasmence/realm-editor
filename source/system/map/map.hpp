@@ -68,7 +68,8 @@ struct MapObjectMatrix : public MapObject
 
 struct MapData
 {
-	std::string name = "", version = "1.00", music = "village";
+	std::string name = "", version = "1.00", music = "village", weatherName = "";
+	float weatherChance = 0.f;
 	sf::Vector2i size = sf::Vector2i(1000, 1000);
 	MapObjectUnit textureBackground = MapObjectUnit{ MapObjectType::motTerrain, sf::Vector2f(-200.f, -200.f), 0.f, nullptr, {} };
 };
