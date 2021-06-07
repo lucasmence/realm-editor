@@ -8,11 +8,13 @@ Button::Button(Manager* manager,
 			   std::string name, 
 			   int size,
 			   std::shared_ptr<Button> neighbor,
-			   sf::Vector2i side)
+			   sf::Vector2i side,
+			   std::string hint)
 {
 	this->selected = false;
 	this->manager = manager;
 	this->name = name;
+	this->hint = hint;
 	this->label = std::make_shared<Label>(manager, caption, size, position);
 	this->shape = std::make_shared<Model>(manager, sf::Vector2f(position.x - 5.f, position.y));
 	this->shape->loadShape(sf::Vector2f(this->label->text->getGlobalBounds().width + 10.f, size * 1.25f), sf::Color(150, 150, 150, 100));
