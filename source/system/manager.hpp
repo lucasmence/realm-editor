@@ -36,6 +36,7 @@ class Manager
 		std::shared_ptr<Hud> hud;
 		std::shared_ptr<Palette> palette;
 		std::shared_ptr<sf::View> canvas;
+		std::shared_ptr<sf::View> minimapView;
 		std::shared_ptr<Map> map;
 		ManagerList list;
 		ManagerConstant constant;
@@ -45,7 +46,9 @@ class Manager
 
 		bool hasFocus;
 		bool open;
+		bool minimapViewUpdate;
 		std::string appName;
+		sf::FloatRect minimapViewArea;
 
 		Manager();
 		~Manager();
