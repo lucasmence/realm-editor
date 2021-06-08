@@ -381,7 +381,7 @@ bool Hud::toggleMapAreaSize(std::shared_ptr<Button> button)
 bool Hud::toggleGridSpawn(std::shared_ptr<Button> button)
 {
 	button->selected = !button->selected;
-	this->gridSpawn = button->selected;
+	this->gridSpawn = !button->selected;
 	return true;
 }
 
