@@ -112,8 +112,6 @@ bool Manager::display()
                                           this->canvasPosition.y + this->canvas->getSize().y * this->minimapView->getViewport().top,
                                           this->minimapView->getSize().x * this->minimapView->getViewport().width,
                                           this->minimapView->getSize().y * this->minimapView->getViewport().height);
-    std::cout << this->canvasPosition.x + this->canvas->getSize().x * this->minimapView->getViewport().left << "!" << this->canvasPosition.y + this->canvas->getSize().y * this->minimapView->getViewport().top << std::endl;
-
     this->window->display();
 
     return true;
