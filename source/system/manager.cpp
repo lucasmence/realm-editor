@@ -18,9 +18,13 @@ Manager::Manager()
     this->palette = std::make_shared<Palette>(this);
     this->map = std::make_shared<Map>(this);
     this->canvas = std::make_shared<sf::View>();
+    this->minimapView = std::make_shared<sf::View>();
+    this->minimapView->setViewport(sf::FloatRect(0.742f, 0.90f, 0.10f, 0.10f));
+    this->minimapViewArea = sf::FloatRect(0.f, 0.f, 0.f, 0.f);   
 
     this->hasFocus = true;
     this->open = false;
+    this->minimapViewUpdate = false;
     this->canvasPosition = sf::Vector2f(0.f, -115.f);
 
     this->loadWindowOpening();
@@ -78,16 +82,39 @@ bool Manager::update()
     this->event();
 
     this->window->clear();
-    this->setCanvas();
 
+    this->setCanvas();
+    
     this->hud->update(this->getMousePosition());
+
+    this->display();
+
+	return true;
+}
+
+bool Manager::display()
+{
+    this->minimapViewUpdate = false;
 
     for (auto& element : this->list.viewElements)
         element->draw();
 
+    this->minimapView->reset(sf::FloatRect(this->canvasPosition.x, this->canvasPosition.y, this->window->getSize().x, this->window->getSize().y));
+    this->minimapView->zoom(2.f);
+    this->window->setView(*this->minimapView);
+    this->minimapViewUpdate = true;
+    for (auto& element : this->list.viewElements)
+        element->draw();
+
+    this->minimapViewUpdate = false;
+
+    this->minimapViewArea = sf::FloatRect(this->canvasPosition.x + this->canvas->getSize().x * this->minimapView->getViewport().left,
+                                          this->canvasPosition.y + this->canvas->getSize().y * this->minimapView->getViewport().top,
+                                          this->minimapView->getSize().x * this->minimapView->getViewport().width,
+                                          this->minimapView->getSize().y * this->minimapView->getViewport().height);
     this->window->display();
 
-	return true;
+    return true;
 }
 
 sf::Vector2f Manager::getMousePosition()
@@ -98,6 +125,7 @@ sf::Vector2f Manager::getMousePosition()
 
 bool Manager::event()
 {
+    this->window->setView(*this->canvas);
     sf::Event event;
     while (this->window->pollEvent(event))
     {
@@ -144,7 +172,13 @@ bool Manager::event()
                 this->eventMouseReleased(event);
                 break;
             }
-        }            
+
+            case sf::Event::MouseMoved:
+            {
+                this->eventMouseMoved(event);
+                break;
+            }
+        }
     }
 
 	return true;
@@ -184,10 +218,24 @@ bool Manager::eventKey(sf::Event& event)
             this->moveCanvas(sf::Vector2f(this->canvasPosition.x, this->canvasPosition.y + 64.f));
             break;
         }
+        case (sf::Keyboard::Add):
+        {
+            this->hud->zoomMap(-1);
+            break;
+        }
+        case (sf::Keyboard::Subtract):
+        {
+            this->hud->zoomMap(1);
+            break;
+        }
         case (sf::Keyboard::Space):
         {
-            this->canvasPosition = sf::Vector2f(0.f, -115.f);
-            this->moveCanvas(this->canvasPosition);
+            this->resetView();
+            break;
+        }
+        case (sf::Keyboard::Delete):
+        {
+            this->hud->deleteSelectedItem();
             break;
         }
     }
@@ -202,9 +250,24 @@ bool Manager::eventMouseReleased(sf::Event& event)
     return true;
 }
 
+bool Manager::eventMouseMoved(sf::Event& event)
+{
+    return true;
+}
+
 bool Manager::eventType(sf::Event& event)
 {
     this->hud->updateEdit(static_cast<char>(event.text.unicode));
+    return true;
+}
+
+bool Manager::resetView()
+{
+    if (this->hud->zoom != 1.f)
+        return this->hud->zoomMapReset();
+    
+    this->canvasPosition = sf::Vector2f(0.f, -115.f);
+    this->moveCanvas(this->canvasPosition);
     return true;
 }
 
@@ -217,9 +280,20 @@ bool Manager::moveCanvas(sf::Vector2f position)
     return true;
 }
 
+bool Manager::setCanvasCenter(sf::Vector2f position)
+{
+    this->canvas->move(position.x, position.y);
+    this->canvasPosition.x = position.x + this->canvasPosition.x;
+    this->canvasPosition.y = position.y + this->canvasPosition.y;
+    this->window->setView(*this->canvas);
+
+    return true;
+}
+
 bool Manager::setCanvas()
 {
     this->canvas->reset(sf::FloatRect(this->canvasPosition.x, this->canvasPosition.y, this->window->getSize().x, this->window->getSize().y));
+    this->canvas->zoom(this->hud->zoom);
     this->window->setView(*this->canvas);
     return true;
 }

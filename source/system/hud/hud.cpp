@@ -15,6 +15,7 @@ Hud::Hud(Manager* manager)
 	this->rotation = 0;
 	this->priority = 0;
 	this->scale = 1.f;
+	this->zoom = 1.f;
 	this->gridSpawn = true;
 	this->spawnPress = false;
 	this->mousePressed = false;
@@ -23,7 +24,12 @@ Hud::Hud(Manager* manager)
 	this->matrixActivated = false;
 	this->matrixTriggered = false;
 	this->matrixPosSpawn = false;
+	this->itemSelect = false;
+	this->itemSelected = false;
+	this->itemSelectedMove = false;
+	this->dragCursor = false;
 	this->hoverShapeSize = sf::Vector2f(0.f, 0.f);
+	this->mousePressPosition = sf::Vector2f(0.f, 0.f);
 	this->messageBox = MessageBox{ nullptr, nullptr };
 
 	this->shapeHover = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, 300.f), "", 1, false);
@@ -40,7 +46,16 @@ Hud::Hud(Manager* manager)
 	this->shapeMatrix->loadShape(sf::Vector2f(1.f, 1.f), sf::Color(150, 255, 0, 150));
 	this->manager->addView(std::static_pointer_cast<ViewElement>(this->shapeMatrix));
 	this->shapeMatrix->visible = false;
-	
+
+	this->shapeItemSelected = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, 0.f), "", 0, false);
+	this->shapeItemSelected->loadShape(sf::Vector2f(1.f, 1.f), sf::Color(255, 255, 255, 100));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(this->shapeItemSelected));
+	this->shapeItemSelected->visible = false;
+
+	this->shapeMinimap = nullptr;
+
+	this->itemModelSelected = nullptr;
+
 	this->loadLists();
 }
 
@@ -49,11 +64,17 @@ Hud::~Hud()
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeHover));
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeMapArea));
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeMatrix));
+	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeItemSelected));
+	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeTooltip));
+	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeMinimap));
+	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->labelTooltip));
+	this->itemModelSelected = nullptr;
 	this->unloadLists();
 }
 
 bool Hud::update(sf::Vector2f cursor)
 {
+	this->resetTooltip();
 	this->updateCursor(cursor);
 	this->updateLabels(cursor);
 	this->updateButtonsColor(cursor);
@@ -62,20 +83,41 @@ bool Hud::update(sf::Vector2f cursor)
 	this->updateHoverShapeSize();
 	this->updateHoverMapSize();
 	this->updateMousePressed(cursor);
+	this->updateHoverGeneral();
 
 	return true;
 }
 
 bool Hud::updateClick(sf::Vector2f cursor, bool rightButton)
 {
+	this->mousePressPosition = cursor;
 	this->mousePressed = true;
 	this->mouseRightButton = rightButton;
+	this->selectedItemUpdate();
+	this->updateItemSelectedMove(cursor);
 	this->buttonsClick(cursor);
 	this->matrixActivate(cursor);
 	this->spawnClick(cursor);
 	this->editsClick(cursor);
+	this->selectItem(cursor);
 
 	return true;
+}
+
+bool Hud::updateItemSelectedMove(sf::Vector2f cursor)
+{
+	if (!this->itemSelected || !this->itemSelectedMove || !this->checkMapClick(cursor))
+		return false;
+
+	for (auto& object : this->manager->map->objects)
+		if (object.model == this->itemModelSelected)
+		{
+			object.model->setPosition(sf::Vector2f(cursor.x - object.model->getGlobalBounds().width / 2.f, cursor.y - object.model->getGlobalBounds().height / 2.f));
+			this->shapeItemSelected->setPosition(object.model->getPosition());
+			return true;
+		}
+
+	return false;
 }
 
 bool Hud::updateMouseReleased(sf::Vector2f cursor)
@@ -93,6 +135,8 @@ bool Hud::updateMousePressed(sf::Vector2f cursor)
 		return this->spawnClick(cursor);
 	else if (this->matrixTriggered)
 		return this->updateShapeMatrix(cursor);
+	else
+		this->updateDragCursor(cursor);
 	return false;
 }
 
@@ -122,6 +166,17 @@ bool Hud::updateCursor(sf::Vector2f cursor)
 		shapePosition = sf::Vector2f(cursor.x - shapePosition.x, cursor.y - shapePosition.y);
 	
 	this->shapeHover->shape->setPosition(shapePosition);
+
+	return true;
+}
+
+bool Hud::updateDragCursor(sf::Vector2f cursor)
+{
+	if (!this->dragCursor || !this->checkMapClick(cursor))
+		return false;
+
+	this->manager->setCanvasCenter(sf::Vector2f(this->mousePressPosition.x - cursor.x, this->mousePressPosition.y - cursor.y));
+	this->mousePressPosition = this->manager->getMousePosition();
 
 	return true;
 }
@@ -163,12 +218,54 @@ bool Hud::updateLabelPaletteStatus(std::shared_ptr<sf::Text> text)
 		}
 		default: 
 		{
-			text->setString("- - -");
+			if (this->itemSelect)
+				text->setString("S E L E C T");
+			else
+				text->setString("- - -");
 			text->setFillColor(sf::Color(255, 255, 255, 255));
 			break;
 		}
 	}
 	return true;
+}
+
+bool Hud::zoomMap(int value)
+{
+	this->zoom += 0.05f * value;
+	this->manager->canvas->zoom(this->zoom);
+	return true;
+}
+
+bool Hud::zoomMapReset()
+{
+	this->zoom = 1.f;
+	this->manager->canvas->zoom(this->zoom);
+	return true;
+}
+
+bool Hud::setTooltip(std::string hint, sf::Vector2f cursor)
+{
+	if (hint == "")
+		return false;
+
+	this->labelTooltip->text->setString(hint);
+	this->labelTooltip->visible = true;
+	this->shapeTooltip->visible = true;
+
+	this->labelTooltip->setPosition(sf::Vector2f(cursor.x, cursor.y - 15.f));
+
+	std::static_pointer_cast<sf::RectangleShape>(this->shapeTooltip->shape)->setSize(sf::Vector2f(this->labelTooltip->text->getGlobalBounds().width + 10.f, 
+																								  this->labelTooltip->text->getGlobalBounds().height + 10.f));
+	this->shapeTooltip->setPosition(sf::Vector2f(cursor.x - 5.f, cursor.y - 15.f));
+	return true;
+}
+
+bool Hud::resetTooltip()
+{
+	this->labelTooltip->text->setString("");
+	this->labelTooltip->visible = false;
+	this->shapeTooltip->visible = false;
+	return false;
 }
 
 bool Hud::help()
@@ -224,6 +321,13 @@ bool Hud::updateHoverMapSize()
 	return true;
 }
 
+bool Hud::updateHoverGeneral()
+{
+	this->shapeItemSelected->visible = this->itemSelected;
+	std::static_pointer_cast<sf::RectangleShape>(this->shapeMinimap->shape)->setSize(sf::Vector2f(this->manager->minimapViewArea.width / 2.f, this->manager->minimapViewArea.height / 2.f));
+	return true;
+}
+
 bool Hud::updateHoverShapeSize()
 {
 	std::static_pointer_cast<sf::RectangleShape>(this->shapeHover->shape)->setSize(sf::Vector2f(this->hoverShapeSize.x *
@@ -275,8 +379,27 @@ bool Hud::toggleMapAreaSize(std::shared_ptr<Button> button)
 bool Hud::toggleGridSpawn(std::shared_ptr<Button> button)
 {
 	button->selected = !button->selected;
-	this->gridSpawn = !button->selected;
+	this->gridSpawn = button->selected;
 	return true;
+}
+
+bool Hud::toggleItemSelectedMove(std::shared_ptr<Button> button)
+{
+	if (!this->itemSelected)
+		button->selected = false;
+	else
+		button->selected = !button->selected;
+	this->itemSelectedMove = button->selected;
+	return true;
+}
+
+bool Hud::toggleDragCursor(std::shared_ptr<Button> button)
+{
+	button->selected = !button->selected;
+	this->dragCursor = button->selected;
+	if (this->dragCursor)
+		this->manager->palette->clearPaletteItem();
+	return false;
 }
 
 bool Hud::removeBackground(std::shared_ptr<Button> button, const bool message)
@@ -288,6 +411,166 @@ bool Hud::removeBackground(std::shared_ptr<Button> button, const bool message)
 	label->visible = false;
 	if (message)
 		this->manager->hud->showMessage("Terrain background removed!");
+	return true;
+}
+
+bool Hud::enableItemSelect(std::shared_ptr<Button> button)
+{
+	this->manager->palette->clearPaletteItem();
+	this->itemSelect = true;
+	return true;
+}
+
+bool Hud::checkMapClick(sf::Vector2f cursor)
+{
+	for (auto& model : this->models)
+		if (model->getGlobalBounds().contains(cursor))
+			return false;
+
+	return true;
+}
+
+bool Hud::selectedItemUpdate()
+{
+	if (!this->itemSelected)
+		return false;
+
+	std::list<MapObjectField> fields = this->getExtraEditValuesByType();
+
+	for (auto& object : this->manager->map->objects)
+		if (object.model == this->itemModelSelected)
+		{
+			object.fields = fields;
+			return true;
+		}
+
+	return false;
+}
+
+bool Hud::deleteSelectedItem()
+{
+	if (!this->itemModelSelected)
+		return false;
+
+	MapObjectUnit objectSelected{ MapObjectType::motTerrain , sf::Vector2f(0.f, 0.f), 0.f, nullptr, {} };
+	for (auto& object : this->manager->map->objects)
+		if (object.model == this->itemModelSelected)
+		{
+			objectSelected = object;
+			break;
+		}
+
+	if (!objectSelected.model)
+		return false;
+
+	this->manager->palette->clearPaletteItem();
+	this->manager->map->removeObjectUnit(objectSelected);
+	return true;
+}
+
+bool Hud::selectItem(sf::Vector2f cursor)
+{
+	if (!this->itemSelect || !this->checkMapClick(cursor))
+		return false;
+
+	MapObjectUnit objectSelected{ MapObjectType::motTerrain , sf::Vector2f(0.f, 0.f), 0.f, nullptr, {} };
+	for (auto& object : this->manager->map->objects)
+		if (object.model->getGlobalBounds().contains(cursor))
+		{
+			if (objectSelected.model != nullptr)
+				if (objectSelected.model->priority < object.model->priority)
+					continue;
+
+			objectSelected = object;
+		}
+
+	if (!objectSelected.model)
+		return false;
+
+	PaletteType paletteType = PaletteType::ptTerrain;
+	this->getPaletteType(paletteType, objectSelected.type);
+	this->manager->palette->selectPalette(paletteType);
+
+	if (paletteType == PaletteType::ptPortal)
+		this->manager->palette->selectPaletteItem(sf::Vector2f(0.f, 0.f), objectSelected.model);
+
+	this->itemSelected = true;
+	std::static_pointer_cast<sf::RectangleShape>(this->shapeItemSelected->shape)->setSize(sf::Vector2f(objectSelected.model->getGlobalBounds().width, 
+																									   objectSelected.model->getGlobalBounds().height));
+	this->shapeItemSelected->setPosition(objectSelected.model->getPosition());
+	this->itemModelSelected = objectSelected.model;
+
+	for (auto& field : objectSelected.fields)
+	{
+		std::string value = "";
+		if (field.valueString.active)
+			value = field.valueString.value;
+		else if (field.valueInt.active)
+			value = boost::lexical_cast<std::string>(field.valueInt.value);
+		else if (field.valueFloat.active)
+			value = boost::lexical_cast<std::string>(field.valueFloat.value);
+		else if (field.valueBool.active)
+		{
+			if (field.valueBool.value)
+				value = "true";
+			else
+				value = "false";
+		}
+
+		for (int index = 0; index < 6; index++)
+			for (auto& edit : this->edits)
+				if (edit->name == "edtExtraField-" + boost::lexical_cast<std::string>(index))
+					if (edit->origin == field.field)
+					{
+						edit->setValue(value);
+						break;
+					}			
+	}
+
+	return false;
+}
+
+bool Hud::getPaletteType(PaletteType& paletteType, MapObjectType type)
+{
+	switch (type)
+	{
+		case (MapObjectType::motTerrain):
+		{
+			paletteType = PaletteType::ptTerrain;
+			break;
+		}
+		case (MapObjectType::motProp):
+		{
+			paletteType = PaletteType::ptProp;
+			break;
+		}
+		case (MapObjectType::motEnvironment):
+		{
+			paletteType = PaletteType::ptEnvironment;
+			break;
+		}
+		case (MapObjectType::motUnit):
+		{
+			paletteType = PaletteType::ptUnit;
+			break;
+		}
+		case (MapObjectType::motMerchant):
+		{
+			paletteType = PaletteType::ptMerchant;
+			break;
+		}
+		case (MapObjectType::motItem):
+		{
+			paletteType = PaletteType::ptItem;
+			break;
+		}
+		case (MapObjectType::motPortal):
+		{
+			paletteType = PaletteType::ptPortal;
+			break;
+		}
+	}
+
 	return true;
 }
 
@@ -385,9 +668,84 @@ bool Hud::matrixGenerate(sf::Vector2f cursor)
 	return true;
 }
 
+std::list<MapObjectField> Hud::getExtraEditValuesByType()
+{
+	std::list<MapObjectField> fields = {};
+	std::vector<EditValue> extraValues = this->getExtraEditsValue();
+
+	switch (this->manager->palette->type)
+	{
+		case (PaletteType::ptTerrain) :
+		{
+			fields.emplace_back(MapObjectField{ "allow-teleport", MapObjectFieldString{ "", false},
+																	MapObjectFieldInt{ 0, false },
+																	MapObjectFieldFloat{ 0.f, false },
+																	MapObjectFieldBool{ extraValues.at(0).boolean, true } });
+			break;
+		}
+		case (PaletteType::ptProp):
+		{
+			fields.emplace_back(MapObjectField{ "variable", MapObjectFieldString{ extraValues.at(0).string, true} });
+
+			break;
+		}
+		case (PaletteType::ptEnvironment):
+		{
+			fields.emplace_back(MapObjectField{ "variable", MapObjectFieldString{ extraValues.at(0).string, true} });
+
+			break;
+		}
+		case (PaletteType::ptUnit):
+		{
+			fields.emplace_back(MapObjectField{ "alliance", MapObjectFieldString{ extraValues.at(0).string, true} });
+			fields.emplace_back(MapObjectField{ "item-drop", MapObjectFieldString{ extraValues.at(1).string, true} });
+			fields.emplace_back(MapObjectField{ "variable", MapObjectFieldString{ extraValues.at(2).string, true} });
+			break;
+		}
+		case (PaletteType::ptPortal):
+		{
+			if (this->manager->palette->selectedOrigin == "spawner")
+			{
+				fields.emplace_back(MapObjectField{ "default", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
+				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+			}
+			else if (this->manager->palette->selectedOrigin == "level")
+			{
+				fields.emplace_back(MapObjectField{ "group", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
+				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+				fields.emplace_back(MapObjectField{ "target-index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
+				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(3).integer, true } });
+				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(4).integer, true } });
+				fields.emplace_back(MapObjectField{ "map", MapObjectFieldString{extraValues.at(5).string, true} });
+			}
+			else if (this->manager->palette->selectedOrigin == "generator")
+			{
+				std::string unitTypePrefix = "characters/", unitTypeField = extraValues.at(5).string;
+				boost::erase_all(unitTypeField, unitTypePrefix);
+				unitTypeField = unitTypePrefix + unitTypeField;
+
+				fields.emplace_back(MapObjectField{ "alliance", MapObjectFieldString{ extraValues.at(0).string, true } });
+				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+				fields.emplace_back(MapObjectField{ "target-x", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
+				fields.emplace_back(MapObjectField{ "target-y", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(3).integer, true } });
+				fields.emplace_back(MapObjectField{ "cooldown", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(4).integer, true } });
+				fields.emplace_back(MapObjectField{ "unit-type", MapObjectFieldString{ unitTypeField, true } });
+			}
+			else if (this->manager->palette->selectedOrigin == "wall")
+			{
+				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
+				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+			}		
+			break;
+		}
+	}
+
+	return fields;
+}
+
 bool Hud::spawnClick(sf::Vector2f cursor)
 {
-	if (this->matrixTriggered)
+	if (this->matrixTriggered || this->itemSelectedMove)
 		return false;
 
 	if (this->matrixPosSpawn)
@@ -410,7 +768,7 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 			MapObjectType objectType = MapObjectType::motTerrain;
 			std::string paletteTypeField = "textures/";
 			std::string texture = this->manager->palette->selectedItem;
-			std::list<MapObjectField> fields = {};
+			std::list<MapObjectField> fields = this->getExtraEditValuesByType();
 
 			sf::Vector2f tilesetPosition(this->shapeHover->shape->getPosition());
 			sf::Vector2f tilesetOrigin(this->shapeHover->shape->getOrigin());
@@ -420,20 +778,15 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 
 			int priorityValue = this->priority;
 
+			std::vector<EditValue> extraValues = this->getExtraEditsValue();
+
 			switch (this->manager->palette->type)
 			{
 				case (PaletteType::ptTerrain) :
 				{
 					objectType = MapObjectType::motTerrain;
 					paletteTypeField += "terrain";
-
-					std::vector<EditValue> extraValues = this->getExtraEditsValue();
-
-					fields.emplace_back(MapObjectField{ "allow-teleport", MapObjectFieldString{ "", false},
-																		  MapObjectFieldInt{ 0, false },
-																		  MapObjectFieldFloat{ 0.f, false },
-																		  MapObjectFieldBool{ extraValues.at(0).boolean, true } });
-
+					
 					if (extraValues.at(1).boolean)
 					{
 						std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, 
@@ -460,22 +813,12 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 				{
 					objectType = MapObjectType::motProp;
 					paletteTypeField += "prop";
-
-					std::vector<EditValue> extraValues = this->getExtraEditsValue();
-
-					fields.emplace_back(MapObjectField{ "variable", MapObjectFieldString{ extraValues.at(0).string, true} });
-
 					break;
 				}
 				case (PaletteType::ptEnvironment):
 				{
 					objectType = MapObjectType::motEnvironment;
 					paletteTypeField += "environment";
-
-					std::vector<EditValue> extraValues = this->getExtraEditsValue();
-
-					fields.emplace_back(MapObjectField{ "variable", MapObjectFieldString{ extraValues.at(0).string, true} });
-
 					break;
 				}
 				case (PaletteType::ptUnit):
@@ -483,11 +826,6 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 					objectType = MapObjectType::motUnit;
 					paletteTypeField = "";
 					texture = this->manager->palette->selectedTexture;
-					std::vector<EditValue> extraValues = this->getExtraEditsValue();
-
-					fields.emplace_back(MapObjectField{ "alliance", MapObjectFieldString{ extraValues.at(0).string, true} });
-					fields.emplace_back(MapObjectField{ "item-drop", MapObjectFieldString{ extraValues.at(1).string, true} });
-					fields.emplace_back(MapObjectField{ "variable", MapObjectFieldString{ extraValues.at(2).string, true} });
 
 					priorityValue = 0;
 
@@ -525,44 +863,14 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 																		   tilesetPosition, 
 																		   "", priorityValue, false, "", this->manager->palette->selectedOrigin);
 
-					std::vector<EditValue> extraValues = this->getExtraEditsValue();
-
-					if (this->manager->palette->selectedOrigin == "spawner")
-					{
-						fields.emplace_back(MapObjectField{ "default", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
-						fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
-
+					if (this->manager->palette->selectedOrigin == "spawner")	
 						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin);
-					}
 					else if (this->manager->palette->selectedOrigin == "level")
-					{
-						fields.emplace_back(MapObjectField{ "group", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
-						fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
-						fields.emplace_back(MapObjectField{ "target-index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
-						fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(3).integer, true } });
-						fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(4).integer, true } });
-						fields.emplace_back(MapObjectField{ "map", MapObjectFieldString{extraValues.at(5).string, true} });
-
 						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(3).integer, extraValues.at(4).integer));
-					}
 					else if (this->manager->palette->selectedOrigin == "generator")
-					{
-						fields.emplace_back(MapObjectField{ "alliance", MapObjectFieldString{ extraValues.at(0).string, true } });
-						fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
-						fields.emplace_back(MapObjectField{ "target-x", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
-						fields.emplace_back(MapObjectField{ "target-y", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(3).integer, true } });
-						fields.emplace_back(MapObjectField{ "cooldown", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(4).integer, true } });
-						fields.emplace_back(MapObjectField{ "unit", MapObjectFieldString{ "characters/" + extraValues.at(5).string, true } });
-
 						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin);
-					}
 					else if (this->manager->palette->selectedOrigin == "wall")
-					{
-						fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
-						fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
-
 						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(0).integer, extraValues.at(1).integer));
-					}		
 
 					model->setOrigin(tilesetOrigin);
 					this->manager->addView(std::static_pointer_cast<ViewElement>(model));
@@ -603,9 +911,8 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 
 		case (PaletteStatus::psDelete):
 		{
-			for (auto& model : this->models)
-				if (model->getGlobalBounds().contains(cursor))
-					return false;
+			if (!this->checkMapClick(cursor))
+				return false;
 
 			MapObjectUnit objectSelected{ MapObjectType::motTerrain , sf::Vector2f(0.f, 0.f), 0.f, nullptr, {} };
 			for (auto& object : this->manager->map->objects)
@@ -685,6 +992,12 @@ bool Hud::buttonsClick(sf::Vector2f cursor)
 				this->toggleMatrixTriggered(button);
 			else if (button->name == "btnGridSpawn")
 				this->toggleGridSpawn(button);
+			else if (button->name == "btnDragCursor")
+				this->toggleDragCursor(button);
+			else if (button->name == "btnSelectItem")
+				this->enableItemSelect(button);
+			else if (button->name == "btnSelectItemMove")
+				this->toggleItemSelectedMove(button);
 			else if (button->name == "btnTerrain")
 				this->manager->palette->selectPalette(PaletteType::ptTerrain);
 			else if (button->name == "btnProp")
@@ -729,10 +1042,13 @@ bool Hud::editsClick(sf::Vector2f cursor)
 bool Hud::updateButtonsColor(sf::Vector2f cursor)
 {
 	for (auto& button : this->buttons)
-		if (button->shape->shape->getGlobalBounds().contains(cursor))
+		if (button->shape->shape->getGlobalBounds().contains(cursor) && button->getVisible())
 		{
 			button->shape->shape->setFillColor(sf::Color(200, 200, 50, 100));
 			button->label->text->setFillColor(sf::Color(200, 200, 50, 255));
+
+			this->setTooltip(button->hint, cursor);
+			
 		}
 		else if (button->selected)
 		{
@@ -751,10 +1067,12 @@ bool Hud::updateButtonsColor(sf::Vector2f cursor)
 bool Hud::updateEditsColor(sf::Vector2f cursor)
 {
 	for (auto& edit : this->edits)
-		if (edit->shape->shape->getGlobalBounds().contains(cursor))
+		if (edit->shape->shape->getGlobalBounds().contains(cursor) && edit->shape->visible)
 		{
 			edit->shape->shape->setFillColor(sf::Color(50, 200, 50, 100));
 			edit->label->text->setFillColor(sf::Color(50, 200, 50, 255));
+
+			this->setTooltip(edit->hint, cursor);
 		}
 		else if (edit->selected)
 		{
@@ -772,7 +1090,7 @@ bool Hud::updateEditsColor(sf::Vector2f cursor)
 
 bool Hud::setEditValue(std::string editName, std::string value)
 {
-	if (editName == "" || value == "")
+	if (editName == "")
 		return false;
 
 	for (auto& edit : this->edits)
@@ -794,7 +1112,7 @@ bool Hud::setExtraEditsValue(std::vector<std::string> value)
 	return true;
 }
 
-bool Hud::updateExtraEditsValue(std::vector<std::string> caption, std::vector<EditType> type, std::vector<std::string> value, std::vector<int> maxValue)
+bool Hud::updateExtraEditsValue(std::vector<std::string> caption, std::vector<EditType> type, std::vector<std::string> value, std::vector<int> maxValue, std::vector<std::string> origin)
 {
 	for (int index = 0; index < 6; index++)
 	{
@@ -836,6 +1154,7 @@ bool Hud::updateExtraEditsValue(std::vector<std::string> caption, std::vector<Ed
 					{
 						edit->type = type.at(index);
 						edit->setValue(value.at(index));
+						edit->origin = origin.at(index);
 
 						int extraWidth = 0.f;
 
@@ -936,6 +1255,10 @@ bool Hud::updateEditValues()
 			this->manager->map->data.music = edit->getValue().string;
 		else if (edit->name == "edtMapVersion")
 			this->manager->map->data.version = edit->getValue().string;
+		else if (edit->name == "edtWeatherChance")
+			this->manager->map->data.weatherChance = edit->getValue().integer;
+		else if (edit->name == "edtWeatherName")
+			this->manager->map->data.weatherName = edit->getValue().string;
 	return true;
 }
 
@@ -1032,29 +1355,36 @@ bool Hud::loadModels()
 	messageBox->visible = false;
 	this->messageBox.border = messageBox;
 
+	this->shapeMinimap = std::make_shared<Model>(this->manager, sf::Vector2f(1424.64f, 915.3f), "", 0, true);
+	this->shapeMinimap->loadShape(sf::Vector2f(1.f, 1.f), sf::Color(0, 0, 0, 255));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(this->shapeMinimap));
+
 	return true;
 }
 bool Hud::loadButtons()
 {
-	std::shared_ptr<Button> btnNew = std::make_shared<Button>(this->manager, "[New]", sf::Vector2f(15.f, 10.f), "btnNew", 20);
-	std::shared_ptr<Button> btnOpen = std::make_shared<Button>(this->manager, "[Open]", sf::Vector2f(0.f, 0.f), "btnOpen", 20, btnNew, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnReload = std::make_shared<Button>(this->manager, "[Reload]", sf::Vector2f(0.f, 0.f), "btnReload", 20, btnOpen, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnSave = std::make_shared<Button>(this->manager, "[Save]", sf::Vector2f(0.f, 0.f), "btnSave", 20, btnReload, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnSaveAs = std::make_shared<Button>(this->manager, "[Save As]", sf::Vector2f(0.f, 0.f), "btnSaveAs", 20, btnSave, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnReloadConfig = std::make_shared<Button>(this->manager, "[Reload Config]", sf::Vector2f(0.f, 0.f), "btnReloadConfig", 20, btnSaveAs, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnTrigger = std::make_shared<Button>(this->manager, "[Trigger]", sf::Vector2f(0.f, 0.f), "btnTrigger", 20, btnReloadConfig, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnHelp = std::make_shared<Button>(this->manager, "[Help]", sf::Vector2f(0.f, 0.f), "btnHelp", 20, btnTrigger, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnNew = std::make_shared<Button>(this->manager, "[New]", sf::Vector2f(15.f, 10.f), "btnNew", 20, nullptr, sf::Vector2i(0, 0), "Create a new map");
+	std::shared_ptr<Button> btnOpen = std::make_shared<Button>(this->manager, "[Open]", sf::Vector2f(0.f, 0.f), "btnOpen", 20, btnNew, sf::Vector2i(1, 0), "Select a file to open an existing map");
+	std::shared_ptr<Button> btnReload = std::make_shared<Button>(this->manager, "[Reload]", sf::Vector2f(0.f, 0.f), "btnReload", 20, btnOpen, sf::Vector2i(1, 0), "Reload the current loaded map");
+	std::shared_ptr<Button> btnSave = std::make_shared<Button>(this->manager, "[Save]", sf::Vector2f(0.f, 0.f), "btnSave", 20, btnReload, sf::Vector2i(1, 0), "Save the current map");
+	std::shared_ptr<Button> btnSaveAs = std::make_shared<Button>(this->manager, "[Save As]", sf::Vector2f(0.f, 0.f), "btnSaveAs", 20, btnSave, sf::Vector2i(1, 0), "Save the current map always verifying the path");
+	std::shared_ptr<Button> btnReloadConfig = std::make_shared<Button>(this->manager, "[Reload Config]", sf::Vector2f(0.f, 0.f), "btnReloadConfig", 20, btnSaveAs, sf::Vector2i(1, 0), "Reload editor configuration file");
+	std::shared_ptr<Button> btnTrigger = std::make_shared<Button>(this->manager, "[Trigger]", sf::Vector2f(0.f, 0.f), "btnTrigger", 20, btnReloadConfig, sf::Vector2i(1, 0), "Auto-create the trigger file");
+	std::shared_ptr<Button> btnHelp = std::make_shared<Button>(this->manager, "[Help]", sf::Vector2f(0.f, 0.f), "btnHelp", 20, btnTrigger, sf::Vector2i(1, 0), "Open the help section (external)");
 
-	std::shared_ptr<Button> btnClear = std::make_shared<Button>(this->manager, "[C]", sf::Vector2f(1325.f, 65.f), "btnClear", 20);
-	std::shared_ptr<Button> btnErase = std::make_shared<Button>(this->manager, "[E]", sf::Vector2f(0.f, 0.f), "btnErase", 20, btnClear, sf::Vector2i(-1, 0));
-	std::shared_ptr<Button> btnGridVisibilityToggle = std::make_shared<Button>(this->manager, "[G]", sf::Vector2f(0.f, 0.f), "btnGridVisibilityToggle", 20, btnClear, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnSpawnPress = std::make_shared<Button>(this->manager, "[P]", sf::Vector2f(0.f, 0.f), "btnSpawnPress", 20, btnErase, sf::Vector2i(-1, 0));
-	std::shared_ptr<Button> btnCenterShape = std::make_shared<Button>(this->manager, "[S]", sf::Vector2f(0.f, 0.f), "btnCenterShape", 20, btnSpawnPress, sf::Vector2i(-1, 0));
-	std::shared_ptr<Button> btnMatrix = std::make_shared<Button>(this->manager, "[M]", sf::Vector2f(0.f, 0.f), "btnMatrix", 20, btnCenterShape, sf::Vector2i(-1, 0));
-	std::shared_ptr<Button> btnMapAreaSize = std::make_shared<Button>(this->manager, "[A]", sf::Vector2f(0.f, 0.f), "btnMapAreaSize", 20, btnGridVisibilityToggle, sf::Vector2i(1, 0));
-	std::shared_ptr<Button> btnGridSpawn = std::make_shared<Button>(this->manager, "[D]", sf::Vector2f(0.f, 0.f), "btnGridSpawn", 20, btnMapAreaSize, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnClear = std::make_shared<Button>(this->manager, "[C]", sf::Vector2f(1275.f, 65.f), "btnClear", 18, nullptr, sf::Vector2i(0, 0), "Clear the selection");
+	std::shared_ptr<Button> btnErase = std::make_shared<Button>(this->manager, "[E]", sf::Vector2f(0.f, 0.f), "btnErase", 18, btnClear, sf::Vector2i(-1, 0), "Enable erase-on-click mode");
+	std::shared_ptr<Button> btnGridVisibilityToggle = std::make_shared<Button>(this->manager, "[G]", sf::Vector2f(0.f, 0.f), "btnGridVisibilityToggle", 18, btnClear, sf::Vector2i(1, 0), "Toggle grid visible ON/OFF");
+	std::shared_ptr<Button> btnSpawnPress = std::make_shared<Button>(this->manager, "[P]", sf::Vector2f(0.f, 0.f), "btnSpawnPress", 18, btnErase, sf::Vector2i(-1, 0), "Toggle spawn-press mode");
+	std::shared_ptr<Button> btnCenterShape = std::make_shared<Button>(this->manager, "[S]", sf::Vector2f(0.f, 0.f), "btnCenterShape", 18, btnSpawnPress, sf::Vector2i(-1, 0), "Makes the spawn shape at center of cursor");
+	std::shared_ptr<Button> btnMatrix = std::make_shared<Button>(this->manager, "[M]", sf::Vector2f(0.f, 0.f), "btnMatrix", 18, btnCenterShape, sf::Vector2i(-1, 0), "Toggle matrix spawn mode");
+	std::shared_ptr<Button> btnDragCursor = std::make_shared<Button>(this->manager, "[^]", sf::Vector2f(0.f, 0.f), "btnDragCursor", 18, btnMatrix, sf::Vector2i(-1, 0), "Toggle drag cursor to move the map");
+	std::shared_ptr<Button> btnMapAreaSize = std::make_shared<Button>(this->manager, "[A]", sf::Vector2f(0.f, 0.f), "btnMapAreaSize", 18, btnGridVisibilityToggle, sf::Vector2i(1, 0), "Toggle map area visible ON/OFF");
+	std::shared_ptr<Button> btnGridSpawn = std::make_shared<Button>(this->manager, "[D]", sf::Vector2f(0.f, 0.f), "btnGridSpawn", 18, btnMapAreaSize, sf::Vector2i(1, 0), "Toggle disable grid-spawn ON/OFF");
+	std::shared_ptr<Button> btnSelectItem = std::make_shared<Button>(this->manager, "[I]", sf::Vector2f(0.f, 0.f), "btnSelectItem", 18, btnGridSpawn, sf::Vector2i(1, 0), "Enable the item selection");
+	std::shared_ptr<Button> btnSelectItemMove = std::make_shared<Button>(this->manager, "[->]", sf::Vector2f(0.f, 0.f), "btnSelectItemMove", 18, btnSelectItem, sf::Vector2i(1, 0), "Toggle item selected move");
 	
-	std::shared_ptr<Button> btnUnit = std::make_shared<Button>(this->manager, "[Units]", sf::Vector2f(1650.f, 200.f), "btnUnit", 20);
+	std::shared_ptr<Button> btnUnit = std::make_shared<Button>(this->manager, "[Units]", sf::Vector2f(1650.f, 200.f), "btnUnit", 20, nullptr, sf::Vector2i(0, 0));
 	std::shared_ptr<Button> btnMerchant = std::make_shared<Button>(this->manager, "[Merchants]", sf::Vector2f(0.f, 0.f), "btnMerchant", 20, btnUnit, sf::Vector2i(1, 0));
 	std::shared_ptr<Button> btnProp = std::make_shared<Button>(this->manager, "[Props]", sf::Vector2f(0.f, 0.f), "btnProp", 20, btnUnit, sf::Vector2i(0, 1));
 	std::shared_ptr<Button> btnEnvironment = std::make_shared<Button>(this->manager, "[Environments]", sf::Vector2f(0.f, 0.f), "btnEnvironment", 20, btnProp, sf::Vector2i(1, 0));
@@ -1062,7 +1392,7 @@ bool Hud::loadButtons()
 	std::shared_ptr<Button> btnPortal = std::make_shared<Button>(this->manager, "[Portals]", sf::Vector2f(0.f, 0.f), "btnPortal", 18, btnTerrain, sf::Vector2i(1, 0));
 	std::shared_ptr<Button> btnItem = std::make_shared<Button>(this->manager, "[Item]", sf::Vector2f(0.f, 0.f), "btnItem", 18, btnPortal, sf::Vector2i(1, 0));
 
-	std::shared_ptr<Button> btnRemoveBackground = std::make_shared<Button>(this->manager, "[Remove Background]", sf::Vector2f(0.f, 65.f), "btnRemoveBackground", 15, btnUnit, sf::Vector2i(0, -1));
+	std::shared_ptr<Button> btnRemoveBackground = std::make_shared<Button>(this->manager, "[Remove Background]", sf::Vector2f(0.f, 65.f), "btnRemoveBackground", 15, btnUnit, sf::Vector2i(0, -1), "Remove the \ncurrent terrain \nbackground");
 	btnRemoveBackground->setVisible(false);
 
 	std::shared_ptr<Label> lblBackground = std::make_shared<Label>(this->manager, "-", 15, sf::Vector2f(0.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblBackground");
@@ -1073,8 +1403,32 @@ bool Hud::loadButtons()
 	this->manager->addView(std::static_pointer_cast<ViewElement>(lblBackground));
 	this->labels.emplace_back(lblBackground);
 
-	std::shared_ptr<Button> btnPalettePrevious = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, 15.f), "btnPalettePrevious", 20, btnTerrain, sf::Vector2i(0, 1));
-	std::shared_ptr<Button> btnPaletteBack = std::make_shared<Button>(this->manager, "[>]", sf::Vector2f(175.f, 0.f), "btnPaletteNext", 20, btnPalettePrevious, sf::Vector2i(1, 0));
+	std::shared_ptr<Label> lblWeatherChance = std::make_shared<Label>(this->manager, "Weather Chance: ", 15, sf::Vector2f(0.f, 12.f), 1, sf::Color(255, 255, 255, 255), "lblWeatherChance");
+	lblWeatherChance->setPosition(position::getSidePosition(lblBackground->text->getGlobalBounds(),
+														    lblWeatherChance->text->getGlobalBounds(),
+														    lblWeatherChance->text->getPosition(), sf::Vector2i(0, 1)));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(lblWeatherChance));
+	this->labels.emplace_back(lblWeatherChance);
+
+	std::shared_ptr<Edit> edtWeatherChance = std::make_shared<Edit>(this->manager, EditType::etInteger, "100", sf::Vector2f(0.f, 0.f), "edtWeatherChance", 15,
+															  lblWeatherChance->text->getGlobalBounds(), sf::Vector2i(1, 0));
+	edtWeatherChance->setValue("100");
+	edtWeatherChance->integerMaxValue = 100;
+
+	std::shared_ptr<Label> lblWeatherName = std::make_shared<Label>(this->manager, "Weather Name: ", 15, sf::Vector2f(0.f, 3.f), 1, sf::Color(255, 255, 255, 255), "lblWeatherName");
+	lblWeatherName->setPosition(position::getSidePosition(lblWeatherChance->text->getGlobalBounds(),
+														  lblWeatherName->text->getGlobalBounds(),
+														  lblWeatherName->text->getPosition(), sf::Vector2i(0, 1)));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(lblWeatherName));
+	this->labels.emplace_back(lblWeatherName);
+
+	std::shared_ptr<Edit> edtWeatherName = std::make_shared<Edit>(this->manager, EditType::etString, "", sf::Vector2f(0.f, 0.f), "edtWeatherName", 15,
+																  lblWeatherName->text->getGlobalBounds(), sf::Vector2i(1, 0));
+	edtWeatherName->setValue("");
+	edtWeatherName->maxLength = 64;
+
+	std::shared_ptr<Button> btnPalettePrevious = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, 15.f), "btnPalettePrevious", 20, btnTerrain, sf::Vector2i(0, 1), "Previous page");
+	std::shared_ptr<Button> btnPaletteBack = std::make_shared<Button>(this->manager, "[>]", sf::Vector2f(175.f, 0.f), "btnPaletteNext", 20, btnPalettePrevious, sf::Vector2i(1, 0), "Next page");
 	std::shared_ptr<Label> lblPalettePage = std::make_shared<Label>(this->manager, "1", 20, sf::Vector2f(85.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblPalettePage");
 	lblPalettePage->setPosition(position::getSidePosition(btnPalettePrevious->shape->shape->getGlobalBounds(), 
 														  lblPalettePage->text->getGlobalBounds(), 
@@ -1082,8 +1436,8 @@ bool Hud::loadButtons()
 	this->manager->addView(std::static_pointer_cast<ViewElement>(lblPalettePage));
 	this->labels.emplace_back(lblPalettePage);
 
-	std::shared_ptr<Button> btnGridSizeDecrease = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, 700.f), "btnGridSizeDecrease", 20, btnTerrain, sf::Vector2i(0, 1));
-	std::shared_ptr<Button> btnGridSizeIncrease = std::make_shared<Button>(this->manager, "[>]", sf::Vector2f(175.f, 0.f), "btnGridSizeIncrease", 20, btnGridSizeDecrease, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnGridSizeDecrease = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, 700.f), "btnGridSizeDecrease", 20, btnTerrain, sf::Vector2i(0, 1), "Decrease \ngrid size");
+	std::shared_ptr<Button> btnGridSizeIncrease = std::make_shared<Button>(this->manager, "[>]", sf::Vector2f(175.f, 0.f), "btnGridSizeIncrease", 20, btnGridSizeDecrease, sf::Vector2i(1, 0), "Increase \ngrid size");
 	std::shared_ptr<Label> lblGridSize = std::make_shared<Label>(this->manager, "64px", 20, sf::Vector2f(65.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblGridSize");
 	lblGridSize->setPosition(position::getSidePosition(btnGridSizeDecrease->shape->shape->getGlobalBounds(),
 													   lblGridSize->text->getGlobalBounds(),
@@ -1091,8 +1445,8 @@ bool Hud::loadButtons()
 	this->manager->addView(std::static_pointer_cast<ViewElement>(lblGridSize));
 	this->labels.emplace_back(lblGridSize);
 
-	std::shared_ptr<Button> btnBrushSizeDecrease = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, -50.f), "btnBrushSizeDecrease", 20, btnGridSizeDecrease, sf::Vector2i(0, 1));
-	std::shared_ptr<Button> btnBrushSizeIncrease = std::make_shared<Button>(this->manager, "[>]", sf::Vector2f(175.f, 0.f), "btnBrushSizeIncrease", 20, btnBrushSizeDecrease, sf::Vector2i(1, 0));
+	std::shared_ptr<Button> btnBrushSizeDecrease = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, -50.f), "btnBrushSizeDecrease", 20, btnGridSizeDecrease, sf::Vector2i(0, 1), "Decrease \nbrush size");
+	std::shared_ptr<Button> btnBrushSizeIncrease = std::make_shared<Button>(this->manager, "[>]", sf::Vector2f(175.f, 0.f), "btnBrushSizeIncrease", 20, btnBrushSizeDecrease, sf::Vector2i(1, 0), "Increase \nbrush size");
 	std::shared_ptr<Label> lblBrushSize = std::make_shared<Label>(this->manager, "1x", 20, sf::Vector2f(75.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblBrushSize");
 	lblBrushSize->setPosition(position::getSidePosition(btnBrushSizeDecrease->shape->shape->getGlobalBounds(),
 													   lblBrushSize->text->getGlobalBounds(),
@@ -1224,6 +1578,8 @@ bool Hud::loadButtons()
 	this->buttons.emplace_back(btnCenterShape);
 	this->buttons.emplace_back(btnMapAreaSize);
 	this->buttons.emplace_back(btnGridSpawn);
+	this->buttons.emplace_back(btnSelectItem);
+	this->buttons.emplace_back(btnSelectItemMove);
 	this->buttons.emplace_back(btnUnit);
 	this->buttons.emplace_back(btnMerchant);
 	this->buttons.emplace_back(btnProp);
@@ -1239,6 +1595,9 @@ bool Hud::loadButtons()
 	this->buttons.emplace_back(btnBrushSizeDecrease);
 	this->buttons.emplace_back(btnBrushSizeIncrease);
 	this->buttons.emplace_back(btnMatrix);
+	this->buttons.emplace_back(btnDragCursor);
+	this->edits.emplace_back(edtWeatherChance);
+	this->edits.emplace_back(edtWeatherName);
 	this->edits.emplace_back(edtRotation);
 	this->edits.emplace_back(edtScale);
 	this->edits.emplace_back(edtMapSizeX);
@@ -1257,6 +1616,7 @@ bool Hud::loadLabels()
 	std::shared_ptr<Label> lblVersion = std::make_shared<Label>(this->manager, "0.04", 20, sf::Vector2f(1870.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblVersion");
 	std::shared_ptr<Label> lblPaletteStatus = std::make_shared<Label>(this->manager, "- - -", 30, sf::Vector2f(0.f, 960.f), 1, sf::Color(255, 255, 255, 255), "lblPaletteStatus");
 	std::shared_ptr<Label> lblMessageBox = std::make_shared<Label>(this->manager, "", 20, sf::Vector2f(0.f, 900.f), 1, sf::Color(255, 255, 255, 255), "lblMessageBox");
+	
 
 	lblPaletteItem->setPosition(position::getSidePosition(lblCoordinates->text->getGlobalBounds(),
 														  lblPaletteItem->text->getGlobalBounds(), 
@@ -1277,6 +1637,17 @@ bool Hud::loadLabels()
 	lblMessageBox->visible = false;
 	this->messageBox.label = lblMessageBox;
 
+	this->shapeTooltip = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, 0.f), "", 1, false);
+	this->shapeTooltip->loadShape(sf::Vector2f(1.f, 1.f), sf::Color(0, 0, 0, 255));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(this->shapeTooltip));
+	this->shapeTooltip->visible = false;
+
+	this->labelTooltip = std::make_shared<Label>(this->manager, "", 15, sf::Vector2f(0.f, 0.f), 1, sf::Color(255, 255, 0, 255), "lblTooltip");
+	this->labelTooltip->canvasBound = false;
+	this->manager->addView(std::static_pointer_cast<ViewElement>(labelTooltip));
+	this->labels.emplace_back(labelTooltip);
+	this->labelTooltip->visible = false;
+
 	return true;
 }
 
@@ -1288,7 +1659,6 @@ bool Hud::loadLists()
 	this->loadModels();
 	this->loadButtons();
 	this->loadLabels();	
-	
 
 	return true;
 }

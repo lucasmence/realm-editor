@@ -39,8 +39,15 @@ bool Map::updateMapInfo()
 	this->manager->hud->setEditValue("edtMapName", boost::lexical_cast<std::string>(this->data.name));
 	this->manager->hud->setEditValue("edtMapMusic", boost::lexical_cast<std::string>(this->data.music));
 	this->manager->hud->setEditValue("edtMapVersion", boost::lexical_cast<std::string>(this->data.version));
+	this->manager->hud->setEditValue("edtWeatherChance", boost::lexical_cast<std::string>(this->data.weatherChance));
+	this->manager->hud->setEditValue("edtWeatherName", boost::lexical_cast<std::string>(this->data.weatherName));
 
 	return true;
+}
+
+std::vector<std::string> Map::getSubFieldsExceptionsList()
+{
+	return { "texture", "unit", "merchant", "item", "x", "y", "scale", "rotation", "priority" };
 }
 
 int Map::getObjectPriority(MapObjectType type)
@@ -210,8 +217,8 @@ bool Map::renderObjectField(json& localfile, MapObjectField& field)
 
 bool Map::renderObject(json& localfile, MapObjectUnit& object)
 {
-	localfile["x"] = object.position.x;
-	localfile["y"] = object.position.y;
+	localfile["x"] = object.model->getPosition().x;
+	localfile["y"] = object.model->getPosition().y;
 	localfile["scale"] = object.model->getScale().x;
 	localfile["rotation"] = object.model->getRotation();
 
@@ -242,10 +249,16 @@ bool Map::renderMap()
 	this->file["map"]["name"] = this->data.name;
 	this->file["map"]["version"] = this->data.version;
 
-	std::vector<std::string> objectsField = { "terrain", "terrain-default", "prop", "environment", "unit", "merchant", "portal", "item" };
+	std::vector<std::string> objectsField = { "terrain", "terrain-default", "prop", "environment", "unit", "merchant", "portal", "item", "weather" };
 
 	for (auto& objectField : objectsField)
 		this->file[objectField].clear();
+
+	if (this->data.weatherName != "")
+	{
+		this->file["weather"]["chance"] = this->data.weatherChance;
+		this->file["weather"]["name"] = this->data.weatherName;
+	}
 
 	if (this->data.textureBackground.model != nullptr)
 	{
@@ -370,7 +383,7 @@ bool Map::reloadMap()
 
 std::list<MapObjectField> Map::getSubfieldsFromLine(json line)
 {
-	std::vector<std::string> subFieldsExceptions = { "texture", "unit", "merchant", "item", "x", "y", "scale", "rotation", "priority" };
+	std::vector<std::string> subFieldsExceptions = this->getSubFieldsExceptionsList();
 	std::list<MapObjectField> subFields = {};
 	for (auto& subFieldIndex : line.items())
 	{
@@ -426,6 +439,12 @@ bool Map::loadMap(std::string file)
 	{
 		this->data.name = this->file["map"].value("name", "");
 		this->data.version = this->file["map"].value("version", "1.0");
+	}
+
+	if (this->file["weather"].size() > 0)
+	{
+		this->data.weatherName = this->file["weather"].value("name", "");
+		this->data.weatherChance = this->file["weather"].value("chance", 0.f);
 	}
 
 	if (this->file["terrain-default"].size() > 0)
@@ -530,12 +549,15 @@ bool Map::newMap()
 	this->clearObjects();
 	this->manager->palette->clearPaletteItem();
 	this->manager->hud->removeBackground(this->manager->hud->getButton("btnRemoveBackground"), false);
+	this->manager->hud->zoomMapReset();
 
 	this->filename = "";
 	this->data.size = sf::Vector2i(1000, 1000);
 	this->data.name = "another_map";
 	this->data.music = "village";
 	this->data.version = "1.00";
+	this->data.weatherName = "";
+	this->data.weatherChance = 100.f;
 
 	this->updateMapInfo();
 
