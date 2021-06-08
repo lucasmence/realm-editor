@@ -357,7 +357,7 @@ bool Map::saveMap()
 	if (this->filename == "")
 		this->filename = script::saveFile();
 
-	if (!boost::filesystem::exists(this->filename))
+	if (!boost::filesystem::exists(boost::filesystem::path{ this->filename }.parent_path()))
 	{
 		this->manager->hud->showMessage("Failed: File not selected!");
 		return false;
