@@ -4,6 +4,7 @@
 #include "hud.hpp"
 #include "../manager.hpp"
 #include "../library/position.hpp"
+#include "../library//script.hpp"
 
 Hud::Hud(Manager* manager)
 {
@@ -270,7 +271,8 @@ bool Hud::resetTooltip()
 
 bool Hud::help()
 {
-	this->showMessage("Coming soon...");
+	this->showMessage("Accessing external page...");
+	script::openUrl("https://boltcraft.github.io/realm-editor/");
 	return true;
 }
 
