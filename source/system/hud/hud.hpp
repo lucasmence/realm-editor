@@ -59,6 +59,7 @@ class Hud
 		std::shared_ptr<Model> shapeTooltip;
 		std::shared_ptr<Model> shapeItemSelected;
 		std::shared_ptr<Model> itemModelSelected;
+		std::shared_ptr<Model> shapeMinimap;
 		MessageBox messageBox;
 
 		bool unloadLists();
