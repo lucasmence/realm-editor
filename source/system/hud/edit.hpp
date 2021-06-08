@@ -28,6 +28,8 @@ class Edit
 		std::shared_ptr<Model> shape;
 		std::shared_ptr<Label> label;
 		std::string name;
+		std::string origin;
+		std::string hint;
 		bool selected;
 		int maxLength;
 		int integerMaxValue;
@@ -40,7 +42,8 @@ class Edit
 			 std::string name, 
 			 int size = 20, 
 			 sf::FloatRect neighbor = sf::FloatRect(-1.f, -1.f, -1.f, -1.f),
-			 sf::Vector2i side = sf::Vector2i(0, 0));
+			 sf::Vector2i side = sf::Vector2i(0, 0),
+			 std::string hint = "");
 		~Edit();
 
 		int getInt(std::string value);

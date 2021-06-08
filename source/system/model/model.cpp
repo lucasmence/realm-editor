@@ -28,7 +28,9 @@ Model::~Model()
 
 bool Model::draw()
 {
-	if (!this->visible)
+	if (!this->visible || 
+		(this->canvasBound && this->manager->hud->zoom != 1.f) || 
+		(this->canvasBound && this->manager->minimapViewUpdate))
 		return ViewElement::draw();
 
 	if (this->sprite)
@@ -39,19 +41,23 @@ bool Model::draw()
 		{
 			this->sprite->setColor(sf::Color(this->sprite->getColor().r, this->sprite->getColor().g, this->sprite->getColor().b, this->sprite->getColor().a - this->fadeSpeed));
 			this->visible = (this->sprite->getColor().a > 0);
-		}
+		}	
+
 		this->manager->window->draw(*this->sprite);
 	}
 		
 	if (this->shape)
 	{
 		if (this->canvasBound)
-			this->shape->setPosition(this->manager->canvasPosition.x + this->position.x, this->manager->canvasPosition.y + this->position.y);
+			this->shape->setPosition(this->manager->canvasPosition.x + this->position.x, 
+									 this->manager->canvasPosition.y + this->position.y);
+			
 		if (this->fading)
 		{
 			this->shape->setFillColor(sf::Color(this->shape->getFillColor().r, this->shape->getFillColor().g, this->shape->getFillColor().b, this->shape->getFillColor().a - this->fadeSpeed));
 			this->visible = (this->shape->getFillColor().a > 0);
 		}
+
 		this->manager->window->draw(*this->shape);
 	}	
 

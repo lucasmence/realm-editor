@@ -4,6 +4,8 @@
 #include <vector>
 #include "button.hpp"
 #include "edit.hpp"
+#include "../palette/palette.hpp"
+#include "../map/map.hpp"
 
 #pragma once
 
@@ -24,11 +26,13 @@ class Hud
 		Manager* manager;
 
 		sf::Vector2f hoverShapeSize;
+		sf::Vector2f mousePressPosition;
 		int gridSize;
 		int brushSize;
 		int rotation;
 		int priority;
 		float scale;
+		float zoom;
 		bool mousePressed;
 		bool spawnPress;
 		bool centerShape;
@@ -37,6 +41,10 @@ class Hud
 		bool matrixTriggered;
 		bool matrixPosSpawn;
 		bool gridSpawn;
+		bool itemSelect;
+		bool itemSelected;
+		bool itemSelectedMove;
+		bool dragCursor;
 		std::vector<int> gridSizeList;
 		std::vector<int> brushSizeList;
 		std::list<std::shared_ptr<Button>> buttons;
@@ -44,9 +52,14 @@ class Hud
 		std::list<std::shared_ptr<Label>> labels;
 		std::list<std::shared_ptr<Model>> models;
 		std::list<std::shared_ptr<Model>> grid;
+		std::shared_ptr<Label> labelTooltip;
 		std::shared_ptr<Model> shapeHover;
 		std::shared_ptr<Model> shapeMapArea;
 		std::shared_ptr<Model> shapeMatrix;
+		std::shared_ptr<Model> shapeTooltip;
+		std::shared_ptr<Model> shapeItemSelected;
+		std::shared_ptr<Model> itemModelSelected;
+		std::shared_ptr<Model> shapeMinimap;
 		MessageBox messageBox;
 
 		bool unloadLists();
@@ -61,6 +74,7 @@ class Hud
 		bool updateEditsColor(sf::Vector2f cursor);
 		bool updateMouseReleased(sf::Vector2f cursor);
 		bool updateMousePressed(sf::Vector2f cursor);
+		bool updateItemSelectedMove(sf::Vector2f cursor);
 		bool updateEdit(char text);
 		bool updateEditValues();
 		bool updateLabels(sf::Vector2f cursor);
@@ -69,6 +83,7 @@ class Hud
 		bool buttonsClick(sf::Vector2f cursor);
 		bool editsClick(sf::Vector2f cursor);
 		bool spawnClick(sf::Vector2f cursor);
+		std::list<MapObjectField> getExtraEditValuesByType();
 		bool matrixActivate(sf::Vector2f cursor);
 		bool matrixDeactivate(sf::Vector2f cursor);
 		bool matrixGenerate(sf::Vector2f cursor);
@@ -77,6 +92,7 @@ class Hud
 		bool changeBrushSize(int order);
 		bool updateHoverShapeSize();
 		bool updateHoverMapSize();
+		bool updateHoverGeneral();
 		bool updateShapeMatrix(sf::Vector2f cursor);
 		bool toggleGridVisibility();
 		bool toggleMatrixTriggered(std::shared_ptr<Button> button);
@@ -84,9 +100,23 @@ class Hud
 		bool toggleCenterShape(std::shared_ptr<Button> button);
 		bool toggleMapAreaSize(std::shared_ptr<Button> button);
 		bool toggleGridSpawn(std::shared_ptr<Button> button);
+		bool toggleItemSelectedMove(std::shared_ptr<Button> button);
+		bool toggleDragCursor(std::shared_ptr<Button> button);
 		bool removeBackground(std::shared_ptr<Button> button, const bool message = true);
+		bool enableItemSelect(std::shared_ptr<Button> button);
+		bool selectItem(sf::Vector2f cursor);
+		bool deleteSelectedItem();
+		bool selectedItemUpdate();
+		bool checkMapClick(sf::Vector2f cursor);
+		bool updateDragCursor(sf::Vector2f cursor);
+		bool zoomMap(int value);
+		bool zoomMapReset();
+		bool setTooltip(std::string hint, sf::Vector2f cursor);
+		bool resetTooltip();
 		bool help();
-		bool updateExtraEditsValue(std::vector<std::string> caption, std::vector<EditType> type, std::vector<std::string> value, std::vector<int> maxValue);
+
+		bool getPaletteType(PaletteType &paletteType, MapObjectType type);
+		bool updateExtraEditsValue(std::vector<std::string> caption, std::vector<EditType> type, std::vector<std::string> value, std::vector<int> maxValue, std::vector<std::string> origin);
 		bool setExtraEditsValue(std::vector<std::string> value);
 		std::vector<EditValue> getExtraEditsValue();
 		bool setEditValue(std::string editName, std::string value);
