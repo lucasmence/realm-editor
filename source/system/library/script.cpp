@@ -58,4 +58,10 @@ namespace script
         std::system(std::string("cd scripts && windowmode -title "+windowName+" -mode maximized").c_str());
         return true;
     }
+
+    bool openUrl(std::string url)
+    {
+        std::system(std::string("start " + url).c_str());
+        return true;
+    }
 }

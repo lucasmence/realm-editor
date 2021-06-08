@@ -12,6 +12,7 @@ namespace script
     bool deleteFile(std::string filename);
     std::string getTemp(std::string filename);
     bool maximizeWindow(std::string windowName);
+    bool openUrl(std::string url);
 }
 
 #endif
