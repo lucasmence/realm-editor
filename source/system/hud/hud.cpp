@@ -52,6 +52,8 @@ Hud::Hud(Manager* manager)
 	this->manager->addView(std::static_pointer_cast<ViewElement>(this->shapeItemSelected));
 	this->shapeItemSelected->visible = false;
 
+	this->shapeMinimap = nullptr;
+
 	this->itemModelSelected = nullptr;
 
 	this->loadLists();
@@ -64,6 +66,7 @@ Hud::~Hud()
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeMatrix));
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeItemSelected));
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeTooltip));
+	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeMinimap));
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->labelTooltip));
 	this->itemModelSelected = nullptr;
 	this->unloadLists();
@@ -321,6 +324,7 @@ bool Hud::updateHoverMapSize()
 bool Hud::updateHoverGeneral()
 {
 	this->shapeItemSelected->visible = this->itemSelected;
+	std::static_pointer_cast<sf::RectangleShape>(this->shapeMinimap->shape)->setSize(sf::Vector2f(this->manager->minimapViewArea.width / 2.f, this->manager->minimapViewArea.height / 2.f));
 	return true;
 }
 
@@ -1350,6 +1354,10 @@ bool Hud::loadModels()
 
 	messageBox->visible = false;
 	this->messageBox.border = messageBox;
+
+	this->shapeMinimap = std::make_shared<Model>(this->manager, sf::Vector2f(1424.64f, 915.3f), "", 0, true);
+	this->shapeMinimap->loadShape(sf::Vector2f(1.f, 1.f), sf::Color(0, 0, 0, 255));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(this->shapeMinimap));
 
 	return true;
 }
