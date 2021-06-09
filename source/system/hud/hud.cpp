@@ -794,10 +794,12 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 						std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, 
 																			   tilesetPosition, 
 																			   paletteTypeField + "/" + texture, priorityValue, false, "", this->manager->palette->selectedOrigin);
+						model->setPosition(sf::Vector2f(model->getGlobalBounds().width,
+														model->getGlobalBounds().height));
 						this->manager->map->data.textureBackground = MapObjectUnit{ objectType, sf::Vector2f(model->getGlobalBounds().width, 
 																											 model->getGlobalBounds().height), 0.f, model, fields };
 
-						this->setExtraEditsValue({ extraValues.at(0).string, "false"});
+						this->setExtraEditsValue({ "true", "false"});
 						this->manager->palette->clearPaletteItem();
 						this->getButton("btnRemoveBackground")->setVisible(true);
 						std::shared_ptr<Label> label = this->manager->hud->getLabel("lblBackground");
