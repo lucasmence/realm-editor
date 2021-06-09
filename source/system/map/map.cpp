@@ -558,6 +558,7 @@ bool Map::newMap()
 	this->data.version = "1.00";
 	this->data.weatherName = "";
 	this->data.weatherChance = 100.f;
+	this->file["trigger"].clear();
 
 	this->updateMapInfo();
 
