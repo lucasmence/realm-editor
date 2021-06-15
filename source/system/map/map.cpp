@@ -453,10 +453,11 @@ bool Map::loadMap(std::string file)
 		
 		sf::Vector2f position(this->file["terrain-default"].value("x", 0.f),
 							  this->file["terrain-default"].value("y", 0.f));
+		float scale = this->file["terrain-default"].value("scale", 1.f);
 
 		std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, position, "textures/" + texture, 0, false, "",
 															   this->getOriginFromField(this->file["terrain-default"], MapObjectType::motTerrain));
-
+		model->sprite->setScale(sf::Vector2f(scale, scale));
 		this->data.textureBackground = MapObjectUnit{ MapObjectType::motTerrain, position, 0.f, model, this->getSubfieldsFromLine(this->file["terrain-default"]) };
 
 		this->manager->hud->getButton("btnRemoveBackground")->setVisible(true);
