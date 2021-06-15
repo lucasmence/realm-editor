@@ -796,6 +796,7 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 						std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, 
 																			   tilesetPosition, 
 																			   paletteTypeField + "/" + texture, priorityValue, false, "", this->manager->palette->selectedOrigin);
+						model->sprite->setScale(this->scale, this->scale);
 						model->setPosition(sf::Vector2f(model->getGlobalBounds().width,
 														model->getGlobalBounds().height));
 						this->manager->map->data.textureBackground = MapObjectUnit{ objectType, sf::Vector2f(model->getGlobalBounds().width, 
