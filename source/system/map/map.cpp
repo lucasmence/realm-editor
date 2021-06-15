@@ -563,6 +563,7 @@ bool Map::newMap()
 	this->updateMapInfo();
 
 	this->manager->setTitle("New");
+	this->manager->resetView();
 
 	return true;
 }
