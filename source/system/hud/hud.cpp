@@ -680,9 +680,9 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 		case (PaletteType::ptTerrain) :
 		{
 			fields.emplace_back(MapObjectField{ "allow-teleport", MapObjectFieldString{ "", false},
-																	MapObjectFieldInt{ 0, false },
-																	MapObjectFieldFloat{ 0.f, false },
-																	MapObjectFieldBool{ extraValues.at(0).boolean, true } });
+																  MapObjectFieldInt{ 0, false },
+																  MapObjectFieldFloat{ 0.f, false },
+																  MapObjectFieldBool{ extraValues.at(0).boolean, true } });
 			break;
 		}
 		case (PaletteType::ptProp):
@@ -699,9 +699,11 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 		}
 		case (PaletteType::ptUnit):
 		{
-			fields.emplace_back(MapObjectField{ "alliance", MapObjectFieldString{ extraValues.at(0).string, true} });
-			fields.emplace_back(MapObjectField{ "item-drop", MapObjectFieldString{ extraValues.at(1).string, true} });
-			fields.emplace_back(MapObjectField{ "variable", MapObjectFieldString{ extraValues.at(2).string, true} });
+			fields.emplace_back(MapObjectField{ "group", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true} });
+			fields.emplace_back(MapObjectField{ "boss", MapObjectFieldString{ "", false}, MapObjectFieldInt{ 0, false }, MapObjectFieldFloat{ 0.f, false }, MapObjectFieldBool{ extraValues.at(1).boolean, true } });
+			fields.emplace_back(MapObjectField{ "alliance", MapObjectFieldString{ extraValues.at(2).string, true} });
+			fields.emplace_back(MapObjectField{ "item-drop", MapObjectFieldString{ extraValues.at(3).string, true} });
+			fields.emplace_back(MapObjectField{ "variable", MapObjectFieldString{ extraValues.at(4).string, true} });
 			break;
 		}
 		case (PaletteType::ptPortal):

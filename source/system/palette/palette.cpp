@@ -237,7 +237,11 @@ bool Palette::selectPalette(PaletteType type)
         case (PaletteType::ptUnit):
         {
             this->loadPaletteItemList(this->unit, "unit");
-            this->manager->hud->updateExtraEditsValue({ "Alliance", "Item drop", "Variable" }, { EditType::etString, EditType::etString, EditType::etString }, {"enemy", "", ""}, {10, 48, 48}, {"alliance", "item-drop", "variable"});
+            this->manager->hud->updateExtraEditsValue({ "Group", "Boss", "Alliance", "Item drop", "Variable" }, 
+                                                      { EditType::etInteger, EditType::etBoolean, EditType::etString, EditType::etString, EditType::etString }, 
+                                                      { "0", "false", "enemy", "", "" }, 
+                                                      { 99, 5, 10, 48, 48 }, 
+                                                      { "group", "boss", "alliance", "item-drop", "variable" });
             break;
         }
         case (PaletteType::ptMerchant):
