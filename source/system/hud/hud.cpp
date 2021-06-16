@@ -693,7 +693,8 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 		}
 		case (PaletteType::ptEnvironment):
 		{
-			fields.emplace_back(MapObjectField{ "variable", MapObjectFieldString{ extraValues.at(0).string, true} });
+			fields.emplace_back(MapObjectField{ "front", MapObjectFieldString{ "", false}, MapObjectFieldInt{ 0, false }, MapObjectFieldFloat{ 0.f, false }, MapObjectFieldBool{ extraValues.at(0).boolean, true } });
+			fields.emplace_back(MapObjectField{ "variable", MapObjectFieldString{ extraValues.at(1).string, true} });
 
 			break;
 		}

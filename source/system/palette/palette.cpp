@@ -231,7 +231,7 @@ bool Palette::selectPalette(PaletteType type)
         case (PaletteType::ptEnvironment):
         {
             this->loadPaletteItemList(this->environment, "environment");
-            this->manager->hud->updateExtraEditsValue({ "Variable" }, { EditType::etString }, { "" }, { 48 }, {"variable"});
+            this->manager->hud->updateExtraEditsValue({ "Front", "Variable" }, { EditType::etBoolean, EditType::etString }, { "false", "" }, { 5, 48 }, { "front", "variable"});
             break;
         }
         case (PaletteType::ptUnit):
