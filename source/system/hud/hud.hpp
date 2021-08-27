@@ -94,6 +94,7 @@ class Hud
 		bool updateHoverMapSize();
 		bool updateHoverGeneral();
 		bool updateShapeMatrix(sf::Vector2f cursor);
+		bool toggleMinimapVisible();
 		bool toggleGridVisibility();
 		bool toggleMatrixTriggered(std::shared_ptr<Button> button);
 		bool toggleSpawnPress(std::shared_ptr<Button> button);
