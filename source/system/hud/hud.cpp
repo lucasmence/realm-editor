@@ -364,6 +364,12 @@ bool Hud::toggleGridVisibility()
 	return true;
 }
 
+bool Hud::toggleMinimapVisible()
+{
+	this->manager->minimapVisible = !this->manager->minimapVisible;
+	return true;
+}
+
 bool Hud::toggleMatrixTriggered(std::shared_ptr<Button> button)
 {
 	button->selected = !button->selected;
@@ -1006,6 +1012,8 @@ bool Hud::buttonsClick(sf::Vector2f cursor)
 				this->enableItemSelect(button);
 			else if (button->name == "btnSelectItemMove")
 				this->toggleItemSelectedMove(button);
+			else if (button->name == "btnToggleMinimapVisible")
+				this->toggleMinimapVisible();
 			else if (button->name == "btnTerrain")
 				this->manager->palette->selectPalette(PaletteType::ptTerrain);
 			else if (button->name == "btnProp")
@@ -1391,6 +1399,7 @@ bool Hud::loadButtons()
 	std::shared_ptr<Button> btnGridSpawn = std::make_shared<Button>(this->manager, "[D]", sf::Vector2f(0.f, 0.f), "btnGridSpawn", 18, btnMapAreaSize, sf::Vector2i(1, 0), "Toggle disable grid-spawn ON/OFF");
 	std::shared_ptr<Button> btnSelectItem = std::make_shared<Button>(this->manager, "[I]", sf::Vector2f(0.f, 0.f), "btnSelectItem", 18, btnGridSpawn, sf::Vector2i(1, 0), "Enable the item selection");
 	std::shared_ptr<Button> btnSelectItemMove = std::make_shared<Button>(this->manager, "[->]", sf::Vector2f(0.f, 0.f), "btnSelectItemMove", 18, btnSelectItem, sf::Vector2i(1, 0), "Toggle item selected move");
+	std::shared_ptr<Button> btnToggleMinimapVisible = std::make_shared<Button>(this->manager, "[N]", sf::Vector2f(0.f, 0.f), "btnToggleMinimapVisible", 18, btnSelectItemMove, sf::Vector2i(1, 0), "Toggle minimap visible");
 	
 	std::shared_ptr<Button> btnUnit = std::make_shared<Button>(this->manager, "[Units]", sf::Vector2f(1650.f, 200.f), "btnUnit", 20, nullptr, sf::Vector2i(0, 0));
 	std::shared_ptr<Button> btnMerchant = std::make_shared<Button>(this->manager, "[Merchants]", sf::Vector2f(0.f, 0.f), "btnMerchant", 20, btnUnit, sf::Vector2i(1, 0));
@@ -1588,6 +1597,7 @@ bool Hud::loadButtons()
 	this->buttons.emplace_back(btnGridSpawn);
 	this->buttons.emplace_back(btnSelectItem);
 	this->buttons.emplace_back(btnSelectItemMove);
+	this->buttons.emplace_back(btnToggleMinimapVisible);
 	this->buttons.emplace_back(btnUnit);
 	this->buttons.emplace_back(btnMerchant);
 	this->buttons.emplace_back(btnProp);
@@ -1621,7 +1631,7 @@ bool Hud::loadLabels()
 {
 	std::shared_ptr<Label> lblCoordinates = std::make_shared<Label>(this->manager, "0, 0", 20, sf::Vector2f(1630.f, 70.f), 1, sf::Color(255, 255, 255, 255), "lblCoordinates");
 	std::shared_ptr<Label> lblPaletteItem = std::make_shared<Label>(this->manager, "-", 15, sf::Vector2f(0.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblPaletteItem");
-	std::shared_ptr<Label> lblVersion = std::make_shared<Label>(this->manager, "0.04b", 20, sf::Vector2f(1855.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblVersion");
+	std::shared_ptr<Label> lblVersion = std::make_shared<Label>(this->manager, "0.05", 20, sf::Vector2f(1855.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblVersion");
 	std::shared_ptr<Label> lblPaletteStatus = std::make_shared<Label>(this->manager, "- - -", 30, sf::Vector2f(0.f, 960.f), 1, sf::Color(255, 255, 255, 255), "lblPaletteStatus");
 	std::shared_ptr<Label> lblMessageBox = std::make_shared<Label>(this->manager, "", 20, sf::Vector2f(0.f, 900.f), 1, sf::Color(255, 255, 255, 255), "lblMessageBox");
 	
