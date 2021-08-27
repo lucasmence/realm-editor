@@ -47,6 +47,7 @@ class Manager
 		bool hasFocus;
 		bool open;
 		bool minimapViewUpdate;
+		bool minimapVisible;
 		std::string appName;
 		sf::FloatRect minimapViewArea;
 
