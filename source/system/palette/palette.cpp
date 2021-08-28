@@ -266,6 +266,8 @@ bool Palette::selectPalette(PaletteType type)
         }
     }
 
+    this->manager->hud->resetExtraEditsValue();
+
     if (this->pageIndex > 0 && this->paletteItems.size() <= 0)
     {
         this->pageIndex--;
