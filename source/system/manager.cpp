@@ -204,6 +204,9 @@ bool Manager::eventClick(sf::Event& event)
 
 bool Manager::eventKey(sf::Event& event)
 {
+    if (this->hud->getCheckEditing())
+        return false;
+
     switch (event.key.code)
     {
         case (sf::Keyboard::Left):
