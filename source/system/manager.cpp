@@ -249,6 +249,66 @@ bool Manager::eventKey(sf::Event& event)
             this->hud->deleteSelectedItem();
             break;
         }
+        case (sf::Keyboard::C):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnClear")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::E):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnErase")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::G):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnGridVisibilityToggle")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::P):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnSpawnPress")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::S):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnCenterShape")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::M):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnMatrix")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::A):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnMapAreaSize")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::D):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnGridSpawn")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::I):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnSelectItem")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::N):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnToggleMinimapVisible")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::Tilde):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnDragCursor")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::Period):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnSelectItemMove")->shape->getPosition());
+            break;
+        }
     }
 
     return true;
