@@ -903,8 +903,8 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 			if (this->mousePressed && this->spawnPress)
 				for (auto& object : this->manager->map->objects)
 					if (object.type == objectType && object.model->sprite->getGlobalBounds().contains(hoverCenter) &&
-						object.model->texture->filename == paletteTypeField + "/" + texture)
-						return false;			
+						"textures/" + object.model->texture->filename == paletteTypeField + "/" + texture)
+						return false;
 
 			for (int x = 0; x < sqrt(this->brushSizeList.at(this->brushSize)); x++)
 				for (int y = 0; y < sqrt(this->brushSizeList.at(this->brushSize)); y++)
