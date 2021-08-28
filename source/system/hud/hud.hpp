@@ -115,6 +115,7 @@ class Hud
 		bool setTooltip(std::string hint, sf::Vector2f cursor);
 		bool resetTooltip();
 		bool help();
+		bool getCheckEditing();
 
 		bool getPaletteType(PaletteType &paletteType, MapObjectType type);
 		bool updateExtraEditsValue(std::vector<std::string> caption, std::vector<EditType> type, std::vector<std::string> value, std::vector<int> maxValue, std::vector<std::string> origin);

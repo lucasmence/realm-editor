@@ -1298,6 +1298,15 @@ bool Hud::updateEdit(char text)
 	return false;
 }
 
+bool Hud::getCheckEditing()
+{
+	for (auto& edit : this->edits)
+		if (edit->selected)
+			return true;
+		
+	return false;
+}
+
 bool Hud::unloadLists()
 {
 	for (auto& button : this->buttons)
