@@ -120,6 +120,7 @@ class Hud
 		bool getPaletteType(PaletteType &paletteType, MapObjectType type);
 		bool updateExtraEditsValue(std::vector<std::string> caption, std::vector<EditType> type, std::vector<std::string> value, std::vector<int> maxValue, std::vector<std::string> origin);
 		bool setExtraEditsValue(std::vector<std::string> value);
+		bool resetExtraEditsValue();
 		std::vector<EditValue> getExtraEditsValue();
 		bool setEditValue(std::string editName, std::string value);
 		std::shared_ptr<Button> getButton(std::string name);

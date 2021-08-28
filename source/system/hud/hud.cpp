@@ -920,6 +920,8 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 					this->manager->map->addObjectUnit(MapObjectUnit{ objectType, model->sprite->getPosition(), 0.f, model, fields });
 				}
 
+			this->resetExtraEditsValue();
+
 			break;
 		}
 
@@ -1125,6 +1127,38 @@ bool Hud::setExtraEditsValue(std::vector<std::string> value)
 		for (auto& edit : this->edits)
 			if (edit->name == "edtExtraField-" + boost::lexical_cast<std::string>(index))
 				edit->setValue(value.at(index));
+	return true;
+}
+
+bool Hud::resetExtraEditsValue()
+{
+	if (!this->manager->palette)
+		return false;
+
+	switch (this->manager->palette->type)
+	{
+		case (PaletteType::ptTerrain):
+		{
+			this->setExtraEditsValue({ "true", "false" });
+			break;
+		}
+		case (PaletteType::ptProp):
+		{
+			this->setExtraEditsValue({ "" });
+			break;
+		}
+		case (PaletteType::ptEnvironment):
+		{
+			this->setExtraEditsValue({ "false", "" });
+			break;
+		}
+		case (PaletteType::ptUnit):
+		{
+			this->setExtraEditsValue({ "0", "false", "enemy", "", "" });
+			break;
+		}
+	}
+
 	return true;
 }
 
