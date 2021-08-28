@@ -1371,7 +1371,9 @@ bool Hud::loadModels()
 	messageBox->visible = false;
 	this->messageBox.border = messageBox;
 
-	this->shapeMinimap = std::make_shared<Model>(this->manager, sf::Vector2f(1424.64f, 915.3f), "", 0, true);
+	this->shapeMinimap = std::make_shared<Model>(this->manager, sf::Vector2f(this->manager->constant.minimapSize.left * this->manager->window->getSize().x,
+																			 this->manager->constant.minimapSize.top * this->manager->window->getSize().y - 
+																			 (this->manager->constant.minimapSize.top * 60.f)), "", 0, true);
 	this->shapeMinimap->loadShape(sf::Vector2f(1.f, 1.f), sf::Color(0, 0, 0, 255));
 	this->manager->addView(std::static_pointer_cast<ViewElement>(this->shapeMinimap));
 
