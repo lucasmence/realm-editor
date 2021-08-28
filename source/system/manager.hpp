@@ -20,6 +20,7 @@ struct ManagerConstant
 	std::string fontFilePath;
 	std::vector<int> gridSize;
 	std::vector<int> brushSize;
+	sf::FloatRect minimapSize;
 };
 
 struct ManagerList
