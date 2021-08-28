@@ -1,5 +1,6 @@
 {
     "font-file-path": "resources/fonts/consola.ttf",
     "grid-size": [16,32,64,128,256],
-    "brush-size": [1,4,16,32,64,128,256]
+    "brush-size": [1,4,16,32,64,128,256],
+    "minimap-size": [0.74, 0.90, 0.10, 0.10]
 }
