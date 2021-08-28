@@ -13,13 +13,13 @@ Manager::Manager()
     this->font->loadFromFile(this->constant.fontFilePath);
     this->icon.loadFromFile("realm-editor.png");
     this->window->setIcon(this->icon.getSize().x, this->icon.getSize().y, this->icon.getPixelsPtr());
-
+  
     this->hud = std::make_shared<Hud>(this);
     this->palette = std::make_shared<Palette>(this);
     this->map = std::make_shared<Map>(this);
     this->canvas = std::make_shared<sf::View>();
     this->minimapView = std::make_shared<sf::View>();
-    this->minimapView->setViewport(sf::FloatRect(0.742f, 0.90f, 0.10f, 0.10f));
+    this->minimapView->setViewport(this->constant.minimapSize);
     this->minimapViewArea = sf::FloatRect(0.f, 0.f, 0.f, 0.f);   
 
     this->hasFocus = true;
@@ -117,7 +117,8 @@ bool Manager::display()
                                               this->minimapView->getSize().x * this->minimapView->getViewport().width,
                                               this->minimapView->getSize().y * this->minimapView->getViewport().height);
     }
-    else this->minimapViewArea = sf::FloatRect(0.f, 0.f, 0.f, 0.f);
+    else 
+        this->minimapViewArea = sf::FloatRect(0.f, 0.f, 0.f, 0.f);
     
     this->window->display();
 
@@ -337,6 +338,8 @@ bool Manager::loadConstants()
 
     for (int index = 0; index < file["brush-size"].size(); index++)
         this->constant.brushSize.emplace_back(file["brush-size"][index]);
+
+    this->constant.minimapSize = sf::FloatRect(file["minimap-size"][0], file["minimap-size"][1], file["minimap-size"][2], file["minimap-size"][3]);
 
     file.clear();
 
