@@ -18,6 +18,7 @@ Palette::Palette(Manager* manager)
     this->selectedTexture = "";
     this->selectedOrigin = "";
 	this->type = PaletteType::ptTerrain;
+    this->formShape = PaletteFormShape::fsNone;
 	this->manager = manager;
     this->loadPalettes();
 }
@@ -265,6 +266,8 @@ bool Palette::selectPalette(PaletteType type)
             break;
         }
     }
+
+    this->manager->hud->resetExtraEditsValue();
 
     if (this->pageIndex > 0 && this->paletteItems.size() <= 0)
     {

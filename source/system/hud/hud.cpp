@@ -15,6 +15,7 @@ Hud::Hud(Manager* manager)
 	this->brushSize = 0;
 	this->rotation = 0;
 	this->priority = 0;
+	this->formShapeSize = 0;
 	this->scale = 1.f;
 	this->zoom = 1.f;
 	this->gridSpawn = true;
@@ -364,6 +365,12 @@ bool Hud::toggleGridVisibility()
 	return true;
 }
 
+bool Hud::toggleMinimapVisible()
+{
+	this->manager->minimapVisible = !this->manager->minimapVisible;
+	return true;
+}
+
 bool Hud::toggleMatrixTriggered(std::shared_ptr<Button> button)
 {
 	button->selected = !button->selected;
@@ -402,6 +409,32 @@ bool Hud::toggleDragCursor(std::shared_ptr<Button> button)
 	if (this->dragCursor)
 		this->manager->palette->clearPaletteItem();
 	return false;
+}
+
+bool Hud::formShapeClick(std::shared_ptr<Button> button)
+{
+	if (button->name == "btnFormShapeSquare")
+	{
+		button->selected = true;
+		this->getButton("btnFormShapeCircle")->selected = false;
+		this->manager->palette->formShape = PaletteFormShape::fsSquare;
+	}
+
+	if (button->name == "btnFormShapeCircle")
+	{
+		button->selected = true;
+		this->getButton("btnFormShapeSquare")->selected = false;
+		this->manager->palette->formShape = PaletteFormShape::fsCircle;
+	}
+
+	if (button->name == "btnFormShapeNone")
+	{
+		this->getButton("btnFormShapeCircle")->selected = false;
+		this->getButton("btnFormShapeSquare")->selected = false;
+		this->manager->palette->formShape = PaletteFormShape::fsNone;
+	}
+
+	return true;
 }
 
 bool Hud::removeBackground(std::shared_ptr<Button> button, const bool message)
@@ -897,22 +930,62 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 			if (this->mousePressed && this->spawnPress)
 				for (auto& object : this->manager->map->objects)
 					if (object.type == objectType && object.model->sprite->getGlobalBounds().contains(hoverCenter) &&
-						object.model->texture->filename == paletteTypeField + "/" + texture)
-						return false;			
+						"textures/" + object.model->texture->filename == paletteTypeField + "/" + texture)
+						return false;
 
-			for (int x = 0; x < sqrt(this->brushSizeList.at(this->brushSize)); x++)
-				for (int y = 0; y < sqrt(this->brushSizeList.at(this->brushSize)); y++)
+			switch (this->manager->palette->formShape)
+			{
+				case (PaletteFormShape::fsNone):
 				{
-					std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, 
-																		   tilesetPosition, 
-																		   paletteTypeField + "/" + texture, priorityValue, false, "", this->manager->palette->selectedOrigin);
-					model->sprite->setOrigin(tilesetOrigin);
-					model->sprite->move(model->sprite->getGlobalBounds().width * x, model->sprite->getGlobalBounds().height * y);
-					model->sprite->setRotation(this->rotation);
-					model->sprite->setScale(this->scale, this->scale);
-					this->manager->addView(std::static_pointer_cast<ViewElement>(model));
-					this->manager->map->addObjectUnit(MapObjectUnit{ objectType, model->sprite->getPosition(), 0.f, model, fields });
+					for (int x = 0; x < sqrt(this->brushSizeList.at(this->brushSize)); x++)
+						for (int y = 0; y < sqrt(this->brushSizeList.at(this->brushSize)); y++)
+							this->spawnItem(tilesetPosition, paletteTypeField, texture, priorityValue, tilesetOrigin, x, y, objectType, fields);
+
+					break;
 				}
+				case (PaletteFormShape::fsSquare):
+				{
+					if (this->formShapeSize < 2)
+						break;
+
+					sf::Vector2f lastPosition(tilesetPosition.x - ((this->formShapeSize - 1) / 2.f) * this->hoverShapeSize.x, 
+											  tilesetPosition.y + ((this->formShapeSize - 1) / 2.f) * this->hoverShapeSize.y);
+
+					int xAxis[4] = {0, 1, 0, -1};
+					int yAxis[4] = {-1, 0, 1, 0};
+
+					for (int x = 0; x < 4; x++)
+						for (int y = 0; y < this->formShapeSize - 1; y++)
+						{
+							std::shared_ptr<Model> model = this->spawnItem(lastPosition, paletteTypeField, texture, priorityValue, tilesetOrigin, 0, 0, objectType, fields);
+							lastPosition = sf::Vector2f(lastPosition.x + (model->getGlobalBounds().width * xAxis[x]), lastPosition.y + (model->getGlobalBounds().height * yAxis[x]));
+						}			
+
+					break;
+				}
+				case (PaletteFormShape::fsCircle):
+				{
+					if (this->formShapeSize < 2)
+						break;
+
+					sf::Vector2f lastPosition(tilesetPosition.x - (this->formShapeSize * 1.33f) * this->hoverShapeSize.y,
+											  tilesetPosition.y + ((this->formShapeSize - 1) / 2.f) * this->hoverShapeSize.y);
+
+					int xAxis[8] = {0, 1, 1, 1, 0, -1, -1, -1};
+					int yAxis[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
+
+					for (int x = 0; x < 8; x++)
+						for (int y = 0; y < this->formShapeSize - 1; y++)
+						{
+							std::shared_ptr<Model> model = this->spawnItem(lastPosition, paletteTypeField, texture, priorityValue, tilesetOrigin, 0, 0, objectType, fields);
+							lastPosition = sf::Vector2f(lastPosition.x + (model->getGlobalBounds().width * xAxis[x]), lastPosition.y + (model->getGlobalBounds().height * yAxis[x]));
+						}			
+
+					break;
+				}
+			}	
+
+			this->resetExtraEditsValue();
 
 			break;
 		}
@@ -943,6 +1016,24 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 	}
 
 	return true;
+}
+
+std::shared_ptr<Model> Hud::spawnItem(sf::Vector2f tilesetPosition, std::string paletteTypeField, std::string texture, int priorityValue,
+									  sf::Vector2f tilesetOrigin, int x, int y, MapObjectType objectType, std::list<MapObjectField> fields)
+{
+	std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, 
+														   tilesetPosition, 
+														   paletteTypeField + "/" + texture, priorityValue, false, "", this->manager->palette->selectedOrigin);
+	
+	model->sprite->setOrigin(tilesetOrigin);
+	model->sprite->move(model->sprite->getGlobalBounds().width * x, model->sprite->getGlobalBounds().height * y);
+	model->sprite->setRotation(this->rotation);
+	model->sprite->setScale(this->scale, this->scale);
+	
+	this->manager->addView(std::static_pointer_cast<ViewElement>(model));
+	this->manager->map->addObjectUnit(MapObjectUnit{ objectType, model->sprite->getPosition(), 0.f, model, fields });
+
+	return model;
 }
 
 bool Hud::buttonsClick(sf::Vector2f cursor)
@@ -1006,6 +1097,10 @@ bool Hud::buttonsClick(sf::Vector2f cursor)
 				this->enableItemSelect(button);
 			else if (button->name == "btnSelectItemMove")
 				this->toggleItemSelectedMove(button);
+			else if (button->name == "btnToggleMinimapVisible")
+				this->toggleMinimapVisible();
+			else if (button->name == "btnFormShapeSquare" || button->name == "btnFormShapeCircle" || button->name == "btnFormShapeNone")
+				this->formShapeClick(button);
 			else if (button->name == "btnTerrain")
 				this->manager->palette->selectPalette(PaletteType::ptTerrain);
 			else if (button->name == "btnProp")
@@ -1117,6 +1212,38 @@ bool Hud::setExtraEditsValue(std::vector<std::string> value)
 		for (auto& edit : this->edits)
 			if (edit->name == "edtExtraField-" + boost::lexical_cast<std::string>(index))
 				edit->setValue(value.at(index));
+	return true;
+}
+
+bool Hud::resetExtraEditsValue()
+{
+	if (!this->manager->palette)
+		return false;
+
+	switch (this->manager->palette->type)
+	{
+		case (PaletteType::ptTerrain):
+		{
+			this->setExtraEditsValue({ "true", "false" });
+			break;
+		}
+		case (PaletteType::ptProp):
+		{
+			this->setExtraEditsValue({ "" });
+			break;
+		}
+		case (PaletteType::ptEnvironment):
+		{
+			this->setExtraEditsValue({ "false", "" });
+			break;
+		}
+		case (PaletteType::ptUnit):
+		{
+			this->setExtraEditsValue({ "0", "false", "enemy", "", "" });
+			break;
+		}
+	}
+
 	return true;
 }
 
@@ -1249,6 +1376,8 @@ bool Hud::updateEditValues()
 	for (auto& edit : this->edits)
 		if (edit->name == "edtRotation")
 			this->rotation = edit->getValue().integer;
+		else if (edit->name == "edtFormShapeSize")
+			this->formShapeSize = edit->getValue().integer;
 		else if (edit->name == "edtScale")
 			this->scale = edit->getValue().integer / 100.f;
 		else if (edit->name == "edtPriority")
@@ -1287,6 +1416,15 @@ bool Hud::updateEdit(char text)
 
 			return true;
 		}
+	return false;
+}
+
+bool Hud::getCheckEditing()
+{
+	for (auto& edit : this->edits)
+		if (edit->selected)
+			return true;
+		
 	return false;
 }
 
@@ -1363,7 +1501,9 @@ bool Hud::loadModels()
 	messageBox->visible = false;
 	this->messageBox.border = messageBox;
 
-	this->shapeMinimap = std::make_shared<Model>(this->manager, sf::Vector2f(1424.64f, 915.3f), "", 0, true);
+	this->shapeMinimap = std::make_shared<Model>(this->manager, sf::Vector2f(this->manager->constant.minimapSize.left * this->manager->window->getSize().x,
+																			 this->manager->constant.minimapSize.top * this->manager->window->getSize().y - 
+																			 (this->manager->constant.minimapSize.top * 60.f)), "", 0, true);
 	this->shapeMinimap->loadShape(sf::Vector2f(1.f, 1.f), sf::Color(0, 0, 0, 255));
 	this->manager->addView(std::static_pointer_cast<ViewElement>(this->shapeMinimap));
 
@@ -1391,6 +1531,10 @@ bool Hud::loadButtons()
 	std::shared_ptr<Button> btnGridSpawn = std::make_shared<Button>(this->manager, "[D]", sf::Vector2f(0.f, 0.f), "btnGridSpawn", 18, btnMapAreaSize, sf::Vector2i(1, 0), "Toggle disable grid-spawn ON/OFF");
 	std::shared_ptr<Button> btnSelectItem = std::make_shared<Button>(this->manager, "[I]", sf::Vector2f(0.f, 0.f), "btnSelectItem", 18, btnGridSpawn, sf::Vector2i(1, 0), "Enable the item selection");
 	std::shared_ptr<Button> btnSelectItemMove = std::make_shared<Button>(this->manager, "[->]", sf::Vector2f(0.f, 0.f), "btnSelectItemMove", 18, btnSelectItem, sf::Vector2i(1, 0), "Toggle item selected move");
+	std::shared_ptr<Button> btnToggleMinimapVisible = std::make_shared<Button>(this->manager, "[N]", sf::Vector2f(0.f, 0.f), "btnToggleMinimapVisible", 18, btnSelectItemMove, sf::Vector2i(1, 0), "Toggle minimap visible");
+	std::shared_ptr<Button> btnFormShapeSquare = std::make_shared<Button>(this->manager, "[Q]", sf::Vector2f(0.f, 0.f), "btnFormShapeSquare", 18, btnToggleMinimapVisible, sf::Vector2i(1, 0), "Set form shape to square");
+	std::shared_ptr<Button> btnFormShapeCircle = std::make_shared<Button>(this->manager, "[R]", sf::Vector2f(0.f, 0.f), "btnFormShapeCircle", 18, btnFormShapeSquare, sf::Vector2i(1, 0), "Set form shape to circle");
+	std::shared_ptr<Button> btnFormShapeNone = std::make_shared<Button>(this->manager, "[O]", sf::Vector2f(0.f, 0.f), "btnFormShapeNone", 18, btnFormShapeCircle, sf::Vector2i(1, 0), "Set form shape to none");
 	
 	std::shared_ptr<Button> btnUnit = std::make_shared<Button>(this->manager, "[Units]", sf::Vector2f(1650.f, 200.f), "btnUnit", 20, nullptr, sf::Vector2i(0, 0));
 	std::shared_ptr<Button> btnMerchant = std::make_shared<Button>(this->manager, "[Merchants]", sf::Vector2f(0.f, 0.f), "btnMerchant", 20, btnUnit, sf::Vector2i(1, 0));
@@ -1498,6 +1642,18 @@ bool Hud::loadButtons()
 	edtPriority->integerMaxValue = 100;
 	edtPriority->setValue("0");
 
+	std::shared_ptr<Label> lblFormShapeSize = std::make_shared<Label>(this->manager, "Form Shape Size: ", 20, sf::Vector2f(0.f, -50.f), 1, sf::Color(255, 255, 255, 255), "lblFormShapeSize");
+	lblFormShapeSize->setPosition(position::getSidePosition(lblPriority->text->getGlobalBounds(),
+													   lblFormShapeSize->text->getGlobalBounds(),
+													   lblFormShapeSize->text->getPosition(), sf::Vector2i(0, 1)));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(lblFormShapeSize));
+	this->labels.emplace_back(lblFormShapeSize);
+
+	std::shared_ptr<Edit> edtFormShapeSize = std::make_shared<Edit>(this->manager, EditType::etInteger, "", sf::Vector2f(0.f, -5.f), "edtFormShapeSize", 20,
+																	lblFormShapeSize->text->getGlobalBounds(), sf::Vector2i(1, 0));
+	edtFormShapeSize->integerMaxValue = 255;
+	edtFormShapeSize->setValue("3");
+
 	std::shared_ptr<Label> lblMapSize = std::make_shared<Label>(this->manager, "Size: ", 20, sf::Vector2f(-50.f, -85.f), 1, sf::Color(255, 255, 255, 255), "lblMapSize");
 	lblMapSize->setPosition(position::getSidePosition(btnCenterShape->shape->shape->getGlobalBounds(),
 													  lblMapSize->text->getGlobalBounds(),
@@ -1588,6 +1744,10 @@ bool Hud::loadButtons()
 	this->buttons.emplace_back(btnGridSpawn);
 	this->buttons.emplace_back(btnSelectItem);
 	this->buttons.emplace_back(btnSelectItemMove);
+	this->buttons.emplace_back(btnToggleMinimapVisible);
+	this->buttons.emplace_back(btnFormShapeSquare);
+	this->buttons.emplace_back(btnFormShapeCircle);
+	this->buttons.emplace_back(btnFormShapeNone);	
 	this->buttons.emplace_back(btnUnit);
 	this->buttons.emplace_back(btnMerchant);
 	this->buttons.emplace_back(btnProp);
@@ -1614,6 +1774,7 @@ bool Hud::loadButtons()
 	this->edits.emplace_back(edtMapMusic);
 	this->edits.emplace_back(edtMapVersion);
 	this->edits.emplace_back(edtPriority);
+	this->edits.emplace_back(edtFormShapeSize);
 
 	return true;
 }
@@ -1621,7 +1782,7 @@ bool Hud::loadLabels()
 {
 	std::shared_ptr<Label> lblCoordinates = std::make_shared<Label>(this->manager, "0, 0", 20, sf::Vector2f(1630.f, 70.f), 1, sf::Color(255, 255, 255, 255), "lblCoordinates");
 	std::shared_ptr<Label> lblPaletteItem = std::make_shared<Label>(this->manager, "-", 15, sf::Vector2f(0.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblPaletteItem");
-	std::shared_ptr<Label> lblVersion = std::make_shared<Label>(this->manager, "0.04b", 20, sf::Vector2f(1855.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblVersion");
+	std::shared_ptr<Label> lblVersion = std::make_shared<Label>(this->manager, "0.05", 20, sf::Vector2f(1855.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblVersion");
 	std::shared_ptr<Label> lblPaletteStatus = std::make_shared<Label>(this->manager, "- - -", 30, sf::Vector2f(0.f, 960.f), 1, sf::Color(255, 255, 255, 255), "lblPaletteStatus");
 	std::shared_ptr<Label> lblMessageBox = std::make_shared<Label>(this->manager, "", 20, sf::Vector2f(0.f, 900.f), 1, sf::Color(255, 255, 255, 255), "lblMessageBox");
 	

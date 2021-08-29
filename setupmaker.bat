@@ -1,4 +1,4 @@
-set smpath=%USERPROFILE%\Desktop\Lamina
+set smpath=%USERPROFILE%\Desktop\Boltcraft
 
 if not exist %smpath% mkdir %smpath%
 if not exist %smpath%\scripts mkdir %smpath%\scripts

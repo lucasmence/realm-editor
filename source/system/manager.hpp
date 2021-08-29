@@ -20,6 +20,7 @@ struct ManagerConstant
 	std::string fontFilePath;
 	std::vector<int> gridSize;
 	std::vector<int> brushSize;
+	sf::FloatRect minimapSize;
 };
 
 struct ManagerList
@@ -47,6 +48,7 @@ class Manager
 		bool hasFocus;
 		bool open;
 		bool minimapViewUpdate;
+		bool minimapVisible;
 		std::string appName;
 		sf::FloatRect minimapViewArea;
 

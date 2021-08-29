@@ -11,6 +11,8 @@ enum class PaletteType {ptTerrain, ptProp, ptEnvironment, ptUnit, ptMerchant, pt
 
 enum class PaletteStatus {psNone, psInsert, psDelete};
 
+enum class PaletteFormShape {fsNone, fsSquare, fsCircle};
+
 class Manager;
 
 struct PaletteItem
@@ -29,6 +31,7 @@ class Palette
 		PaletteType type;
 		Manager* manager;
 		PaletteStatus status;
+		PaletteFormShape formShape;
 
 		std::list<std::string> terrain;
 		std::list<std::string> prop;
