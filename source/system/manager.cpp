@@ -309,6 +309,21 @@ bool Manager::eventKey(sf::Event& event)
             this->hud->buttonsClick(this->hud->getButton("btnSelectItemMove")->shape->getPosition());
             break;
         }
+        case (sf::Keyboard::Q):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnFormShapeSquare")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::R):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnFormShapeCircle")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::O):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnFormShapeNone")->shape->getPosition());
+            break;
+        }
     }
 
     return true;
