@@ -31,6 +31,7 @@ class Hud
 		int brushSize;
 		int rotation;
 		int priority;
+		int formShapeSize;
 		float scale;
 		float zoom;
 		bool mousePressed;
@@ -105,6 +106,7 @@ class Hud
 		bool toggleDragCursor(std::shared_ptr<Button> button);
 		bool removeBackground(std::shared_ptr<Button> button, const bool message = true);
 		bool enableItemSelect(std::shared_ptr<Button> button);
+		bool formShapeClick(std::shared_ptr<Button> button);
 		bool selectItem(sf::Vector2f cursor);
 		bool deleteSelectedItem();
 		bool selectedItemUpdate();
@@ -116,6 +118,8 @@ class Hud
 		bool resetTooltip();
 		bool help();
 		bool getCheckEditing();
+		std::shared_ptr<Model> spawnItem(sf::Vector2f tilesetPosition, std::string paletteTypeField, std::string texture, int priorityValue,
+										 sf::Vector2f tilesetOrigin, int x, int y, MapObjectType objectType, std::list<MapObjectField> fields);
 
 		bool getPaletteType(PaletteType &paletteType, MapObjectType type);
 		bool updateExtraEditsValue(std::vector<std::string> caption, std::vector<EditType> type, std::vector<std::string> value, std::vector<int> maxValue, std::vector<std::string> origin);
