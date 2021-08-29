@@ -13,18 +13,19 @@ Manager::Manager()
     this->font->loadFromFile(this->constant.fontFilePath);
     this->icon.loadFromFile("realm-editor.png");
     this->window->setIcon(this->icon.getSize().x, this->icon.getSize().y, this->icon.getPixelsPtr());
-
+  
     this->hud = std::make_shared<Hud>(this);
     this->palette = std::make_shared<Palette>(this);
     this->map = std::make_shared<Map>(this);
     this->canvas = std::make_shared<sf::View>();
     this->minimapView = std::make_shared<sf::View>();
-    this->minimapView->setViewport(sf::FloatRect(0.742f, 0.90f, 0.10f, 0.10f));
+    this->minimapView->setViewport(this->constant.minimapSize);
     this->minimapViewArea = sf::FloatRect(0.f, 0.f, 0.f, 0.f);   
 
     this->hasFocus = true;
     this->open = false;
     this->minimapViewUpdate = false;
+    this->minimapVisible = true;
     this->canvasPosition = sf::Vector2f(0.f, -115.f);
 
     this->loadWindowOpening();
@@ -99,19 +100,26 @@ bool Manager::display()
     for (auto& element : this->list.viewElements)
         element->draw();
 
-    this->minimapView->reset(sf::FloatRect(this->canvasPosition.x, this->canvasPosition.y, this->window->getSize().x, this->window->getSize().y));
-    this->minimapView->zoom(2.f);
-    this->window->setView(*this->minimapView);
-    this->minimapViewUpdate = true;
-    for (auto& element : this->list.viewElements)
-        element->draw();
+    if (this->minimapVisible)
+    {
+        this->minimapView->reset(sf::FloatRect(this->canvasPosition.x, this->canvasPosition.y, this->window->getSize().x, this->window->getSize().y));
+        this->minimapView->zoom(2.f);
+        this->window->setView(*this->minimapView);
+        this->minimapViewUpdate = true;
+        
+        for (auto& element : this->list.viewElements)
+            element->draw();
 
-    this->minimapViewUpdate = false;
+        this->minimapViewUpdate = false;
 
-    this->minimapViewArea = sf::FloatRect(this->canvasPosition.x + this->canvas->getSize().x * this->minimapView->getViewport().left,
-                                          this->canvasPosition.y + this->canvas->getSize().y * this->minimapView->getViewport().top,
-                                          this->minimapView->getSize().x * this->minimapView->getViewport().width,
-                                          this->minimapView->getSize().y * this->minimapView->getViewport().height);
+        this->minimapViewArea = sf::FloatRect(this->canvasPosition.x + this->canvas->getSize().x * this->minimapView->getViewport().left,
+                                              this->canvasPosition.y + this->canvas->getSize().y * this->minimapView->getViewport().top,
+                                              this->minimapView->getSize().x * this->minimapView->getViewport().width,
+                                              this->minimapView->getSize().y * this->minimapView->getViewport().height);
+    }
+    else 
+        this->minimapViewArea = sf::FloatRect(0.f, 0.f, 0.f, 0.f);
+    
     this->window->display();
 
     return true;
@@ -196,6 +204,9 @@ bool Manager::eventClick(sf::Event& event)
 
 bool Manager::eventKey(sf::Event& event)
 {
+    if (this->hud->getCheckEditing())
+        return false;
+
     switch (event.key.code)
     {
         case (sf::Keyboard::Left):
@@ -236,6 +247,81 @@ bool Manager::eventKey(sf::Event& event)
         case (sf::Keyboard::Delete):
         {
             this->hud->deleteSelectedItem();
+            break;
+        }
+        case (sf::Keyboard::C):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnClear")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::E):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnErase")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::G):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnGridVisibilityToggle")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::P):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnSpawnPress")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::S):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnCenterShape")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::M):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnMatrix")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::A):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnMapAreaSize")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::D):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnGridSpawn")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::I):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnSelectItem")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::N):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnToggleMinimapVisible")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::Tilde):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnDragCursor")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::Period):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnSelectItemMove")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::Q):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnFormShapeSquare")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::R):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnFormShapeCircle")->shape->getPosition());
+            break;
+        }
+        case (sf::Keyboard::O):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnFormShapeNone")->shape->getPosition());
             break;
         }
     }
@@ -330,6 +416,8 @@ bool Manager::loadConstants()
 
     for (int index = 0; index < file["brush-size"].size(); index++)
         this->constant.brushSize.emplace_back(file["brush-size"][index]);
+
+    this->constant.minimapSize = sf::FloatRect(file["minimap-size"][0], file["minimap-size"][1], file["minimap-size"][2], file["minimap-size"][3]);
 
     file.clear();
 
