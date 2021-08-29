@@ -18,6 +18,7 @@ Palette::Palette(Manager* manager)
     this->selectedTexture = "";
     this->selectedOrigin = "";
 	this->type = PaletteType::ptTerrain;
+    this->formShape = PaletteFormShape::fsNone;
 	this->manager = manager;
     this->loadPalettes();
 }
