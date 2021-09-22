@@ -279,6 +279,11 @@ bool Manager::eventKey(sf::Event& event)
             this->hud->buttonsClick(this->hud->getButton("btnMatrix")->shape->getPosition());
             break;
         }
+        case (sf::Keyboard::W):
+        {
+            this->hud->buttonsClick(this->hud->getButton("btnWall")->shape->getPosition());
+            break;
+        }
         case (sf::Keyboard::A):
         {
             this->hud->buttonsClick(this->hud->getButton("btnMapAreaSize")->shape->getPosition());

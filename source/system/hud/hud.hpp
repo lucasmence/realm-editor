@@ -41,6 +41,7 @@ class Hud
 		bool matrixActivated;
 		bool matrixTriggered;
 		bool matrixPosSpawn;
+		bool wallActivated;
 		bool gridSpawn;
 		bool itemSelect;
 		bool itemSelected;
@@ -98,6 +99,7 @@ class Hud
 		bool toggleMinimapVisible();
 		bool toggleGridVisibility();
 		bool toggleMatrixTriggered(std::shared_ptr<Button> button);
+		bool toggleWallTriggered(std::shared_ptr<Button> button);
 		bool toggleSpawnPress(std::shared_ptr<Button> button);
 		bool toggleCenterShape(std::shared_ptr<Button> button);
 		bool toggleMapAreaSize(std::shared_ptr<Button> button);
