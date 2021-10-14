@@ -767,6 +767,7 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 		{
 			fields.emplace_back(MapObjectField{ "front", MapObjectFieldString{ "", false}, MapObjectFieldInt{ 0, false }, MapObjectFieldFloat{ 0.f, false }, MapObjectFieldBool{ extraValues.at(0).boolean, true } });
 			fields.emplace_back(MapObjectField{ "variable", MapObjectFieldString{ extraValues.at(1).string, true} });
+			fields.emplace_back(MapObjectField{ "subtype", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true} });
 
 			break;
 		}
@@ -898,7 +899,10 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 				case (PaletteType::ptEnvironment):
 				{
 					objectType = MapObjectType::motEnvironment;
-					paletteTypeField += "environment";
+
+					std::size_t found = texture.find("/");
+					if (found == std::string::npos)
+						paletteTypeField += "environment";
 					break;
 				}
 				case (PaletteType::ptUnit):
