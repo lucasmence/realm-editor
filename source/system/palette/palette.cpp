@@ -43,11 +43,17 @@ bool Palette::loadPalettes()
     this->unloadPalettes();
     this->terrain = this->loadFileLists("textures/terrain");
     this->prop = this->loadFileLists("textures/prop");
-    this->environment = this->loadFileLists("textures/environment");
     this->unit = this->loadFileLists("characters");
     this->merchant = this->loadFileLists("merchants/stores");
     this->item = this->loadFileLists("items");
     this->portal = {"spawner", "level", "generator", "wall"};
+
+    this->environment = this->loadFileLists("textures/environment");
+    std::list<std::string> environmentList = this->loadFileLists("textures/particles", "particles/");
+    this->environment.insert(this->environment.end(), environmentList.begin(), environmentList.end());
+    environmentList = this->loadFileLists("textures/shadows", "shadows/");
+    this->environment.insert(this->environment.end(), environmentList.begin(), environmentList.end());
+    environmentList.clear();
 
     this->selectPalette(this->type);
 
@@ -101,6 +107,11 @@ bool Palette::loadPaletteItemList(std::list<std::string>& list, std::string fiel
             default:
             {
                 std::string filenameComplete = field + "/" + filename;
+
+                std::size_t found = filename.find("/");
+                if (found != std::string::npos)
+                    filenameComplete = filename;
+
                 model = std::make_shared<Model>(this->manager, position, "textures/" + filenameComplete, 2, true, "", filenameComplete);
             }
         }
@@ -232,7 +243,9 @@ bool Palette::selectPalette(PaletteType type)
         case (PaletteType::ptEnvironment):
         {
             this->loadPaletteItemList(this->environment, "environment");
-            this->manager->hud->updateExtraEditsValue({ "Front", "Variable" }, { EditType::etBoolean, EditType::etString }, { "false", "" }, { 5, 48 }, { "front", "variable"});
+            this->manager->hud->updateExtraEditsValue({ "Front", "Variable", "Subtype" }, 
+                                                      { EditType::etBoolean, EditType::etString, EditType::etInteger }, 
+                                                      { "false", "", "0" }, { 5, 48, 9 }, { "front", "variable", "subtype"});
             break;
         }
         case (PaletteType::ptUnit):
@@ -361,12 +374,12 @@ bool Palette::selectPaletteItem(sf::Vector2f cursor, std::shared_ptr<Model> mode
     return true;
 }
 
-std::list<std::string> Palette::loadFileLists(std::string directory)
+std::list<std::string> Palette::loadFileLists(std::string directory, std::string subDirectory)
 {
-   return this->loadFileFromDirectory(directory);
+   return this->loadFileFromDirectory(directory, "", subDirectory);
 }
 
-std::list<std::string> Palette::loadFileFromDirectory(std::string directory, std::string base)
+std::list<std::string> Palette::loadFileFromDirectory(std::string directory, std::string base, std::string subDirectory)
 {
     boost::filesystem::path path = directory;
     if (base == "")
@@ -389,7 +402,7 @@ std::list<std::string> Palette::loadFileFromDirectory(std::string directory, std
                 listFiles.insert(listFiles.end(), subListFiles.begin(), subListFiles.end());
         }
         else if (boost::filesystem::extension(entry) == ".json")
-            listFiles.emplace_back(base + boost::filesystem::basename(entry));
+            listFiles.emplace_back(subDirectory + base + boost::filesystem::basename(entry));
 
     return listFiles;
 }
