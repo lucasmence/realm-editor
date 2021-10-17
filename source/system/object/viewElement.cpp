@@ -3,6 +3,7 @@
 ViewElement::~ViewElement()
 {
 	this->priority = 0;
+	this->autoPriority = 0;
 	this->initialization();
 }
 
