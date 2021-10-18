@@ -47,7 +47,7 @@ bool Map::updateMapInfo()
 
 std::vector<std::string> Map::getSubFieldsExceptionsList()
 {
-	return { "texture", "unit", "merchant", "item", "x", "y", "scale", "rotation", "priority" };
+	return { "texture", "unit", "merchant", "item", "x", "y", "scale", "rotation", "priority", "auto-priority" };
 }
 
 int Map::getObjectPriority(MapObjectType type)
@@ -92,6 +92,16 @@ int Map::getObjectPriority(MapObjectType type)
 	}
 
 	return 0;
+}
+
+int Map::getObjectAutoPriority(MapObjectType type)
+{
+	int priority = 0;
+	for (auto& object : this->objects)
+		if (object.type == type)
+			priority++;
+
+	return priority;
 }
 
 std::string Map::getOriginFromField(json line, MapObjectType type)
@@ -229,6 +239,7 @@ bool Map::renderObject(json& localfile, MapObjectUnit& object)
 			int priority = object.model->priority - this->getObjectPriority(object.type);
 			if (priority > 0)
 				localfile["priority"] = object.model->priority;
+			localfile["auto-priority"] = object.model->autoPriority;
 			break;
 		}
 	}
@@ -529,6 +540,7 @@ bool Map::loadMap(std::string file)
 						model->sprite->setScale(sf::Vector2f(this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f),
 															 this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f)));
 						model->sprite->setRotation(this->file[field][index][dimensionField][dimensionIndex].value("rotation", 0.f));
+						model->autoPriority = this->file[field][index][dimensionField][dimensionIndex].value("auto-priority", 0);
 					}
 				}
 				this->manager->addView(std::static_pointer_cast<ViewElement>(model));

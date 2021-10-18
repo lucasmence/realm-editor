@@ -94,6 +94,7 @@ class Map
 		std::list<MapObjectField> getSubfieldsFromLine(json line);
 		bool updateMapInfo();
 		int getObjectPriority(MapObjectType type);
+		int getObjectAutoPriority(MapObjectType type);
 		std::vector<std::string> getSubFieldsExceptionsList();
 
 		bool renderMap();
@@ -105,7 +106,6 @@ class Map
 		bool newMap();
 		bool reloadMap();
 		bool createTriggerFile();
-
 };
 
 #endif
