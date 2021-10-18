@@ -1068,6 +1068,7 @@ std::shared_ptr<Model> Hud::spawnItem(sf::Vector2f tilesetPosition, std::string 
 														   tilesetPosition, 
 														   paletteTypeField + "/" + texture, priorityValue, false, "", this->manager->palette->selectedOrigin);
 	
+	model->autoPriority = this->manager->map->getObjectAutoPriority(objectType);
 	model->sprite->setOrigin(tilesetOrigin);
 	model->sprite->move(model->sprite->getGlobalBounds().width * x, model->sprite->getGlobalBounds().height * y);
 	model->sprite->setRotation(this->rotation);
