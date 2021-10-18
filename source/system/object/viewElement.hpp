@@ -11,7 +11,7 @@ class ViewElement
 {
 	public:
 		int priority;
-		int autoPriority;
+		int autoPriority = 0;
 		bool canvasBound;
 		sf::Vector2f position;
 		std::string name;
