@@ -52,16 +52,25 @@ bool Manager::addViewElement(std::shared_ptr<ViewElement> element)
 {
     this->list.viewElements.remove(element);
 
-    for (auto &elementIndex : this->list.viewElements)
+    for (auto& elementIndex : this->list.viewElements)
+    {
         if (elementIndex->priority < element->priority)
         {
-            std::list<std::shared_ptr<ViewElement>>::iterator iterator = std::find(this->list.viewElements.begin(), this->list.viewElements.end(), elementIndex);
-            this->list.viewElements.emplace(iterator, element);
-            return true;
+            this->list.viewElements.emplace(std::find(this->list.viewElements.begin(), this->list.viewElements.end(), elementIndex), element);
+            return true;         
         }
-   
+
+        if (elementIndex->priority == element->priority)
+        {
+            if (elementIndex->autoPriority > element->autoPriority)
+            {
+                this->list.viewElements.emplace(std::find(this->list.viewElements.begin(), this->list.viewElements.end(), elementIndex), element);
+                return true;
+            }
+        }
+    }
+
     this->list.viewElements.emplace_back(element);
-    return true;
 }
 
 bool Manager::addView(std::shared_ptr<ViewElement> element)
