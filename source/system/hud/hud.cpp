@@ -813,7 +813,13 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 			{
 				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
 				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
-			}		
+			}	
+			else if (this->manager->palette->selectedOrigin == "region")
+			{
+				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
+				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
+			}
 			break;
 		}
 	}
@@ -954,6 +960,8 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 					else if (this->manager->palette->selectedOrigin == "generator")
 						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin);
 					else if (this->manager->palette->selectedOrigin == "wall")
+						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(0).integer, extraValues.at(1).integer));
+					else if (this->manager->palette->selectedOrigin == "region")
 						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(0).integer, extraValues.at(1).integer));
 
 					model->setOrigin(tilesetOrigin);
