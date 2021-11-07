@@ -46,7 +46,7 @@ bool Palette::loadPalettes()
     this->unit = this->loadFileLists("characters");
     this->merchant = this->loadFileLists("merchants/stores");
     this->item = this->loadFileLists("items");
-    this->portal = {"spawner", "level", "generator", "wall", "region"};
+    this->portal = {"spawner", "level", "generator", "wall", "region", "teleporter", "slider"};
 
     this->environment = this->loadFileLists("textures/environment");
     std::list<std::string> environmentList = this->loadFileLists("textures/particles", "particles/");
@@ -167,6 +167,20 @@ bool Palette::loadPaletteShape(std::shared_ptr<Model> model, std::string filenam
         else
             model->loadShape(size, sf::Color(255, 50, 150, 100));
     }
+    if (filename == "teleporter")
+    {
+        if (size.x <= 0.f && size.y <= 0.f)
+            model->loadShape(sf::Vector2f(32.f, 0), sf::Color(100, 100, 255, 100));
+        else
+            model->loadShape(size, sf::Color(100, 100, 255, 100));
+    }
+    if (filename == "slider")
+    {
+        if (size.x <= 0.f && size.y <= 0.f)
+            model->loadShape(sf::Vector2f(32.f, 0), sf::Color(255, 100, 255, 100));
+        else
+            model->loadShape(size, sf::Color(255, 100, 255, 100));
+    }
 
     return true;
 }
@@ -244,7 +258,9 @@ bool Palette::selectPalette(PaletteType type)
         case (PaletteType::ptProp):
         {
             this->loadPaletteItemList(this->prop, "prop");
-            this->manager->hud->updateExtraEditsValue({ "Variable" }, { EditType::etString }, { "" }, { 48 }, {"variable"});
+            this->manager->hud->updateExtraEditsValue({ "Variable", "Destructible", "Death-Allowed" }, 
+                                                      { EditType::etString, EditType::etBoolean, EditType::etBoolean }, 
+                                                      { "", "false", "false" }, { 48, 5, 5 }, {"variable", "destructible", "death-allowed"});
             break;
         }
         case (PaletteType::ptEnvironment):
@@ -374,6 +390,14 @@ bool Palette::selectPaletteItem(sf::Vector2f cursor, std::shared_ptr<Model> mode
             this->manager->hud->updateExtraEditsValue({ "Width", "Height", "Index" },
                 { EditType::etInteger, EditType::etInteger, EditType::etInteger },
                 { "100", "100", "0" }, { 99999, 99999, 99 }, { "width", "height", "index" });
+        else if (filename == "teleporter")
+            this->manager->hud->updateExtraEditsValue({ "Width", "Height", "Index", "Target Index" },
+                { EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger },
+                { "100", "100", "0", "1" }, { 99999, 99999, 99, 99 }, { "width", "height", "index", "target-index" });
+        else if (filename == "slider")
+            this->manager->hud->updateExtraEditsValue({ "Width", "Height", "Index", "Speed X", "Speed Y", "Invert X", "Invert Y" },
+                { EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etBoolean, EditType::etBoolean },
+                { "100", "100", "0", "0", "0", "false", "false" }, { 99999, 99999, 99, 9999, 9999, 5, 5 }, { "width", "height", "index", "speed-x", "speed-y", "invert-x", "invert-y" });
     }
 
     if (filename != "")

@@ -560,7 +560,7 @@ bool Hud::selectItem(sf::Vector2f cursor)
 				value = "false";
 		}
 
-		for (int index = 0; index < 6; index++)
+		for (int index = 0; index < 7; index++)
 			for (auto& edit : this->edits)
 				if (edit->name == "edtExtraField-" + boost::lexical_cast<std::string>(index))
 					if (edit->origin == field.field)
@@ -760,6 +760,14 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 		case (PaletteType::ptProp):
 		{
 			fields.emplace_back(MapObjectField{ "variable", MapObjectFieldString{ extraValues.at(0).string, true} });
+			fields.emplace_back(MapObjectField{ "destructible", MapObjectFieldString{ "", false},
+																MapObjectFieldInt{ 0, false },
+																MapObjectFieldFloat{ 0.f, false },
+																MapObjectFieldBool{ extraValues.at(0).boolean, true } });
+			fields.emplace_back(MapObjectField{ "death-allowed", MapObjectFieldString{ "", false},
+																MapObjectFieldInt{ 0, false },
+																MapObjectFieldFloat{ 0.f, false },
+																MapObjectFieldBool{ extraValues.at(0).boolean, true } });
 
 			break;
 		}
@@ -819,6 +827,23 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
 				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
 				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
+			}
+			else if (this->manager->palette->selectedOrigin == "teleporter")
+			{
+				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
+				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
+				fields.emplace_back(MapObjectField{ "target-index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(3).integer, true } });
+			}
+			else if (this->manager->palette->selectedOrigin == "slider")
+			{
+				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
+				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
+				fields.emplace_back(MapObjectField{ "speed-x", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(3).integer, true } });
+				fields.emplace_back(MapObjectField{ "speed-y", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(4).integer, true } });
+				fields.emplace_back(MapObjectField{ "invert-x", MapObjectFieldString{ "", false}, MapObjectFieldInt{ 0, false }, MapObjectFieldFloat{ 0.f, false }, MapObjectFieldBool{ extraValues.at(5).boolean, true } });
+				fields.emplace_back(MapObjectField{ "invert-y", MapObjectFieldString{ "", false}, MapObjectFieldInt{ 0, false }, MapObjectFieldFloat{ 0.f, false }, MapObjectFieldBool{ extraValues.at(6).boolean, true } });
 			}
 			break;
 		}
@@ -962,6 +987,10 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 					else if (this->manager->palette->selectedOrigin == "wall")
 						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(0).integer, extraValues.at(1).integer));
 					else if (this->manager->palette->selectedOrigin == "region")
+						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(0).integer, extraValues.at(1).integer));
+					else if (this->manager->palette->selectedOrigin == "teleporter")
+						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(0).integer, extraValues.at(1).integer));
+					else if (this->manager->palette->selectedOrigin == "slider")
 						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(0).integer, extraValues.at(1).integer));
 
 					model->setOrigin(tilesetOrigin);
@@ -1303,7 +1332,7 @@ bool Hud::resetExtraEditsValue()
 
 bool Hud::updateExtraEditsValue(std::vector<std::string> caption, std::vector<EditType> type, std::vector<std::string> value, std::vector<int> maxValue, std::vector<std::string> origin)
 {
-	for (int index = 0; index < 6; index++)
+	for (int index = 0; index < 7; index++)
 	{
 		for (auto& label : this->labels)
 			if (label->name == "lblExtraField-" + boost::lexical_cast<std::string>(index))
@@ -1399,7 +1428,7 @@ std::vector<EditValue> Hud::getExtraEditsValue()
 {
 	std::vector<EditValue> values = {};
 
-	for (int index = 0; index < 6; index++)
+	for (int index = 0; index < 7; index++)
 		for (auto& edit : this->edits)
 			if (edit->name == "edtExtraField-" + boost::lexical_cast<std::string>(index) && edit->label->visible)
 				values.emplace_back(edit->getValue());
@@ -1758,7 +1787,7 @@ bool Hud::loadButtons()
 	sf::Vector2f extraSpace(0.f, 45.f);
 	sf::Vector2i extraSide(0, 1);
 
-	for (int index = 0; index < 6; index++)
+	for (int index = 0; index < 7; index++)
 	{
 		std::shared_ptr<Label> labelIndex = std::make_shared<Label>(this->manager, "-", 14, extraSpace, 1, sf::Color(255, 255, 255, 255),
 																	"lblExtraField-" + boost::lexical_cast<std::string>(index));
