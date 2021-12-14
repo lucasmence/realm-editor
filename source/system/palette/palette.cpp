@@ -46,7 +46,7 @@ bool Palette::loadPalettes()
     this->unit = this->loadFileLists("characters");
     this->merchant = this->loadFileLists("merchants/stores");
     this->item = this->loadFileLists("items");
-    this->portal = {"spawner", "level", "generator", "wall", "region", "teleporter", "slider"};
+    this->portal = {"spawner", "level", "generator", "wall", "region", "teleporter", "slider", "crusher"};
 
     this->environment = this->loadFileLists("textures/environment");
     std::list<std::string> environmentList = this->loadFileLists("textures/particles", "particles/");
@@ -180,6 +180,13 @@ bool Palette::loadPaletteShape(std::shared_ptr<Model> model, std::string filenam
             model->loadShape(sf::Vector2f(32.f, 0), sf::Color(255, 100, 255, 100));
         else
             model->loadShape(size, sf::Color(255, 100, 255, 100));
+    }
+    if (filename == "crusher")
+    {
+        if (size.x <= 0.f && size.y <= 0.f)
+            model->loadShape(sf::Vector2f(32.f, 0), sf::Color(255, 150, 0, 100));
+        else
+            model->loadShape(size, sf::Color(255, 150, 0, 100));
     }
 
     return true;
@@ -385,19 +392,23 @@ bool Palette::selectPaletteItem(sf::Vector2f cursor, std::shared_ptr<Model> mode
         else if (filename == "wall")
             this->manager->hud->updateExtraEditsValue({ "Width", "Height" },
                 { EditType::etInteger, EditType::etInteger },
-                { "100", "100" }, { 99999, 99999 }, {"width", "height"});
+                { "64", "64" }, { 99999, 99999 }, {"width", "height"});
         else if (filename == "region")
             this->manager->hud->updateExtraEditsValue({ "Width", "Height", "Index" },
                 { EditType::etInteger, EditType::etInteger, EditType::etInteger },
-                { "100", "100", "0" }, { 99999, 99999, 99 }, { "width", "height", "index" });
+                { "64", "64", "0" }, { 99999, 99999, 99 }, { "width", "height", "index" });
         else if (filename == "teleporter")
             this->manager->hud->updateExtraEditsValue({ "Width", "Height", "Index", "Target Index" },
                 { EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger },
-                { "100", "100", "0", "1" }, { 99999, 99999, 99, 99 }, { "width", "height", "index", "target-index" });
+                { "64", "64", "0", "1" }, { 99999, 99999, 99, 99 }, { "width", "height", "index", "target-index" });
         else if (filename == "slider")
             this->manager->hud->updateExtraEditsValue({ "Width", "Height", "Index", "Speed X", "Speed Y", "Invert X", "Invert Y" },
                 { EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etBoolean, EditType::etBoolean },
-                { "100", "100", "0", "0", "0", "false", "false" }, { 99999, 99999, 99, 9999, 9999, 5, 5 }, { "width", "height", "index", "speed-x", "speed-y", "invert-x", "invert-y" });
+                { "64", "64", "0", "0", "0", "false", "false" }, { 99999, 99999, 99, 9999, 9999, 5, 5 }, { "width", "height", "index", "speed-x", "speed-y", "invert-x", "invert-y" });
+        else if (filename == "crusher")
+            this->manager->hud->updateExtraEditsValue({ "Width", "Height", "Index", "Damage" },
+                { EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger },
+                { "64", "64", "0", "0" }, { 99999, 99999, 99, 9999 }, { "width", "height", "index", "damage" });
     }
 
     if (filename != "")

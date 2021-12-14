@@ -845,6 +845,13 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 				fields.emplace_back(MapObjectField{ "invert-x", MapObjectFieldString{ "", false}, MapObjectFieldInt{ 0, false }, MapObjectFieldFloat{ 0.f, false }, MapObjectFieldBool{ extraValues.at(5).boolean, true } });
 				fields.emplace_back(MapObjectField{ "invert-y", MapObjectFieldString{ "", false}, MapObjectFieldInt{ 0, false }, MapObjectFieldFloat{ 0.f, false }, MapObjectFieldBool{ extraValues.at(6).boolean, true } });
 			}
+			else if (this->manager->palette->selectedOrigin == "crusher")
+			{
+				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
+				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
+				fields.emplace_back(MapObjectField{ "damage", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(3).integer, true } });
+			}
 			break;
 		}
 	}
@@ -991,6 +998,8 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 					else if (this->manager->palette->selectedOrigin == "teleporter")
 						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(0).integer, extraValues.at(1).integer));
 					else if (this->manager->palette->selectedOrigin == "slider")
+						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(0).integer, extraValues.at(1).integer));
+					else if (this->manager->palette->selectedOrigin == "crusher")
 						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(0).integer, extraValues.at(1).integer));
 
 					model->setOrigin(tilesetOrigin);
