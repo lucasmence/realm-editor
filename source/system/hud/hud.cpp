@@ -690,6 +690,9 @@ bool Hud::matrixGenerate(sf::Vector2f cursor)
 
 	if (this->wallActivated)
 	{
+		if (!this->checkMapClick(cursor))
+			return false;
+
 		this->matrixPosSpawn = false;
 
 		PaletteType previousPaletteType = this->manager->palette->type;
@@ -763,11 +766,11 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 			fields.emplace_back(MapObjectField{ "destructible", MapObjectFieldString{ "", false},
 																MapObjectFieldInt{ 0, false },
 																MapObjectFieldFloat{ 0.f, false },
-																MapObjectFieldBool{ extraValues.at(0).boolean, true } });
+																MapObjectFieldBool{ extraValues.at(1).boolean, true } });
 			fields.emplace_back(MapObjectField{ "death-allowed", MapObjectFieldString{ "", false},
 																MapObjectFieldInt{ 0, false },
 																MapObjectFieldFloat{ 0.f, false },
-																MapObjectFieldBool{ extraValues.at(0).boolean, true } });
+																MapObjectFieldBool{ extraValues.at(2).boolean, true } });
 
 			break;
 		}
@@ -1307,6 +1310,14 @@ bool Hud::setExtraEditsValue(std::vector<std::string> value)
 	return true;
 }
 
+bool Hud::setExtraEditValue(std::string value, int index)
+{
+	for (auto& edit : this->edits)
+		if (edit->name == "edtExtraField-" + boost::lexical_cast<std::string>(index))
+			edit->setValue(value);
+	return true;
+}
+
 bool Hud::resetExtraEditsValue()
 {
 	if (!this->manager->palette)
@@ -1326,7 +1337,7 @@ bool Hud::resetExtraEditsValue()
 		}
 		case (PaletteType::ptEnvironment):
 		{
-			this->setExtraEditsValue({ "false", "" });
+			this->setExtraEditValue("", 1);
 			break;
 		}
 		case (PaletteType::ptUnit):
@@ -1488,6 +1499,8 @@ bool Hud::updateEditValues()
 			this->manager->map->data.weatherChance = edit->getValue().integer;
 		else if (edit->name == "edtWeatherName")
 			this->manager->map->data.weatherName = edit->getValue().string;
+		else if (edit->name == "edtParticles")
+			this->manager->map->data.particles = edit->getValue().string;
 	return true;
 }
 
@@ -1637,19 +1650,19 @@ bool Hud::loadButtons()
 	std::shared_ptr<Button> btnPortal = std::make_shared<Button>(this->manager, "[Portals]", sf::Vector2f(0.f, 0.f), "btnPortal", 18, btnTerrain, sf::Vector2i(1, 0));
 	std::shared_ptr<Button> btnItem = std::make_shared<Button>(this->manager, "[Item]", sf::Vector2f(0.f, 0.f), "btnItem", 18, btnPortal, sf::Vector2i(1, 0));
 
-	std::shared_ptr<Button> btnRemoveBackground = std::make_shared<Button>(this->manager, "[Remove Background]", sf::Vector2f(0.f, 65.f), "btnRemoveBackground", 15, btnUnit, sf::Vector2i(0, -1), "Remove the \ncurrent terrain \nbackground");
+	std::shared_ptr<Button> btnRemoveBackground = std::make_shared<Button>(this->manager, "[Remove BG]", sf::Vector2f(0.f, 70.f), "btnRemoveBackground", 15, btnUnit, sf::Vector2i(0, -1), "Remove the \ncurrent terrain \nbackground");
 	btnRemoveBackground->setVisible(false);
 
 	std::shared_ptr<Label> lblBackground = std::make_shared<Label>(this->manager, "-", 15, sf::Vector2f(0.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblBackground");
 	lblBackground->setPosition(position::getSidePosition(btnRemoveBackground->shape->shape->getGlobalBounds(),
 														 lblBackground->text->getGlobalBounds(),
-														 lblBackground->text->getPosition(), sf::Vector2i(0, 1)));
+														 lblBackground->text->getPosition(), sf::Vector2i(1, 0)));
 	lblBackground->visible = false;
 	this->manager->addView(std::static_pointer_cast<ViewElement>(lblBackground));
 	this->labels.emplace_back(lblBackground);
 
-	std::shared_ptr<Label> lblWeatherChance = std::make_shared<Label>(this->manager, "Weather Chance: ", 15, sf::Vector2f(0.f, 12.f), 1, sf::Color(255, 255, 255, 255), "lblWeatherChance");
-	lblWeatherChance->setPosition(position::getSidePosition(lblBackground->text->getGlobalBounds(),
+	std::shared_ptr<Label> lblWeatherChance = std::make_shared<Label>(this->manager, "Weather Chance: ", 15, sf::Vector2f(0.f, 22.f), 1, sf::Color(255, 255, 255, 255), "lblWeatherChance");
+	lblWeatherChance->setPosition(position::getSidePosition(btnRemoveBackground->shape->shape->getGlobalBounds(),
 														    lblWeatherChance->text->getGlobalBounds(),
 														    lblWeatherChance->text->getPosition(), sf::Vector2i(0, 1)));
 	this->manager->addView(std::static_pointer_cast<ViewElement>(lblWeatherChance));
@@ -1671,6 +1684,18 @@ bool Hud::loadButtons()
 																  lblWeatherName->text->getGlobalBounds(), sf::Vector2i(1, 0));
 	edtWeatherName->setValue("");
 	edtWeatherName->maxLength = 64;
+
+	std::shared_ptr<Label> lblParticles = std::make_shared<Label>(this->manager, "Particles: ", 15, sf::Vector2f(0.f, 9.f), 1, sf::Color(255, 255, 255, 255), "lblParticlesName");
+	lblParticles->setPosition(position::getSidePosition(lblWeatherChance->text->getGlobalBounds(),
+														  lblParticles->text->getGlobalBounds(),
+														  lblParticles->text->getPosition(), sf::Vector2i(0, -1)));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(lblParticles));
+	this->labels.emplace_back(lblParticles);
+
+	std::shared_ptr<Edit> edtParticles = std::make_shared<Edit>(this->manager, EditType::etString, "", sf::Vector2f(0.f, -3.f), "edtParticles", 15,
+																  lblParticles->text->getGlobalBounds(), sf::Vector2i(1, 0));
+	edtParticles->setValue("courtyard");
+	edtParticles->maxLength = 64;
 
 	std::shared_ptr<Button> btnPalettePrevious = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, 15.f), "btnPalettePrevious", 20, btnTerrain, sf::Vector2i(0, 1), "Previous page");
 	std::shared_ptr<Button> btnPaletteBack = std::make_shared<Button>(this->manager, "[>]", sf::Vector2f(175.f, 0.f), "btnPaletteNext", 20, btnPalettePrevious, sf::Vector2i(1, 0), "Next page");
@@ -1756,11 +1781,11 @@ bool Hud::loadButtons()
 
 	std::shared_ptr<Edit> edtMapSizeX = std::make_shared<Edit>(this->manager, EditType::etInteger, "", sf::Vector2f(0.f, -5.f), "edtMapSizeX", 20,
 															   lblMapSize->text->getGlobalBounds(), sf::Vector2i(1, 0));
-	edtMapSizeX->setValue("1000");
+	edtMapSizeX->setValue("3000");
 	edtMapSizeX->integerMaxValue = 99999;
 	std::shared_ptr<Edit> edtMapSizeY = std::make_shared<Edit>(this->manager, EditType::etInteger, "", sf::Vector2f(10.f, 0.f), "edtMapSizeY", 20,
 															   edtMapSizeX->shape->shape->getGlobalBounds(), sf::Vector2i(1, 0));
-	edtMapSizeY->setValue("1000");
+	edtMapSizeY->setValue("3000");
 	edtMapSizeY->integerMaxValue = 99999;
 
 	std::shared_ptr<Label> lblMapName = std::make_shared<Label>(this->manager, "Name: ", 20, sf::Vector2f(0.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblMapName");
@@ -1784,7 +1809,7 @@ bool Hud::loadButtons()
 
 	std::shared_ptr<Edit> edtMapMusic = std::make_shared<Edit>(this->manager, EditType::etString, "", sf::Vector2f(0.f, 0.f), "edtMapMusic", 15,
 															   lblMapMusic->text->getGlobalBounds(), sf::Vector2i(1, 0));
-	edtMapMusic->setValue("village");
+	edtMapMusic->setValue("courtyard");
 	edtMapMusic->maxLength = 32;
 
 	std::shared_ptr<Edit> edtMapVersion = std::make_shared<Edit>(this->manager, EditType::etString, "", sf::Vector2f(425.f, 0.f), "edtMapVersion", 15,
@@ -1860,6 +1885,7 @@ bool Hud::loadButtons()
 	this->buttons.emplace_back(btnWall);
 	this->edits.emplace_back(edtWeatherChance);
 	this->edits.emplace_back(edtWeatherName);
+	this->edits.emplace_back(edtParticles);
 	this->edits.emplace_back(edtRotation);
 	this->edits.emplace_back(edtScale);
 	this->edits.emplace_back(edtMapSizeX);
@@ -1876,7 +1902,7 @@ bool Hud::loadLabels()
 {
 	std::shared_ptr<Label> lblCoordinates = std::make_shared<Label>(this->manager, "0, 0", 20, sf::Vector2f(1630.f, 70.f), 1, sf::Color(255, 255, 255, 255), "lblCoordinates");
 	std::shared_ptr<Label> lblPaletteItem = std::make_shared<Label>(this->manager, "-", 15, sf::Vector2f(0.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblPaletteItem");
-	std::shared_ptr<Label> lblVersion = std::make_shared<Label>(this->manager, "0.05c", 20, sf::Vector2f(1855.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblVersion");
+	std::shared_ptr<Label> lblVersion = std::make_shared<Label>(this->manager, "By Mence v1.06", 20, sf::Vector2f(1760.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblVersion");
 	std::shared_ptr<Label> lblPaletteStatus = std::make_shared<Label>(this->manager, "- - -", 30, sf::Vector2f(0.f, 960.f), 1, sf::Color(255, 255, 255, 255), "lblPaletteStatus");
 	std::shared_ptr<Label> lblMessageBox = std::make_shared<Label>(this->manager, "", 20, sf::Vector2f(0.f, 900.f), 1, sf::Color(255, 255, 255, 255), "lblMessageBox");
 	
