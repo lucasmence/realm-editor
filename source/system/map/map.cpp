@@ -41,6 +41,7 @@ bool Map::updateMapInfo()
 	this->manager->hud->setEditValue("edtMapVersion", boost::lexical_cast<std::string>(this->data.version));
 	this->manager->hud->setEditValue("edtWeatherChance", boost::lexical_cast<std::string>(this->data.weatherChance));
 	this->manager->hud->setEditValue("edtWeatherName", boost::lexical_cast<std::string>(this->data.weatherName));
+	this->manager->hud->setEditValue("edtParticles", boost::lexical_cast<std::string>(this->data.particles));
 
 	return true;
 }
@@ -259,6 +260,7 @@ bool Map::renderMap()
 	this->file["music"] = this->data.music;
 	this->file["map"]["name"] = this->data.name;
 	this->file["map"]["version"] = this->data.version;
+	this->file["particles"] = this->data.particles;
 
 	std::vector<std::string> objectsField = { "terrain", "terrain-default", "prop", "environment", "unit", "merchant", "portal", "item", "weather" };
 
@@ -442,9 +444,10 @@ bool Map::loadMap(std::string file)
 
 	this->manager->hud->showMessage("Loading map...");
 
-	this->data.size.x = this->file.value("map-size-x", 1000);
-	this->data.size.y = this->file.value("map-size-y", 1000);
-	this->data.music = this->file.value("music", "village");
+	this->data.size.x = this->file.value("map-size-x", 3000);
+	this->data.size.y = this->file.value("map-size-y", 3000);
+	this->data.music = this->file.value("music", "entrance");
+	this->data.particles = this->file.value("particles", "");
 
 	if (this->file["map"].size() > 0)
 	{
@@ -456,6 +459,7 @@ bool Map::loadMap(std::string file)
 	{
 		this->data.weatherName = this->file["weather"].value("name", "");
 		this->data.weatherChance = this->file["weather"].value("chance", 0.f);
+		this->data.particles = this->file.value("particles", "");
 	}
 
 	if (this->file["terrain-default"].size() > 0)
@@ -565,11 +569,12 @@ bool Map::newMap()
 	this->manager->hud->zoomMapReset();
 
 	this->filename = "";
-	this->data.size = sf::Vector2i(1000, 1000);
+	this->data.size = sf::Vector2i(3000, 3000);
 	this->data.name = "another_map";
-	this->data.music = "village";
+	this->data.music = "courtyard";
 	this->data.version = "1.00";
 	this->data.weatherName = "";
+	this->data.particles = "courtyard";
 	this->data.weatherChance = 100.f;
 	this->file["trigger"].clear();
 
