@@ -10,5 +10,24 @@
     "item-drop-list":
     [
         
+    ],
+    "procedural": true,
+    "procedural-list": "",
+    "unit-spawn-limit": 10,
+    "unit-spawn":
+    [
+        
+    ],
+    "merchant-spawn-chance": 0.25,
+    "merchant-spawn":
+    [
+
+    ],
+    "exit": "",
+    "special-exits-chance": 0.25,
+    "special-exits":
+    [
+
     ]
+
 }
