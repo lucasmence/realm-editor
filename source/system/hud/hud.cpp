@@ -369,30 +369,60 @@ bool Hud::toggleGridVisibility()
 bool Hud::updateMapBounds()
 {
 	sf::Vector2f positionLowerest(-1.f, -1.f);
+	sf::Vector2f positionExtra(0.f, 0.f);
 	for (auto& object : this->manager->map->objects)
 		if (object.type == MapObjectType::motTerrain || object.type == MapObjectType::motPortal)
 		{
 			if (positionLowerest.x > object.model->getPosition().x || positionLowerest.x == -1.f)
+			{
 				positionLowerest.x = object.model->getPosition().x;
+				if (object.type == MapObjectType::motPortal)
+					positionExtra.x = -object.model->getGlobalBounds().width;
+				else
+					positionExtra.x = 0.f;
+
+			}
+				
 			if (positionLowerest.y > object.model->getPosition().y || positionLowerest.y == -1.f)
+			{
 				positionLowerest.y = object.model->getPosition().y;
+				if (object.type == MapObjectType::motPortal)
+					positionExtra.y = -object.model->getGlobalBounds().height;
+				else
+					positionExtra.y = 0.f;
+			}		
 		}
 
 	for (auto& object : this->manager->map->objects)
-		object.model->setPosition(sf::Vector2f(object.model->getPosition().x - positionLowerest.x, object.model->getPosition().y - positionLowerest.y));
+		object.model->setPosition(sf::Vector2f(object.model->getPosition().x - positionLowerest.x + positionExtra.x, object.model->getPosition().y - positionLowerest.y + positionExtra.y));
 
 	sf::Vector2f positionHighest(-1.f, -1.f);
+	positionExtra = sf::Vector2f(0.f, 0.f);
 	for (auto& object : this->manager->map->objects)
 		if (object.type == MapObjectType::motTerrain || object.type == MapObjectType::motPortal)
 		{
-			if (positionHighest.x < object.model->getPosition().x + object.model->getGlobalBounds().width)
-				positionHighest.x = object.model->getPosition().x + object.model->getGlobalBounds().width;
-			if (positionHighest.y < object.model->getPosition().y + object.model->getGlobalBounds().height)
-				positionHighest.y = object.model->getPosition().y + object.model->getGlobalBounds().height;
+			if (positionHighest.x < object.model->getPosition().x)
+			{
+				positionHighest.x = object.model->getPosition().x;
+				if (object.type == MapObjectType::motTerrain)
+					positionExtra.x = object.model->getGlobalBounds().width;
+				else
+					positionExtra.x = 0.f;
+			}
+				
+			if (positionHighest.y < object.model->getPosition().y)
+			{
+				positionHighest.y = object.model->getPosition().y;
+				if (object.type == MapObjectType::motTerrain)
+					positionExtra.y = object.model->getGlobalBounds().height;
+				else
+					positionExtra.y = 0.f;
+			}
+				
 		}
 
-	this->setEditValue("edtMapSizeX", boost::lexical_cast<std::string>(positionHighest.x));
-	this->setEditValue("edtMapSizeY", boost::lexical_cast<std::string>(positionHighest.y));
+	this->setEditValue("edtMapSizeX", boost::lexical_cast<std::string>(positionHighest.x + positionExtra.x));
+	this->setEditValue("edtMapSizeY", boost::lexical_cast<std::string>(positionHighest.y + positionExtra.y));
 	return true;
 }
 
