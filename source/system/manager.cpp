@@ -25,7 +25,7 @@ Manager::Manager()
     this->hasFocus = true;
     this->open = false;
     this->minimapViewUpdate = false;
-    this->minimapVisible = true;
+    this->minimapVisible = false;
     this->canvasPosition = sf::Vector2f(0.f, -115.f);
 
     this->loadWindowOpening();
@@ -308,9 +308,9 @@ bool Manager::eventKey(sf::Event& event)
             this->hud->buttonsClick(this->hud->getButton("btnSelectItem")->shape->getPosition());
             break;
         }
-        case (sf::Keyboard::N):
+        case (sf::Keyboard::B):
         {
-            this->hud->buttonsClick(this->hud->getButton("btnToggleMinimapVisible")->shape->getPosition());
+            this->hud->buttonsClick(this->hud->getButton("btnUpdateMapBounds")->shape->getPosition());
             break;
         }
         case (sf::Keyboard::Tilde):
