@@ -134,6 +134,7 @@ bool Model::loadShape(sf::Vector2f size, sf::Color color)
 
 bool Model::setPosition(sf::Vector2f position)
 {
+	this->position = position;
 	ViewElement::setPosition(position);
 	if (this->sprite)
 		this->sprite->setPosition(position);
