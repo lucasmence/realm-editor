@@ -1,4 +1,5 @@
 #include <list>
+#include <vector>
 #include <memory>
 #include <iostream>
 #include <SFML/Graphics.hpp>
@@ -18,6 +19,7 @@
 struct ManagerConstant
 {
 	std::string fontFilePath;
+	std::string gameVersion;
 	std::vector<int> gridSize;
 	std::vector<int> brushSize;
 	sf::FloatRect minimapSize;
@@ -27,6 +29,12 @@ struct ManagerList
 {
 	std::list<std::shared_ptr<ViewElement>> viewElements;
 	std::list<std::shared_ptr<Texture>> textures;
+};
+
+struct MapEdge
+{
+	sf::Vector2f positionBegin;
+	sf::Vector2f positionEnd;
 };
 
 class Manager
@@ -51,6 +59,7 @@ class Manager
 		bool minimapVisible;
 		std::string appName;
 		sf::FloatRect minimapViewArea;
+		std::vector<MapEdge> mapEdges;
 
 		Manager();
 		~Manager();
@@ -73,6 +82,7 @@ class Manager
 		bool loadConstants();
 		bool display();
 		bool resetView();
+		bool calculateMapEdges();
 		std::shared_ptr<Texture> getTexture(std::string filename);
 		std::string setTitle(std::string value);
 		sf::Vector2f getMousePosition();

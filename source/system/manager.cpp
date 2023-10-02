@@ -338,6 +338,11 @@ bool Manager::eventKey(sf::Event& event)
             this->hud->buttonsClick(this->hud->getButton("btnFormShapeNone")->shape->getPosition());
             break;
         }
+        case (sf::Keyboard::L):
+        {
+            this->calculateMapEdges();
+            break;
+        }
     }
 
     return true;
@@ -368,6 +373,24 @@ bool Manager::resetView()
     
     this->canvasPosition = sf::Vector2f(0.f, -115.f);
     this->moveCanvas(this->canvasPosition);
+    return true;
+}
+
+bool Manager::calculateMapEdges()
+{
+    this->mapEdges.clear();
+
+    sf::IntRect pixel = {0, 0, 1, 1};
+
+    for (int x = 0; x < this->map->data.size.x; x++)
+        for (int y = 0; y < this->map->data.size.y; y++)
+        {
+            pixel.left = x;
+            pixel.top = y;
+
+
+        }
+
     return true;
 }
 
@@ -421,6 +444,7 @@ bool Manager::loadConstants()
 
     json file = Json::loadFromFile("data/options/realm-editor.json");
     this->constant.fontFilePath = file.value("font-file-path", "");
+    this->constant.gameVersion = file.value("game-version", "classic");
 
     this->constant.gridSize.clear();
     this->constant.brushSize.clear();
