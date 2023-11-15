@@ -925,7 +925,12 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 			{
 				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
 				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
-			}	
+			}
+			else if (this->manager->palette->selectedOrigin == "guardian")
+			{
+				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
+				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+			}		
 			break;
 		}
 	}
@@ -1080,6 +1085,8 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 					else if (this->manager->palette->selectedOrigin == "trap")
 						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(0).integer, extraValues.at(1).integer));
 					else if (this->manager->palette->selectedOrigin == "exit")
+						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(0).integer, extraValues.at(1).integer));
+					else if (this->manager->palette->selectedOrigin == "guardian")
 						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(0).integer, extraValues.at(1).integer));
 
 					model->setOrigin(tilesetOrigin);
@@ -1771,7 +1778,7 @@ bool Hud::loadButtons()
 
 	std::shared_ptr<Edit> edtParticles = std::make_shared<Edit>(this->manager, EditType::etString, "", sf::Vector2f(0.f, -3.f), "edtParticles", 15,
 																  lblParticles->text->getGlobalBounds(), sf::Vector2i(1, 0));
-	edtParticles->setValue("courtyard");
+	edtParticles->setValue("woods");
 	edtParticles->maxLength = 64;
 
 	std::shared_ptr<Button> btnPalettePrevious = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, 15.f), "btnPalettePrevious", 20, btnTerrain, sf::Vector2i(0, 1), "Previous page");
@@ -1886,7 +1893,7 @@ bool Hud::loadButtons()
 
 	std::shared_ptr<Edit> edtMapMusic = std::make_shared<Edit>(this->manager, EditType::etString, "", sf::Vector2f(0.f, 0.f), "edtMapMusic", 15,
 															   lblMapMusic->text->getGlobalBounds(), sf::Vector2i(1, 0));
-	edtMapMusic->setValue("courtyard");
+	edtMapMusic->setValue("woods");
 	edtMapMusic->maxLength = 32;
 
 	std::shared_ptr<Edit> edtMapVersion = std::make_shared<Edit>(this->manager, EditType::etString, "", sf::Vector2f(425.f, 0.f), "edtMapVersion", 15,

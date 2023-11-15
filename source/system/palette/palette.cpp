@@ -46,7 +46,7 @@ bool Palette::loadPalettes()
     this->unit = this->loadFileLists("characters");
     this->merchant = this->loadFileLists("merchants/stores");
     this->item = this->loadFileLists("items");
-    this->portal = {"spawner", "level", "generator", "wall", "region", "teleporter", "slider", "crusher", "connector", "trap", "exit"};
+    this->portal = {"spawner", "level", "generator", "wall", "region", "teleporter", "slider", "crusher", "connector", "trap", "exit", "guardian"};
 
     this->environment = this->loadFileLists("textures/environment");
     std::list<std::string> environmentList = this->loadFileLists("textures/particles", "particles/");
@@ -212,7 +212,13 @@ bool Palette::loadPaletteShape(std::shared_ptr<Model> model, std::string filenam
         else
             model->loadShape(size, sf::Color(150, 0, 255, 100));
     }
-
+    if (filename == "guardian")
+    {
+        if (size.x <= 0.f && size.y <= 0.f)
+            model->loadShape(sf::Vector2f(32.f, 0), sf::Color(0, 155, 0, 100));
+        else
+            model->loadShape(size, sf::Color(0, 155, 0, 100));
+    }
 
     return true;
 }
@@ -443,6 +449,10 @@ bool Palette::selectPaletteItem(sf::Vector2f cursor, std::shared_ptr<Model> mode
                 { EditType::etInteger, EditType::etInteger, EditType::etString },
                 { "64", "64", "" }, { 99999, 99999, 255}, { "width", "height", "spell" });
         else if (filename == "exit")
+            this->manager->hud->updateExtraEditsValue({ "Width", "Height"},
+                { EditType::etInteger, EditType::etInteger },
+                { "64", "64"}, { 99999, 99999}, { "width", "height"});
+        else if (filename == "guardian")
             this->manager->hud->updateExtraEditsValue({ "Width", "Height"},
                 { EditType::etInteger, EditType::etInteger },
                 { "64", "64"}, { 99999, 99999}, { "width", "height"});

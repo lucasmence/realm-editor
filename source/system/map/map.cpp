@@ -571,10 +571,10 @@ bool Map::newMap()
 	this->filename = "";
 	this->data.size = sf::Vector2i(3000, 3000);
 	this->data.name = "another_map";
-	this->data.music = "courtyard";
+	this->data.music = "woods";
 	this->data.version = "1.00";
 	this->data.weatherName = "";
-	this->data.particles = "courtyard";
+	this->data.particles = "woods";
 	this->data.weatherChance = 100.f;
 	this->file["trigger"].clear();
 
