@@ -63,3 +63,4 @@ resources-classic
 # Log
 *.log
 *.png
+.vscode/settings.json
