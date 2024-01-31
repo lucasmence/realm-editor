@@ -758,11 +758,11 @@ bool Hud::matrixGenerate(sf::Vector2f cursor)
 		this->shapeHover->visible = true;
 
 		this->manager->hud->updateExtraEditsValue(
-			{ "Width", "Height" },
-			{ EditType::etInteger, EditType::etInteger },
-			{ boost::lexical_cast<std::string>(int(this->shapeMatrix->shape->getGlobalBounds().width)), boost::lexical_cast<std::string>(int(this->shapeMatrix->shape->getGlobalBounds().height)) },
-			{ 99999, 99999 },
-			{ "width", "height" });
+			{ "Width", "Height", "Index" },
+			{ EditType::etInteger, EditType::etInteger, EditType::etInteger },
+			{ boost::lexical_cast<std::string>(int(this->shapeMatrix->shape->getGlobalBounds().width)), boost::lexical_cast<std::string>(int(this->shapeMatrix->shape->getGlobalBounds().height)), "0" },
+			{ 99999, 99999, 99 },
+			{ "width", "height", "index" });
 
 		this->setExtraEditsValue({ boost::lexical_cast<std::string>(int(this->shapeMatrix->shape->getGlobalBounds().width)),
 								   boost::lexical_cast<std::string>(int(this->shapeMatrix->shape->getGlobalBounds().height)) });
@@ -878,6 +878,7 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 			{
 				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
 				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
 			}	
 			else if (this->manager->palette->selectedOrigin == "region")
 			{
