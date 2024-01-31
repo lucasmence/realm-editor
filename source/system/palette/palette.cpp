@@ -421,9 +421,9 @@ bool Palette::selectPaletteItem(sf::Vector2f cursor, std::shared_ptr<Model> mode
                 { EditType::etString, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etString },
                 { "enemy", "1", "0", "0", "5", "" }, {12, 99, 99999, 99999, 9999, 255}, {"alliance", "index", "target-x", "target-y", "cooldown", "unit-type"});
         else if (filename == "wall")
-            this->manager->hud->updateExtraEditsValue({ "Width", "Height" },
-                { EditType::etInteger, EditType::etInteger },
-                { "64", "64" }, { 99999, 99999 }, {"width", "height"});
+            this->manager->hud->updateExtraEditsValue({ "Width", "Height", "Index" },
+                { EditType::etInteger, EditType::etInteger, EditType::etInteger },
+                { "64", "64", "0"}, {99999, 99999, 99}, {"width", "height", "index"});
         else if (filename == "region")
             this->manager->hud->updateExtraEditsValue({ "Width", "Height", "Index" },
                 { EditType::etInteger, EditType::etInteger, EditType::etInteger },
