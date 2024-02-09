@@ -11,7 +11,7 @@ namespace script
         std::string filename = "filename.data";
         deleteFile("temp/" + filename);
 
-        auto Command = std::string("cd scripts && cmd.exe /C openfile.bat");
+        auto Command = std::string("cd scripts && cmd.exe /C openfile.bat 'D:' ");
         std::system(Command.c_str());
 
         return getTemp(filename);
@@ -22,7 +22,7 @@ namespace script
         std::string filename = "savefile.data";
         deleteFile("temp/" + filename);
 
-        auto Command = std::string("cd scripts && cmd.exe /C savefile.bat");
+        auto Command = std::string("cd scripts && cmd.exe /C savefile.bat 'D:' 'map.json' ");
         std::system(Command.c_str());
 
         return getTemp(filename);
