@@ -11,7 +11,7 @@ namespace script
         std::string filename = "filename.data";
         deleteFile("temp/" + filename);
 
-        auto Command = std::string("cd scripts && cmd.exe /C openfile.bat 'D:' ");
+        auto Command = std::string("cd scripts && python openfile.py 'D:' ");
         std::system(Command.c_str());
 
         return getTemp(filename);
@@ -20,9 +20,9 @@ namespace script
     std::string saveFile()
     {
         std::string filename = "savefile.data";
-        deleteFile("temp/" + filename);
 
-        auto Command = std::string("cd scripts && cmd.exe /C savefile.bat 'D:' 'map.json' ");
+        auto Command = std::string("cd scripts && python savefile.py 'D:' map ");
+        deleteFile("temp/" + filename);
         std::system(Command.c_str());
 
         return getTemp(filename);
