@@ -78,7 +78,7 @@ bool Palette::clearPaletteItems()
 bool Palette::loadPaletteItemList(std::list<std::string>& list, std::string field)
 {
     int x = 0, y = 0, xLimit = 4, pageLimit = 32, index = 0, count = pageLimit * this->pageIndex, countLimit = pageLimit * (this->pageIndex + 1);
-    sf::Vector2f initialPosition(1650.f, 325.f);
+    sf::Vector2f initialPosition(this->manager->window->getSize().x - 300.f, 325.f);
 
     for (auto& filename : list)
     {

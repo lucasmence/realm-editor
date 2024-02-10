@@ -7,7 +7,7 @@ Manager::Manager()
     this->loadConstants();
 
     this->appName = "realm-editor";
-	this->window = std::make_shared<sf::RenderWindow>(sf::VideoMode(1920, 1080), appName, sf::Style::Default);
+	this->window = std::make_shared<sf::RenderWindow>(sf::VideoMode(sf::VideoMode::getDesktopMode().width, sf::VideoMode::getDesktopMode().height), appName, sf::Style::Default);
 
     this->font = std::shared_ptr<sf::Font>(new sf::Font);
     this->font->loadFromFile(this->constant.fontFilePath);
