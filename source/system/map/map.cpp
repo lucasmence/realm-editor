@@ -570,11 +570,11 @@ bool Map::newMap()
 
 	this->filename = "";
 	this->data.size = sf::Vector2i(3000, 3000);
-	this->data.name = "another_map";
-	this->data.music = "woods";
+	this->data.name = "map";
+	this->data.music = "none";
 	this->data.version = "1.00";
 	this->data.weatherName = "";
-	this->data.particles = "woods";
+	this->data.particles = "none";
 	this->data.weatherChance = 100.f;
 	this->file["trigger"].clear();
 
@@ -613,7 +613,7 @@ bool Map::createTriggerFile()
 	boost::filesystem::copy_file(filePath + "trigger.json", parentPath);
 
 	std::string originalPath = parentPath, regionField = "data/maps/";
-	boost::erase_all(originalPath, ".json ");
+	boost::erase_all(originalPath, ".json");
 
 	std::size_t pos = originalPath.find(regionField);
 	std::string fieldPath = originalPath.substr(pos + regionField.size());
