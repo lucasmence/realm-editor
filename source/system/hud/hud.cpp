@@ -916,12 +916,6 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });	
 				fields.emplace_back(MapObjectField{ "direction", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
 			}
-			else if (this->manager->palette->selectedOrigin == "trap")
-			{
-				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
-				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });	
-				fields.emplace_back(MapObjectField{ "spell", MapObjectFieldString{ extraValues.at(2).string, true} });
-			}
 			else if (this->manager->palette->selectedOrigin == "exit")
 			{
 				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
@@ -1088,8 +1082,6 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 					else if (this->manager->palette->selectedOrigin == "crusher")
 						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(0).integer, extraValues.at(1).integer));
 					else if (this->manager->palette->selectedOrigin == "connector")
-						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(0).integer, extraValues.at(1).integer));
-					else if (this->manager->palette->selectedOrigin == "trap")
 						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(0).integer, extraValues.at(1).integer));
 					else if (this->manager->palette->selectedOrigin == "exit")
 						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(0).integer, extraValues.at(1).integer));
@@ -1787,7 +1779,7 @@ bool Hud::loadButtons()
 
 	std::shared_ptr<Edit> edtParticles = std::make_shared<Edit>(this->manager, EditType::etString, "", sf::Vector2f(0.f, -3.f), "edtParticles", 15,
 																  lblParticles->text->getGlobalBounds(), sf::Vector2i(1, 0));
-	edtParticles->setValue("woods");
+	edtParticles->setValue("none");
 	edtParticles->maxLength = 64;
 
 	std::shared_ptr<Button> btnPalettePrevious = std::make_shared<Button>(this->manager, "[<]", sf::Vector2f(0.f, 15.f), "btnPalettePrevious", 20, btnTerrain, sf::Vector2i(0, 1), "Previous page");
@@ -1890,7 +1882,7 @@ bool Hud::loadButtons()
 
 	std::shared_ptr<Edit> edtMapName = std::make_shared<Edit>(this->manager, EditType::etString, "", sf::Vector2f(0.f, 0.f), "edtMapName", 15,
 															  lblMapName->text->getGlobalBounds(), sf::Vector2i(1, 0));
-	edtMapName->setValue("another_map");
+	edtMapName->setValue("map");
 	edtMapName->maxLength = 64;
 
 	std::shared_ptr<Label> lblMapMusic = std::make_shared<Label>(this->manager, "Music: ", 20, sf::Vector2f(10.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblMapMusic");
@@ -1902,7 +1894,7 @@ bool Hud::loadButtons()
 
 	std::shared_ptr<Edit> edtMapMusic = std::make_shared<Edit>(this->manager, EditType::etString, "", sf::Vector2f(0.f, 0.f), "edtMapMusic", 15,
 															   lblMapMusic->text->getGlobalBounds(), sf::Vector2i(1, 0));
-	edtMapMusic->setValue("woods");
+	edtMapMusic->setValue("none");
 	edtMapMusic->maxLength = 32;
 
 	std::shared_ptr<Edit> edtMapVersion = std::make_shared<Edit>(this->manager, EditType::etString, "", sf::Vector2f(125.f, 0.f), "edtMapVersion", 15,
@@ -1995,7 +1987,7 @@ bool Hud::loadLabels()
 {
 	std::shared_ptr<Label> lblCoordinates = std::make_shared<Label>(this->manager, "0, 0", 20, sf::Vector2f(this->manager->window->getSize().x - 325.f, 70.f), 1, sf::Color(255, 255, 255, 255), "lblCoordinates");
 	std::shared_ptr<Label> lblPaletteItem = std::make_shared<Label>(this->manager, "-", 15, sf::Vector2f(0.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblPaletteItem");
-	std::shared_ptr<Label> lblVersion = std::make_shared<Label>(this->manager, "By Mence v1.08", 20, sf::Vector2f(this->manager->window->getSize().x - 200.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblVersion");
+	std::shared_ptr<Label> lblVersion = std::make_shared<Label>(this->manager, "By Mence v1.09", 20, sf::Vector2f(this->manager->window->getSize().x - 200.f, 0.f), 1, sf::Color(255, 255, 255, 255), "lblVersion");
 	std::shared_ptr<Label> lblPaletteStatus = std::make_shared<Label>(this->manager, "- - -", 30, sf::Vector2f(0.f, 960.f), 1, sf::Color(255, 255, 255, 255), "lblPaletteStatus");
 	std::shared_ptr<Label> lblMessageBox = std::make_shared<Label>(this->manager, "", 20, sf::Vector2f(0.f, 900.f), 1, sf::Color(255, 255, 255, 255), "lblMessageBox");
 	
