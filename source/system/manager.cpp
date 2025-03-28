@@ -444,7 +444,7 @@ bool Manager::loadConstants()
 
     json file = Json::loadFromFile("data/options/realm-editor.json");
     this->constant.fontFilePath = file.value("font-file-path", "");
-    this->constant.gameVersion = file.value("game-version", "classic");
+    this->constant.gameVersion = file.value("game-version", "");
 
     this->constant.gridSize.clear();
     this->constant.brushSize.clear();

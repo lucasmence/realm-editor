@@ -51,11 +51,6 @@ bool Palette::loadPalettes()
     this->environment = this->loadFileLists("textures/environment");
     std::list<std::string> environmentList = this->loadFileLists("textures/particles", "particles/");
     this->environment.insert(this->environment.end(), environmentList.begin(), environmentList.end());
-    if (this->manager->constant.gameVersion == "classic")
-    {
-        environmentList = this->loadFileLists("textures/shadows", "shadows/");
-        this->environment.insert(this->environment.end(), environmentList.begin(), environmentList.end());
-    }
     environmentList.clear();
 
     this->selectPalette(this->type);
