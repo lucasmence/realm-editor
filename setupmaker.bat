@@ -1,4 +1,4 @@
-set smpath=%USERPROFILE%\Desktop\Boltcraft
+set smpath=%HOMEDRIVE%\RealmEditor
 
 if not exist %smpath% mkdir %smpath%
 if not exist %smpath%\scripts mkdir %smpath%\scripts
