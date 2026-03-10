@@ -10,7 +10,7 @@ Manager::Manager()
 	this->window = std::make_shared<sf::RenderWindow>(sf::VideoMode(sf::VideoMode::getDesktopMode().width, sf::VideoMode::getDesktopMode().height), appName, sf::Style::Default);
 
     this->font = std::shared_ptr<sf::Font>(new sf::Font);
-    this->font->loadFromFile(this->constant.fontFilePath);
+    this->font->loadFromFile(this->constant.gamePath + "/" + this->constant.fontFilePath);
     this->icon.loadFromFile("realm-editor.png");
     this->window->setIcon(this->icon.getSize().x, this->icon.getSize().y, this->icon.getPixelsPtr());
   
