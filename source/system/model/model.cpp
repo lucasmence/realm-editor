@@ -91,7 +91,7 @@ bool Model::loadSprite(std::string filename, sf::Vector2f position)
 	if (!textureFound)
 	{ 
 		std::string textureName = "";
-		json jsonFile = Json::loadFromFile("data/" + filename + ".json");
+		json jsonFile = Json::loadFromFile(filename + ".json");
 		
 		for (int index = 0; index < jsonFile["animation"].size(); index++)
 		{
@@ -100,7 +100,7 @@ bool Model::loadSprite(std::string filename, sf::Vector2f position)
 		}
 
 		textureName = jsonFile.value("texturename", "");
-		this->texture = this->manager->getTexture(textureName);
+		this->texture = this->manager->getTexture(this->manager->constant.gamePath + "/resources/sprites/" + textureName);
 	}
 	
 	this->sprite = std::make_shared<sf::Sprite>();

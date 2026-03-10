@@ -19,6 +19,7 @@
 struct ManagerConstant
 {
 	std::string fontFilePath;
+	std::string gamePath;
 	std::string gameVersion;
 	std::vector<int> gridSize;
 	std::vector<int> brushSize;

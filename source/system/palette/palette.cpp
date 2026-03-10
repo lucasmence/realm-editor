@@ -110,7 +110,7 @@ bool Palette::loadPaletteItemList(std::list<std::string>& list, std::string fiel
                 if (found != std::string::npos)
                     filenameComplete = filename;
 
-                model = std::make_shared<Model>(this->manager, position, "textures/" + filenameComplete, 2, true, "", filenameComplete);
+                model = std::make_shared<Model>(this->manager, position, this->manager->constant.gamePath + "/data/textures/" + filenameComplete, 2, true, "", filenameComplete);
             }
         }
 
@@ -224,45 +224,45 @@ std::shared_ptr<Model> Palette::loadPaletteItemModel(std::string filename, sf::V
     {
         case (PaletteType::ptUnit):
         {   
-            json file = Json::loadFromFile("data/characters/" + filename + ".json");
+            json file = Json::loadFromFile(this->manager->constant.gamePath + "/data/characters/" + filename + ".json");
 
-            std::string texture = Json::getString(file.value("texture", ""));
+            std::string texture = this->manager->constant.gamePath + "/data/textures/" + Json::getString(file.value("texture", ""));
             file.clear();
 
             if (texture == "")
                 return nullptr;
 
-            return std::make_shared<Model>(this->manager, position, "textures/" + texture, 2, true, "", "characters/" + filename);
+            return std::make_shared<Model>(this->manager, position, texture, 2, true, "", "characters/" + filename);
 
             break;
         }
 
         case (PaletteType::ptMerchant):
         {
-            json file = Json::loadFromFile("data/merchants/stores/" + filename + ".json");
+            json file = Json::loadFromFile(this->manager->constant.gamePath + "/data/merchants/stores/" + filename + ".json");
 
-            std::string texture = Json::getString(file["models"][0].value("value", ""));
+            std::string texture = this->manager->constant.gamePath + "/data/textures/" + Json::getString(file["models"][0].value("value", ""));
             file.clear();
 
             if (texture == "")
                 return nullptr;
 
-            return std::make_shared<Model>(this->manager, position, "textures/" + texture, 2, true, "", "merchants/stores/" + filename);
+            return std::make_shared<Model>(this->manager, position, texture, 2, true, "", "merchants/stores/" + filename);
 
             break;
         }
 
         case (PaletteType::ptItem):
         { 
-            json file = Json::loadFromFile("data/items/" + filename + ".json");
+            json file = Json::loadFromFile(this->manager->constant.gamePath + "/data/items/" + filename + ".json");
 
-            std::string texture = Json::getString(file.value("texture", ""));
+            std::string texture = this->manager->constant.gamePath + "/data/textures/" + Json::getString(file.value("texture", ""));
             file.clear();
 
             if (texture == "")
                 return nullptr;
 
-            return std::make_shared<Model>(this->manager, position, "textures/" + texture, 2, true, "", "items/" + filename);
+            return std::make_shared<Model>(this->manager, position, texture, 2, true, "", "items/" + filename);
 
             break;
         }
@@ -471,7 +471,7 @@ std::list<std::string> Palette::loadFileFromDirectory(std::string directory, std
 {
     boost::filesystem::path path = directory;
     if (base == "")
-        path = boost::filesystem::current_path() /= "data/" + directory;
+        path = this->manager->constant.gamePath + "/data/" + directory;
     else
         base += "\\";
 
