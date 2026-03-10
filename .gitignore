@@ -54,12 +54,6 @@ Makefile
 # Json Library
 nlohmann
 
-# Backups
-data-2
-data-classic
-resources-2
-resources-classic
-
 # Log
 *.log
 *.png
