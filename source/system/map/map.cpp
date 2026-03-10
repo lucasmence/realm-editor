@@ -152,9 +152,9 @@ std::string Map::getTextureFromUnit(json line, MapObjectType type)
 			if (subFilename == "")
 				return "";
 
-			json subFile = Json::loadFromFile("data/" + subFilename +".json");
+			json subFile = Json::loadFromFile(this->manager->constant.gamePath + "/data/" + subFilename +".json");
 
-			std::string texture = Json::getString(subFile.value("texture", ""));
+			std::string texture = Json::getString(this->manager->constant.gamePath + "/data/textures/" + subFile.value("texture", ""));
 			subFile.clear();
 
 			return texture;
@@ -168,9 +168,9 @@ std::string Map::getTextureFromUnit(json line, MapObjectType type)
 			if (subFilename == "")
 				return "";
 
-			json subFile = Json::loadFromFile("data/" + subFilename + ".json");
+			json subFile = Json::loadFromFile(this->manager->constant.gamePath + "/data/" + subFilename + ".json");
 
-			std::string texture = Json::getString(subFile["models"][0].value("value", ""));
+			std::string texture = Json::getString(this->manager->constant.gamePath + "/data/textures/" + subFile["models"][0].value("value", ""));
 			subFile.clear();
 
 			return texture;
@@ -183,9 +183,9 @@ std::string Map::getTextureFromUnit(json line, MapObjectType type)
 			if (subFilename == "")
 				return "";
 
-			json subFile = Json::loadFromFile("data/" + subFilename + ".json");
+			json subFile = Json::loadFromFile(this->manager->constant.gamePath + "/data/" + subFilename + ".json");
 
-			std::string texture = Json::getString(subFile.value("texture", ""));
+			std::string texture = Json::getString(this->manager->constant.gamePath + "/data/textures/" + subFile.value("texture", ""));
 			subFile.clear();
 
 			return texture;
@@ -464,13 +464,13 @@ bool Map::loadMap(std::string file)
 
 	if (this->file["terrain-default"].size() > 0)
 	{
-		std::string texture = Json::getString(this->file["terrain-default"].value("texture", ""));
+		std::string texture = this->manager->constant.gamePath + "/data/textures/" + Json::getString(this->file["terrain-default"].value("texture", ""));
 		
 		sf::Vector2f position(this->file["terrain-default"].value("x", 0.f),
 							  this->file["terrain-default"].value("y", 0.f));
 		float scale = this->file["terrain-default"].value("scale", 1.f);
 
-		std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, position, "textures/" + texture, 0, false, "",
+		std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, position, "" + texture, 0, false, "",
 															   this->getOriginFromField(this->file["terrain-default"], MapObjectType::motTerrain));
 		model->sprite->setScale(sf::Vector2f(scale, scale));
 		this->data.textureBackground = MapObjectUnit{ MapObjectType::motTerrain, position, 0.f, model, this->getSubfieldsFromLine(this->file["terrain-default"]) };
@@ -514,7 +514,7 @@ bool Map::loadMap(std::string file)
 			else if (type == MapObjectType::motPortal)
 				texture = Json::getString(this->file[field][index].value("type", ""));
 			else
-				texture = Json::getString(this->file[field][index].value("texture", ""));
+				texture = this->manager->constant.gamePath + "/data/textures/" + Json::getString(this->file[field][index].value("texture", ""));
 
 			if (texture == "")
 				continue;
@@ -539,7 +539,7 @@ bool Map::loadMap(std::string file)
 
 					default:
 					{
-						model = std::make_shared<Model>(this->manager, position, "textures/" + texture, priorityIndex, false, "",
+						model = std::make_shared<Model>(this->manager, position, "" + texture, priorityIndex, false, "",
 														this->getOriginFromField(this->file[field][index], type));
 						model->sprite->setScale(sf::Vector2f(this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f),
 															 this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f)));
@@ -594,7 +594,7 @@ bool Map::createTriggerFile()
 		return false;
 	}
 
-	boost::filesystem::path filenameBoost = this->filename, mainPath = boost::filesystem::current_path() /= "templates/";
+	boost::filesystem::path filenameBoost = this->filename, mainPath = this->manager->constant.gamePath + "/templates/";
 	std::string parentPath = Json::convertPathToString(filenameBoost.parent_path()) + "/trigger";
 
 	if (!boost::filesystem::exists(parentPath))
