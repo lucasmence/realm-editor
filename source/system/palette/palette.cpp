@@ -49,9 +49,6 @@ bool Palette::loadPalettes()
     this->portal = {"spawner", "level", "generator", "wall", "region", "teleporter", "slider", "crusher", "connector", "exit", "guardian", "waygate"};
 
     this->environment = this->loadFileLists("textures/environment");
-    std::list<std::string> environmentList = this->loadFileLists("textures/particles", "particles/");
-    this->environment.insert(this->environment.end(), environmentList.begin(), environmentList.end());
-    environmentList.clear();
 
     this->selectPalette(this->type);
 
@@ -104,13 +101,13 @@ bool Palette::loadPaletteItemList(std::list<std::string>& list, std::string fiel
 
             default:
             {
-                std::string filenameComplete = field + "/" + filename;
+                std::string filenameComplete = this->manager->constant.gamePath + "/data/textures/" + field + "/" + filename;
 
                 std::size_t found = filename.find("/");
                 if (found != std::string::npos)
                     filenameComplete = filename;
 
-                model = std::make_shared<Model>(this->manager, position, this->manager->constant.gamePath + "/data/textures/" + filenameComplete, 2, true, "", filenameComplete);
+                model = std::make_shared<Model>(this->manager, position, filenameComplete, 2, true, "", filenameComplete);
             }
         }
 

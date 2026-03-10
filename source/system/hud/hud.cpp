@@ -962,7 +962,7 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 				return false;
 
 			MapObjectType objectType = MapObjectType::motTerrain;
-			std::string paletteTypeField = "textures/";
+			std::string paletteTypeField = "";
 			std::string texture = this->manager->palette->selectedItem;
 			std::list<MapObjectField> fields = this->getExtraEditValuesByType();
 
@@ -981,13 +981,13 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 				case (PaletteType::ptTerrain) :
 				{
 					objectType = MapObjectType::motTerrain;
-					paletteTypeField += "terrain";
+					paletteTypeField = this->manager->constant.gamePath + "/data/textures/terrain/";
 					
 					if (extraValues.at(1).boolean)
 					{
 						std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, 
 																			   tilesetPosition, 
-																			   paletteTypeField + "/" + texture, priorityValue, false, "", this->manager->palette->selectedOrigin);
+																			   this->manager->constant.gamePath + "/data/textures/terrain/" + texture, priorityValue, false, "", this->manager->palette->selectedOrigin);
 						model->sprite->setScale(this->scale, this->scale);
 						model->setPosition(sf::Vector2f(model->getGlobalBounds().width,
 														model->getGlobalBounds().height));
@@ -1011,16 +1011,13 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 				case (PaletteType::ptProp):
 				{
 					objectType = MapObjectType::motProp;
-					paletteTypeField += "prop";
+					paletteTypeField = this->manager->constant.gamePath + "/data/textures/prop/";
 					break;
 				}
 				case (PaletteType::ptEnvironment):
 				{
 					objectType = MapObjectType::motEnvironment;
-
-					std::size_t found = texture.find("/");
-					if (found == std::string::npos)
-						paletteTypeField += "environment";
+					paletteTypeField = this->manager->constant.gamePath + "/data/textures/environment/";
 					break;
 				}
 				case (PaletteType::ptUnit):
@@ -1200,7 +1197,7 @@ std::shared_ptr<Model> Hud::spawnItem(sf::Vector2f tilesetPosition, std::string 
 {
 	std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, 
 														   tilesetPosition, 
-														   paletteTypeField + "/" + texture, priorityValue, false, "", this->manager->palette->selectedOrigin);
+														   paletteTypeField + texture, priorityValue, false, "", this->manager->palette->selectedOrigin);
 	
 	model->autoPriority = this->manager->map->getObjectAutoPriority(objectType);
 	model->sprite->setOrigin(tilesetOrigin);
