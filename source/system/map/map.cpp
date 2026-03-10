@@ -275,14 +275,14 @@ bool Map::renderMap()
 
 	if (this->data.textureBackground.model != nullptr)
 	{
-		this->file["terrain-default"]["texture"] = std::regex_replace(this->data.textureBackground.model->filename, std::regex("textures/"), "");
+		this->file["terrain-default"]["texture"] = std::regex_replace(this->data.textureBackground.model->filename, std::regex(this->manager->constant.gamePath + "/data/textures/"), "");
 		this->renderObject(this->file["terrain-default"], this->data.textureBackground);
 	}		
 
 	for (auto& object : this->objects)
 	{
 		std::string fieldName = "", fieldCaption = "texture";
-		std::string filename = std::regex_replace(object.model->filename, std::regex("textures/"), "");
+		std::string filename = std::regex_replace(object.model->filename, std::regex(this->manager->constant.gamePath + "/data/textures/"), "");
 
 		switch (object.type)
 		{
