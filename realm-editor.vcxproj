@@ -165,6 +165,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="source\main.cpp" />
+    <ClCompile Include="source\system\external\imgui\imgui-SFML.cpp" />
+    <ClCompile Include="source\system\external\imgui\imgui.cpp" />
+    <ClCompile Include="source\system\external\imgui\imgui_draw.cpp" />
+    <ClCompile Include="source\system\external\imgui\imgui_tables.cpp" />
+    <ClCompile Include="source\system\external\imgui\imgui_widgets.cpp" />
     <ClCompile Include="source\system\external\RichText\RichText.cpp" />
     <ClCompile Include="source\system\hud\button.cpp" />
     <ClCompile Include="source\system\hud\edit.cpp" />
@@ -182,6 +187,15 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h" />
+    <ClInclude Include="source\system\external\imgui\imconfig-SFML.h" />
+    <ClInclude Include="source\system\external\imgui\imconfig.h" />
+    <ClInclude Include="source\system\external\imgui\imgui-SFML.h" />
+    <ClInclude Include="source\system\external\imgui\imgui-SFML_export.h" />
+    <ClInclude Include="source\system\external\imgui\imgui.h" />
+    <ClInclude Include="source\system\external\imgui\imgui_internal.h" />
+    <ClInclude Include="source\system\external\imgui\imstb_rectpack.h" />
+    <ClInclude Include="source\system\external\imgui\imstb_textedit.h" />
+    <ClInclude Include="source\system\external\imgui\imstb_truetype.h" />
     <ClInclude Include="source\system\external\nlohmann\json.hpp" />
     <ClInclude Include="source\system\external\RichText\RichText.hpp" />
     <ClInclude Include="source\system\hud\button.hpp" />

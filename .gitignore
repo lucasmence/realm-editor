@@ -55,3 +55,4 @@ nlohmann
 *.log
 *.png
 .vscode/settings.json
+imgui.ini
