@@ -55,7 +55,6 @@ namespace script
 
     bool maximizeWindow(std::string windowName)
     {
-        std::system(std::string("cd scripts && windowmode -title "+windowName+" -mode maximized").c_str());
         return true;
     }
 
