@@ -102,7 +102,9 @@ class Map
 		bool renderObjectField(json& localfile, MapObjectField& field);
 		bool saveMap();
 		bool saveMapAs();
+		bool saveMapAfter();
 		bool loadMap(std::string file = "");
+		bool loadMapAfter();
 		bool newMap();
 		bool reloadMap();
 		bool createTriggerFile();

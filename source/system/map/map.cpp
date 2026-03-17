@@ -367,9 +367,21 @@ bool Map::saveMap()
 	this->renderMap();
 
 	this->manager->hud->showMessage("Ready to save...");
-	if (this->filename == "")
-		this->filename = script::saveFile();
 
+	if (this->filename == "")
+	{
+		this->manager->choosePath(PathType::ptSaveMap, "Save", "Save map");
+	}
+	else
+	{
+		this->saveMapAfter();
+	}
+
+	return true;
+}
+
+bool Map::saveMapAfter()
+{
 	if (!boost::filesystem::exists(boost::filesystem::path{ this->filename }.parent_path()))
 	{
 		this->manager->hud->showMessage("Failed: File not selected!");
@@ -425,15 +437,8 @@ std::list<MapObjectField> Map::getSubfieldsFromLine(json line)
 	return subFields;
 }
 
-bool Map::loadMap(std::string file)
+bool Map::loadMapAfter()
 {
-	this->newMap();
-
-	if (file == "")
-		this->filename = script::loadFile();
-	else
-		this->filename = file;
-	
 	if (!boost::filesystem::exists(this->filename))
 	{
 		this->manager->hud->showMessage("Failed: File not selected!");
@@ -465,13 +470,13 @@ bool Map::loadMap(std::string file)
 	if (this->file["terrain-default"].size() > 0)
 	{
 		std::string texture = this->manager->constant.gamePath + "/data/textures/" + Json::getString(this->file["terrain-default"].value("texture", ""));
-		
+
 		sf::Vector2f position(this->file["terrain-default"].value("x", 0.f),
-							  this->file["terrain-default"].value("y", 0.f));
+			this->file["terrain-default"].value("y", 0.f));
 		float scale = this->file["terrain-default"].value("scale", 1.f);
 
 		std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, position, "" + texture, 0, false, "",
-															   this->getOriginFromField(this->file["terrain-default"], MapObjectType::motTerrain));
+			this->getOriginFromField(this->file["terrain-default"], MapObjectType::motTerrain));
 		model->sprite->setScale(sf::Vector2f(scale, scale));
 		this->data.textureBackground = MapObjectUnit{ MapObjectType::motTerrain, position, 0.f, model, this->getSubfieldsFromLine(this->file["terrain-default"]) };
 
@@ -480,7 +485,7 @@ bool Map::loadMap(std::string file)
 		label->text->setString(texture);
 		label->visible = true;
 	}
-		
+
 	this->updateMapInfo();
 
 	std::vector<std::string> objectsField = { "terrain", "prop", "environment", "unit", "merchant", "portal", "item" };
@@ -488,7 +493,7 @@ bool Map::loadMap(std::string file)
 	for (auto& field : objectsField)
 	{
 		MapObjectType type = MapObjectType::motTerrain;
-		
+
 		if (field == "prop")
 			type = MapObjectType::motProp;
 		else if (field == "environment")
@@ -504,7 +509,7 @@ bool Map::loadMap(std::string file)
 
 		int priority = this->getObjectPriority(type);
 		std::string dimensionField = "dimensions";
-			
+
 		for (int index = 0; index < this->file[field].size(); index++)
 		{
 			std::string texture = "";
@@ -524,28 +529,28 @@ bool Map::loadMap(std::string file)
 				int priorityIndex = priority + this->file[field][index][dimensionField][dimensionIndex].value("priority", 0);
 
 				sf::Vector2f position(this->file[field][index][dimensionField][dimensionIndex].value("x", 0.f),
-									  this->file[field][index][dimensionField][dimensionIndex].value("y", 0.f));
+					this->file[field][index][dimensionField][dimensionIndex].value("y", 0.f));
 
 				std::shared_ptr<Model> model = nullptr;
 				switch (type)
 				{
-					case (MapObjectType::motPortal):
-					{
-						model = std::make_shared<Model>(this->manager, position, "", priorityIndex, false, "", this->getOriginFromField(this->file[field][index], type));
-						this->manager->palette->loadPaletteShape(model, texture, sf::Vector2f(this->file[field][index][dimensionField][dimensionIndex].value("width", 0.f),
-																							  this->file[field][index][dimensionField][dimensionIndex].value("height", 0.f)));
-						break;
-					}
+				case (MapObjectType::motPortal):
+				{
+					model = std::make_shared<Model>(this->manager, position, "", priorityIndex, false, "", this->getOriginFromField(this->file[field][index], type));
+					this->manager->palette->loadPaletteShape(model, texture, sf::Vector2f(this->file[field][index][dimensionField][dimensionIndex].value("width", 0.f),
+						this->file[field][index][dimensionField][dimensionIndex].value("height", 0.f)));
+					break;
+				}
 
-					default:
-					{
-						model = std::make_shared<Model>(this->manager, position, "" + texture, priorityIndex, false, "",
-														this->getOriginFromField(this->file[field][index], type));
-						model->sprite->setScale(sf::Vector2f(this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f),
-															 this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f)));
-						model->sprite->setRotation(this->file[field][index][dimensionField][dimensionIndex].value("rotation", 0.f));
-						model->autoPriority = this->file[field][index][dimensionField][dimensionIndex].value("auto-priority", 0);
-					}
+				default:
+				{
+					model = std::make_shared<Model>(this->manager, position, "" + texture, priorityIndex, false, "",
+						this->getOriginFromField(this->file[field][index], type));
+					model->sprite->setScale(sf::Vector2f(this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f),
+						this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f)));
+					model->sprite->setRotation(this->file[field][index][dimensionField][dimensionIndex].value("rotation", 0.f));
+					model->autoPriority = this->file[field][index][dimensionField][dimensionIndex].value("auto-priority", 0);
+				}
 				}
 				this->manager->addView(std::static_pointer_cast<ViewElement>(model));
 
@@ -557,6 +562,23 @@ bool Map::loadMap(std::string file)
 	this->manager->setTitle(this->filename);
 
 	this->manager->hud->showMessage("Map loaded successfully!");
+
+	return true;
+}
+
+bool Map::loadMap(std::string file)
+{
+	this->newMap();
+
+	if (file == "")
+	{
+		this->manager->choosePath(PathType::ptLoadMap, "Open", "Load map");
+	}
+	else
+	{
+		this->filename = file;
+		this->loadMapAfter();
+	}	
 
 	return true;
 }

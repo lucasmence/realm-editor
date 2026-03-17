@@ -16,6 +16,8 @@
 #ifndef MANAGER_HPP
 #define MANAGER_HPP
 
+enum class PathType { ptLoadMap, ptSaveMap, ptGamepath };
+
 struct ManagerConstant
 {
 	std::string fontFilePath;
@@ -38,6 +40,26 @@ struct MapEdge
 	sf::Vector2f positionEnd;
 };
 
+struct FileEntry 
+{
+	std::string name;
+	std::string path;
+	bool isFolder;
+};
+
+struct FilePathData 
+{
+	PathType type;
+	std::string confirmButtonName;
+	std::string dialogCaption;
+	std::string path;
+	FileEntry currentEntry;
+	bool isFolder;
+	bool active;
+	std::list<FileEntry> filePath;
+	bool cancelButtonVisible;
+};
+
 class Manager
 {
 	public:
@@ -58,9 +80,11 @@ class Manager
 		bool open;
 		bool minimapViewUpdate;
 		bool minimapVisible;
+		sf::Clock deltaClock;
 		std::string appName;
 		sf::FloatRect minimapViewArea;
 		std::vector<MapEdge> mapEdges;
+		FilePathData filePathData;
 
 		Manager();
 		~Manager();
@@ -87,6 +111,12 @@ class Manager
 		std::shared_ptr<Texture> getTexture(std::string filename);
 		std::string setTitle(std::string value);
 		sf::Vector2f getMousePosition();
+		bool loadGamepathAfter();
+
+		bool choosePath(PathType type, std::string confirmButtonName, std::string dialogCaption, bool getFolder = false, bool cancelButtonVisible = true);
+		std::list<FileEntry> returnFiles(std::string pathname);
+		bool updatePathImgui();
+		bool imguiUpdate();
 };
 
 #endif
