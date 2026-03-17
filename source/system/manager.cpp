@@ -1,5 +1,7 @@
 #include "manager.hpp"
 #include "library/script.hpp"
+#include "external/imgui/imgui.h"
+#include "external/imgui/imgui-SFML.h"
 
 Manager::Manager()
 {
@@ -7,7 +9,8 @@ Manager::Manager()
     this->loadConstants();
 
     this->appName = "realm-editor";
-	this->window = std::make_shared<sf::RenderWindow>(sf::VideoMode(sf::VideoMode::getDesktopMode().width, sf::VideoMode::getDesktopMode().height), appName, sf::Style::Default);
+    this->window = std::make_shared<sf::RenderWindow>(sf::VideoMode(sf::VideoMode::getDesktopMode().width, sf::VideoMode::getDesktopMode().height), appName, sf::Style::Default);
+    ImGui::SFML::Init(*this->window);
 
     this->font = std::shared_ptr<sf::Font>(new sf::Font);
     this->font->loadFromFile(this->constant.gamePath + "/" + this->constant.fontFilePath);
@@ -27,6 +30,7 @@ Manager::Manager()
     this->minimapViewUpdate = false;
     this->minimapVisible = false;
     this->canvasPosition = sf::Vector2f(0.f, -115.f);
+    this->filePathData.active = false;
 
     this->loadWindowOpening();
     this->map->newMap();
@@ -97,9 +101,53 @@ bool Manager::update()
     
     this->hud->update(this->getMousePosition());
 
+    this->imguiUpdate();
+
     this->display();
 
 	return true;
+}
+
+bool Manager::imguiUpdate()
+{
+    ImGui::SFML::Update(*this->window, deltaClock.restart());
+    if (this->updatePathImgui())
+    {
+        if (this->filePathData.path != "" && !this->filePathData.active)
+        {
+            this->map->filename = this->filePathData.path;
+            std::cout << this->map->filename << std::endl;
+            this->filePathData.path = "";
+            switch (this->filePathData.type)
+            {
+            case (PathType::ptLoadMap):
+            {
+                this->map->loadMapAfter();
+                break;
+            }
+            case (PathType::ptSaveMap):
+            {
+                this->map->saveMapAfter();
+                break;
+            }
+            case (PathType::ptGamepath):
+            {
+                this->loadGamepathAfter();
+                break;
+            }
+            }
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+bool Manager::loadGamepathAfter()
+{
+
+    return true;
 }
 
 bool Manager::display()
@@ -129,6 +177,7 @@ bool Manager::display()
     else 
         this->minimapViewArea = sf::FloatRect(0.f, 0.f, 0.f, 0.f);
     
+    ImGui::SFML::Render(*this->window);
     this->window->display();
 
     return true;
@@ -146,6 +195,7 @@ bool Manager::event()
     sf::Event event;
     while (this->window->pollEvent(event))
     {
+        ImGui::SFML::ProcessEvent(event);
         switch (event.type)
         {
             case sf::Event::Closed:
@@ -470,4 +520,124 @@ bool Manager::unloadAll()
     this->list.textures.clear();
     this->list.viewElements.clear();
 	return true;
+}
+
+std::list<FileEntry> Manager::returnFiles(std::string pathname)
+{
+    boost::filesystem::path path = pathname;
+    boost::filesystem::directory_iterator iterator{ path };
+    boost::filesystem::path parentPath(pathname);
+
+    std::list<FileEntry> fileListResult = { FileEntry {"...", parentPath.parent_path().string(), true} };
+    while (iterator != boost::filesystem::directory_iterator{})
+    {
+        boost::filesystem::path p = iterator->path();
+        if (!(p.filename().string() == "trigger" && boost::filesystem::is_directory(p)))
+            fileListResult.emplace_back(FileEntry{ p.filename().string(), boost::filesystem::absolute(p).string(), boost::filesystem::is_directory(p) });
+        iterator++;
+    }
+
+    int index = 0;
+
+    std::list<FileEntry> fileList = {};
+    std::list<FileEntry> fileListTemp = fileListResult;
+    while (fileListTemp.size() > 0) 
+    {
+        FileEntry entry = fileListTemp.back();
+        if (entry.isFolder) fileList.emplace(fileList.begin(), entry); else fileList.emplace_back(entry);
+        fileListTemp.pop_back();
+    }
+
+    return fileList;
+}
+
+bool Manager::choosePath(PathType type, std::string confirmButtonName, std::string dialogCaption, bool getFolder, bool cancelButtonVisible)
+{
+    this->palette->clearPaletteItem();
+    this->filePathData = FilePathData{ type, confirmButtonName, dialogCaption, "", FileEntry{"", "", false}, getFolder, true, this->returnFiles(this->constant.gamePath), cancelButtonVisible };
+    return true;
+}
+
+bool Manager::updatePathImgui()
+{
+    if (!this->filePathData.active)
+        return false;
+
+    std::list<FileEntry> fileList = this->filePathData.filePath;
+
+    ImGui::SetNextWindowSize(ImVec2(530, 235), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(
+        ImVec2(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f),
+        ImGuiCond_Always,
+        ImVec2(0.5f, 0.5f)
+    );
+    ImGui::Begin(this->filePathData.dialogCaption.data());
+    if (ImGui::BeginChild("##file_browser", ImVec2(400, 200), true))
+    {
+        for (const auto& entry : fileList)
+        {
+            std::string label = entry.isFolder ? "[ " + entry.name + " ]" : entry.name;
+            if (entry.isFolder) ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
+
+            if (ImGui::Selectable(label.c_str(), false, ImGuiSelectableFlags_AllowDoubleClick)) 
+            {
+                this->filePathData.currentEntry = this->filePathData.isFolder && entry.isFolder ? entry : FileEntry{ "", "", false }; 
+                if (ImGui::IsMouseDoubleClicked(0)) 
+                {
+                    if (entry.isFolder) {
+                        this->filePathData.filePath = returnFiles(entry.path);
+                        this->filePathData.currentEntry = { "", "", false };
+                    }
+                    else 
+                    {
+                        this->filePathData.path = entry.path;
+                        this->filePathData.active = false;
+                    }
+                }
+            }
+
+            if (entry.isFolder) ImGui::PopStyleColor();
+
+        }
+        ImGui::EndChild();
+        ImGui::Dummy(ImVec2(200.0f, 0.0f));
+        ImGui::Separator();
+        ImVec2 size = ImGui::GetWindowSize();
+        float btnWidth = 100.0f;
+        float btnHeight = 25.0f;
+        float spacing = ImGui::GetStyle().ItemSpacing.y;
+
+        float posX = size.x - btnWidth - 10.0f;
+        float posY = size.y - (btnHeight * 2) - spacing - 10.0f;
+
+        ImGui::SetCursorPos(ImVec2(posX, posY));
+        if (ImGui::Button(this->filePathData.confirmButtonName.data(), ImVec2(btnWidth, btnHeight)))
+        { 
+            if (this->filePathData.currentEntry.path != "")
+            {
+                this->filePathData.path = this->filePathData.currentEntry.path;
+                this->filePathData.active = false;
+            }       
+        }
+
+        if (this->filePathData.cancelButtonVisible)
+        {
+            ImGui::SetCursorPos(ImVec2(posX, posY + btnHeight + spacing));
+            if (ImGui::Button("Cancel", ImVec2(btnWidth, btnHeight)))
+            {
+                this->filePathData.active = false;
+            }
+        }
+        
+        float windowHeight = ImGui::GetWindowSize().y;
+        float textHeight = ImGui::GetTextLineHeightWithSpacing();
+        float margin = 10.0f;
+
+        ImGui::SetCursorPos(ImVec2(margin, windowHeight - textHeight - margin));
+        ImGui::Text(this->filePathData.currentEntry.name.data());
+    }
+    
+    ImGui::End();
+
+    return true;
 }
