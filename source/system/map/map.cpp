@@ -382,6 +382,9 @@ bool Map::saveMap()
 
 bool Map::saveMapAfter()
 {
+	this->filename += this->manager->filePathData.file != "" ? "\\" + this->manager->filePathData.file + ".json" : "";
+	this->manager->filePathData.file = "";
+
 	if (!boost::filesystem::exists(boost::filesystem::path{ this->filename }.parent_path()))
 	{
 		this->manager->hud->showMessage("Failed: File not selected!");

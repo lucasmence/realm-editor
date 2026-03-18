@@ -116,7 +116,6 @@ bool Manager::imguiUpdate()
         if (this->filePathData.path != "" && !this->filePathData.active)
         {
             this->map->filename = this->filePathData.path;
-            std::cout << this->map->filename << std::endl;
             this->filePathData.path = "";
             switch (this->filePathData.type)
             {
@@ -554,7 +553,7 @@ std::list<FileEntry> Manager::returnFiles(std::string pathname)
 bool Manager::choosePath(PathType type, std::string confirmButtonName, std::string dialogCaption, bool getFolder, bool cancelButtonVisible)
 {
     this->palette->clearPaletteItem();
-    this->filePathData = FilePathData{ type, confirmButtonName, dialogCaption, "", FileEntry{"", "", false}, getFolder, true, this->returnFiles(this->constant.gamePath), cancelButtonVisible };
+    this->filePathData = FilePathData{ type, confirmButtonName, dialogCaption, "", "", FileEntry{"", "", false}, getFolder, true, this->returnFiles(this->constant.gamePath), cancelButtonVisible};
     return true;
 }
 
@@ -565,7 +564,7 @@ bool Manager::updatePathImgui()
 
     std::list<FileEntry> fileList = this->filePathData.filePath;
 
-    ImGui::SetNextWindowSize(ImVec2(530, 235), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(530, 275), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowPos(
         ImVec2(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f),
         ImGuiCond_Always,
@@ -587,6 +586,11 @@ bool Manager::updatePathImgui()
                     if (entry.isFolder) {
                         this->filePathData.filePath = returnFiles(entry.path);
                         this->filePathData.currentEntry = { "", "", false };
+                        if (this->filePathData.type == PathType::ptSaveMap)
+                        {
+                            this->filePathData.path = entry.path;
+                            this->filePathData.currentEntry.path = entry.path;
+                        }           
                     }
                     else 
                     {
@@ -600,8 +604,16 @@ bool Manager::updatePathImgui()
 
         }
         ImGui::EndChild();
-        ImGui::Dummy(ImVec2(200.0f, 0.0f));
-        ImGui::Separator();
+
+        if (this->filePathData.type == PathType::ptSaveMap)
+        {
+            static char buffer[256] = "";
+            if (ImGui::InputText("##edit", buffer, IM_ARRAYSIZE(buffer)))
+            {
+                std::string file(buffer);
+                this->filePathData.file = file;
+            }
+        }
         ImVec2 size = ImGui::GetWindowSize();
         float btnWidth = 100.0f;
         float btnHeight = 25.0f;
@@ -611,6 +623,7 @@ bool Manager::updatePathImgui()
         float posY = size.y - (btnHeight * 2) - spacing - 10.0f;
 
         ImGui::SetCursorPos(ImVec2(posX, posY));
+
         if (ImGui::Button(this->filePathData.confirmButtonName.data(), ImVec2(btnWidth, btnHeight)))
         { 
             if (this->filePathData.currentEntry.path != "")

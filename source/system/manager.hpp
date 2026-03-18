@@ -53,6 +53,7 @@ struct FilePathData
 	std::string confirmButtonName;
 	std::string dialogCaption;
 	std::string path;
+	std::string file;
 	FileEntry currentEntry;
 	bool isFolder;
 	bool active;
