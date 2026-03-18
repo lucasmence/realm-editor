@@ -1608,6 +1608,9 @@ bool Hud::updateEdit(char text)
 
 bool Hud::getCheckEditing()
 {
+	if (this->manager->filePathData.active)
+		return true;
+
 	for (auto& edit : this->edits)
 		if (edit->selected)
 			return true;
