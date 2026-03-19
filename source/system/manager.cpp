@@ -583,7 +583,7 @@ bool Manager::updatePathImgui()
 
             if (ImGui::Selectable(label.c_str(), false, ImGuiSelectableFlags_AllowDoubleClick)) 
             {
-                this->filePathData.currentEntry = this->filePathData.isFolder && entry.isFolder ? entry : FileEntry{ "", "", false }; 
+                this->filePathData.currentEntry = (this->filePathData.isFolder && entry.isFolder) || (!this->filePathData.isFolder && !entry.isFolder) ? entry : FileEntry{"", "", false};
                 if (ImGui::IsMouseDoubleClicked(0)) 
                 {
                     if (entry.isFolder) {
@@ -592,13 +592,18 @@ bool Manager::updatePathImgui()
                         if (this->filePathData.type == PathType::ptSaveMap)
                         {
                             this->filePathData.path = entry.path;
-                            this->filePathData.currentEntry.path = entry.path;
+                            this->filePathData.currentEntry = entry;
                         }           
                     }
                     else 
                     {
                         this->filePathData.path = entry.path;
                         this->filePathData.active = false;
+                        if (this->filePathData.type == PathType::ptSaveMap)
+                        {
+                            this->filePathData.path = entry.path;
+                            this->filePathData.currentEntry = entry;
+                        }
                     }
                 }
             }
@@ -613,8 +618,7 @@ bool Manager::updatePathImgui()
             static char buffer[256] = "";
             if (ImGui::InputText("##edit", buffer, IM_ARRAYSIZE(buffer)))
             {
-                std::string file(buffer);
-                this->filePathData.file = file;
+                this->filePathData.file = buffer;
             }
         }
         ImVec2 size = ImGui::GetWindowSize();
@@ -661,7 +665,9 @@ bool Manager::updatePathImgui()
         float margin = 10.0f;
 
         ImGui::SetCursorPos(ImVec2(margin, windowHeight - textHeight - margin));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
         ImGui::Text(this->filePathData.currentEntry.name.data());
+        ImGui::PopStyleColor();
     }
 
     if (ImGui::BeginPopupModal("Overwrite", NULL, ImGuiWindowFlags_AlwaysAutoResize))
