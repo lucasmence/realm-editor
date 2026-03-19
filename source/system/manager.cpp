@@ -553,7 +553,7 @@ std::list<FileEntry> Manager::returnFiles(std::string pathname)
 bool Manager::choosePath(PathType type, std::string confirmButtonName, std::string dialogCaption, bool getFolder, bool cancelButtonVisible)
 {
     this->palette->clearPaletteItem();
-    this->filePathData = FilePathData{ type, confirmButtonName, dialogCaption, "", "", FileEntry{"", "", false}, getFolder, true, this->returnFiles(this->constant.gamePath), cancelButtonVisible};
+    this->filePathData = FilePathData{ type, confirmButtonName, dialogCaption, "", "", FileEntry{"", "", false}, getFolder, true, this->returnFiles(this->constant.gamePath), cancelButtonVisible, false };
     return true;
 }
 
@@ -626,10 +626,21 @@ bool Manager::updatePathImgui()
 
         if (ImGui::Button(this->filePathData.confirmButtonName.data(), ImVec2(btnWidth, btnHeight)))
         { 
-            if (this->filePathData.currentEntry.path != "")
+            this->filePathData.path = this->filePathData.currentEntry.path;
+            if (this->filePathData.path != "")
             {
-                this->filePathData.path = this->filePathData.currentEntry.path;
-                this->filePathData.active = false;
+                if (this->filePathData.type == PathType::ptSaveMap)
+                {
+                    this->filePathData.overwriteDialog = (boost::filesystem::exists(boost::filesystem::path{ this->filePathData.path + "\\" + this->filePathData.file + ".json" }));
+                }
+                if (this->filePathData.overwriteDialog) 
+                {
+                    ImGui::OpenPopup("Overwrite");
+                }
+                else
+                {     
+                    this->filePathData.active = false;
+                }   
             }       
         }
 
@@ -641,13 +652,37 @@ bool Manager::updatePathImgui()
                 this->filePathData.active = false;
             }
         }
-        
+
         float windowHeight = ImGui::GetWindowSize().y;
         float textHeight = ImGui::GetTextLineHeightWithSpacing();
         float margin = 10.0f;
 
         ImGui::SetCursorPos(ImVec2(margin, windowHeight - textHeight - margin));
         ImGui::Text(this->filePathData.currentEntry.name.data());
+    }
+
+    if (ImGui::BeginPopupModal("Overwrite", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::Text("Are you sure?");
+        ImGui::Separator();
+
+        if (ImGui::Button("Yes", ImVec2(120, 0)))
+        {
+            this->filePathData.active = false;
+            this->filePathData.overwriteDialog = false;
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::SameLine();
+
+        if (ImGui::Button("No", ImVec2(120, 0)))
+        {
+            this->filePathData.path = "";
+            this->filePathData.overwriteDialog = false;
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::EndPopup();
     }
     
     ImGui::End();
