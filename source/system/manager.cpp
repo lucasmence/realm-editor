@@ -153,28 +153,31 @@ bool Manager::display()
 {
     this->minimapViewUpdate = false;
 
-    for (auto& element : this->list.viewElements)
-        element->draw();
-
-    if (this->minimapVisible)
+    if (!this->filePathData.active)
     {
-        this->minimapView->reset(sf::FloatRect(this->canvasPosition.x, this->canvasPosition.y, this->window->getSize().x, this->window->getSize().y));
-        this->minimapView->zoom(2.f);
-        this->window->setView(*this->minimapView);
-        this->minimapViewUpdate = true;
-        
         for (auto& element : this->list.viewElements)
             element->draw();
 
-        this->minimapViewUpdate = false;
+        if (this->minimapVisible)
+        {
+            this->minimapView->reset(sf::FloatRect(this->canvasPosition.x, this->canvasPosition.y, this->window->getSize().x, this->window->getSize().y));
+            this->minimapView->zoom(2.f);
+            this->window->setView(*this->minimapView);
+            this->minimapViewUpdate = true;
 
-        this->minimapViewArea = sf::FloatRect(this->canvasPosition.x + this->canvas->getSize().x * this->minimapView->getViewport().left,
-                                              this->canvasPosition.y + this->canvas->getSize().y * this->minimapView->getViewport().top,
-                                              this->minimapView->getSize().x * this->minimapView->getViewport().width,
-                                              this->minimapView->getSize().y * this->minimapView->getViewport().height);
-    }
-    else 
-        this->minimapViewArea = sf::FloatRect(0.f, 0.f, 0.f, 0.f);
+            for (auto& element : this->list.viewElements)
+                element->draw();
+
+            this->minimapViewUpdate = false;
+
+            this->minimapViewArea = sf::FloatRect(this->canvasPosition.x + this->canvas->getSize().x * this->minimapView->getViewport().left,
+                this->canvasPosition.y + this->canvas->getSize().y * this->minimapView->getViewport().top,
+                this->minimapView->getSize().x * this->minimapView->getViewport().width,
+                this->minimapView->getSize().y * this->minimapView->getViewport().height);
+        }
+        else
+            this->minimapViewArea = sf::FloatRect(0.f, 0.f, 0.f, 0.f);
+    } 
     
     ImGui::SFML::Render(*this->window);
     this->window->display();
