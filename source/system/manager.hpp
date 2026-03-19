@@ -59,6 +59,7 @@ struct FilePathData
 	bool active;
 	std::list<FileEntry> filePath;
 	bool cancelButtonVisible;
+	bool overwriteDialog;
 };
 
 class Manager
