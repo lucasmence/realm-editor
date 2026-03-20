@@ -48,9 +48,6 @@ class Palette
 
 		bool selectPalette(PaletteType type);
 
-		std::list<std::string> loadFileLists(std::string directory, std::string subDirectory = "");
-		std::list<std::string> loadFileFromDirectory(std::string directory, std::string base = "", std::string subDirectory = "");
-		std::string getString(std::string value);
 		bool checkModels(std::shared_ptr<Model> modelX, std::shared_ptr<Model> modelY);
 		bool selectPaletteItem(sf::Vector2f cursor, std::shared_ptr<Model> model = nullptr);
 		bool clearPaletteItem();

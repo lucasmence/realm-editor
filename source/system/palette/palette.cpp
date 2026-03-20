@@ -41,14 +41,14 @@ bool Palette::unloadPalettes()
 bool Palette::loadPalettes()
 {
     this->unloadPalettes();
-    this->terrain = this->loadFileLists("textures/terrain");
-    this->prop = this->loadFileLists("textures/prop");
-    this->unit = this->loadFileLists("characters");
-    this->merchant = this->loadFileLists("merchants/stores");
-    this->item = this->loadFileLists("items");
+    this->terrain = this->manager->loadFileLists("textures/terrain");
+    this->prop = this->manager->loadFileLists("textures/prop");
+    this->unit = this->manager->loadFileLists("characters");
+    this->merchant = this->manager->loadFileLists("merchants/stores");
+    this->item = this->manager->loadFileLists("items");
     this->portal = {"spawner", "level", "generator", "wall", "region", "teleporter", "slider", "crusher", "connector", "exit", "guardian", "waygate"};
 
-    this->environment = this->loadFileLists("textures/environment");
+    this->environment = this->manager->loadFileLists("textures/environment");
 
     this->selectPalette(this->type);
 
@@ -457,43 +457,4 @@ bool Palette::selectPaletteItem(sf::Vector2f cursor, std::shared_ptr<Model> mode
     }
 
     return true;
-}
-
-std::list<std::string> Palette::loadFileLists(std::string directory, std::string subDirectory)
-{
-   return this->loadFileFromDirectory(directory, "", subDirectory);
-}
-
-std::list<std::string> Palette::loadFileFromDirectory(std::string directory, std::string base, std::string subDirectory)
-{
-    boost::filesystem::path path = directory;
-    if (base == "")
-        path = this->manager->constant.gamePath + "/data/" + directory;
-    else
-        base += "\\";
-
-    std::list<std::string> listFiles = {};
-
-    for (auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(path), {}))
-        if (boost::filesystem::is_directory(entry))
-        {
-            std::ostringstream stringStreamDirectory, stringStreamName;
-            stringStreamDirectory << entry;
-            stringStreamName << entry.path().filename();
-            std::string directory = this->getString(stringStreamDirectory.str()), name = this->getString(stringStreamName.str());
-            boost::algorithm::replace_all(directory, "\\", "/");
-            std::list<std::string> subListFiles = this->loadFileFromDirectory(directory, name);
-            if (subListFiles.size() > 0)
-                listFiles.insert(listFiles.end(), subListFiles.begin(), subListFiles.end());
-        }
-        else if (boost::filesystem::extension(entry) == ".json")
-            listFiles.emplace_back(subDirectory + base + boost::filesystem::basename(entry));
-
-    return listFiles;
-}
-
-std::string Palette::getString(std::string value)
-{
-    boost::erase_all(value, "\"");
-    return value;
 }

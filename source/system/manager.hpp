@@ -22,6 +22,7 @@ struct ManagerConstant
 {
 	std::string fontFilePath;
 	std::string gamePath;
+	std::string mapFolder;
 	std::string gameVersion;
 	std::vector<int> gridSize;
 	std::vector<int> brushSize;
@@ -82,6 +83,7 @@ class Manager
 		bool open;
 		bool minimapViewUpdate;
 		bool minimapVisible;
+		bool hudLoaded;
 		sf::Clock deltaClock;
 		std::string appName;
 		sf::FloatRect minimapViewArea;
@@ -91,7 +93,6 @@ class Manager
 		Manager();
 		~Manager();
 		bool unloadAll();
-		bool loadWindowOpening();
 
 		bool update();
 		bool event();
@@ -114,11 +115,18 @@ class Manager
 		std::string setTitle(std::string value);
 		sf::Vector2f getMousePosition();
 		bool loadGamepathAfter();
+		bool loadConfigTxt();
+		bool saveConfigTxt();
 
 		bool choosePath(PathType type, std::string confirmButtonName, std::string dialogCaption, bool getFolder = false, bool cancelButtonVisible = true);
 		std::list<FileEntry> returnFiles(std::string pathname);
 		bool updatePathImgui();
 		bool imguiUpdate();
+
+		std::list<std::string> loadFileLists(std::string directory, std::string subDirectory = "");
+		std::list<std::string> loadFileFromDirectory(std::string directory, std::string base = "", std::string subDirectory = "");
+		std::string getString(std::string value);
+
 };
 
 #endif

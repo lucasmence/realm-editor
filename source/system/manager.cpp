@@ -1,3 +1,9 @@
+#include <fstream>
+#include <sstream>
+#include <type_traits>
+#include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/lexical_cast.hpp>
 #include "manager.hpp"
 #include "library/script.hpp"
 #include "external/imgui/imgui.h"
@@ -10,20 +16,15 @@ Manager::Manager()
 
     this->appName = "realm-editor";
     this->window = std::make_shared<sf::RenderWindow>(sf::VideoMode(sf::VideoMode::getDesktopMode().width, sf::VideoMode::getDesktopMode().height), appName, sf::Style::Default);
+    this->canvas = std::make_shared<sf::View>();
+    this->minimapView = std::make_shared<sf::View>();
     ImGui::SFML::Init(*this->window);
 
     this->font = std::shared_ptr<sf::Font>(new sf::Font);
-    this->font->loadFromFile(this->constant.gamePath + "/" + this->constant.fontFilePath);
+    this->font->loadFromFile(this->constant.fontFilePath);
     this->icon.loadFromFile("realm-editor.png");
     this->window->setIcon(this->icon.getSize().x, this->icon.getSize().y, this->icon.getPixelsPtr());
-  
-    this->hud = std::make_shared<Hud>(this);
-    this->palette = std::make_shared<Palette>(this);
-    this->map = std::make_shared<Map>(this);
-    this->canvas = std::make_shared<sf::View>();
-    this->minimapView = std::make_shared<sf::View>();
-    this->minimapView->setViewport(this->constant.minimapSize);
-    this->minimapViewArea = sf::FloatRect(0.f, 0.f, 0.f, 0.f);   
+    this->hudLoaded = false;
 
     this->hasFocus = true;
     this->open = false;
@@ -32,24 +33,13 @@ Manager::Manager()
     this->canvasPosition = sf::Vector2f(0.f, -115.f);
     this->filePathData.active = false;
 
-    this->loadWindowOpening();
-    this->map->newMap();
+    if (!this->loadConfigTxt())
+        this->choosePath(PathType::ptGamepath, "Select", "Select game folder", true, false);
 }
 
 Manager::~Manager()
 {
     this->unloadAll();
-}
-
-bool Manager::loadWindowOpening()
-{
-    if (this->open)
-        return false;
-
-    this->open = true;
-    script::maximizeWindow("realm-editor");
-    
-    return true;
 }
 
 bool Manager::addViewElement(std::shared_ptr<ViewElement> element)
@@ -97,9 +87,12 @@ bool Manager::update()
 
     this->window->clear();
 
-    this->setCanvas();
-    
-    this->hud->update(this->getMousePosition());
+    if (this->hudLoaded)
+    {
+        this->setCanvas();
+
+        this->hud->update(this->getMousePosition());
+    }
 
     this->imguiUpdate();
 
@@ -115,26 +108,31 @@ bool Manager::imguiUpdate()
     {
         if (this->filePathData.path != "" && !this->filePathData.active)
         {
-            this->map->filename = this->filePathData.path;
+            if (this->hudLoaded) this->map->filename = this->filePathData.path;
+            boost::filesystem::path mapFolder(this->filePathData.currentEntry.path);
+            this->constant.mapFolder = mapFolder.parent_path().string();
             this->filePathData.path = "";
             switch (this->filePathData.type)
             {
-            case (PathType::ptLoadMap):
-            {
-                this->map->loadMapAfter();
-                break;
+                case (PathType::ptLoadMap):
+                {
+                    this->map->loadMapAfter();
+                    break;
+                }
+                case (PathType::ptSaveMap):
+                {
+                    this->map->saveMapAfter();
+                    break;
+                }
+                case (PathType::ptGamepath):
+                {
+                    this->constant.gamePath = this->filePathData.currentEntry.path;
+                    this->loadGamepathAfter();
+                    break;
+                }
             }
-            case (PathType::ptSaveMap):
-            {
-                this->map->saveMapAfter();
-                break;
-            }
-            case (PathType::ptGamepath):
-            {
-                this->loadGamepathAfter();
-                break;
-            }
-            }
+
+            this->saveConfigTxt();
         }
 
         return true;
@@ -145,6 +143,15 @@ bool Manager::imguiUpdate()
 
 bool Manager::loadGamepathAfter()
 {
+    this->hud = std::make_shared<Hud>(this);
+    this->palette = std::make_shared<Palette>(this);
+    this->map = std::make_shared<Map>(this);
+    this->minimapView->setViewport(this->constant.minimapSize);
+    this->minimapViewArea = sf::FloatRect(0.f, 0.f, 0.f, 0.f);
+
+    this->map->newMap();
+
+    this->hudLoaded = true;
 
     return true;
 }
@@ -153,7 +160,7 @@ bool Manager::display()
 {
     this->minimapViewUpdate = false;
 
-    if (!this->filePathData.active)
+    if (!this->filePathData.active && this->hudLoaded)
     {
         for (auto& element : this->list.viewElements)
             element->draw();
@@ -198,56 +205,57 @@ bool Manager::event()
     while (this->window->pollEvent(event))
     {
         ImGui::SFML::ProcessEvent(event);
-        switch (event.type)
-        {
-            case sf::Event::Closed:
+        if (this->hudLoaded)
+            switch (event.type)
             {
-                this->window->close();
-                break;
-            }
+                case sf::Event::Closed:
+                {
+                    this->window->close();
+                    break;
+                }
 
-            case  sf::Event::GainedFocus:
-            {
-                this->hasFocus = true;
-                break;
-            }
+                case  sf::Event::GainedFocus:
+                {
+                    this->hasFocus = true;
+                    break;
+                }
 
-            case sf::Event::LostFocus:
-            {
-                this->hasFocus = false;
-                break;
-            }
+                case sf::Event::LostFocus:
+                {
+                    this->hasFocus = false;
+                    break;
+                }
 
-            case sf::Event::MouseButtonPressed:
-            {
-                this->eventClick(event);
-                break;
-            }
+                case sf::Event::MouseButtonPressed:
+                {
+                    this->eventClick(event);
+                    break;
+                }
 
-            case sf::Event::KeyPressed:
-            {
-                this->eventKey(event);
-                break;
-            }
+                case sf::Event::KeyPressed:
+                {
+                    this->eventKey(event);
+                    break;
+                }
 
-            case sf::Event::TextEntered:
-            {
-                this->eventType(event);
-                break;
-            }
+                case sf::Event::TextEntered:
+                {
+                    this->eventType(event);
+                    break;
+                }
 
-            case sf::Event::MouseButtonReleased:
-            {
-                this->eventMouseReleased(event);
-                break;
-            }
+                case sf::Event::MouseButtonReleased:
+                {
+                    this->eventMouseReleased(event);
+                    break;
+                }
 
-            case sf::Event::MouseMoved:
-            {
-                this->eventMouseMoved(event);
-                break;
+                case sf::Event::MouseMoved:
+                {
+                    this->eventMouseMoved(event);
+                    break;
+                }
             }
-        }
     }
 
 	return true;
@@ -496,7 +504,6 @@ bool Manager::loadConstants()
 
     json file = Json::loadFromFile("data/options/realm-editor.json");
     this->constant.fontFilePath = file.value("font-file-path", "");
-    this->constant.gamePath = file.value("game-path", "");
     this->constant.gameVersion = file.value("game-version", "");
 
     this->constant.gridSize.clear();
@@ -555,8 +562,8 @@ std::list<FileEntry> Manager::returnFiles(std::string pathname)
 
 bool Manager::choosePath(PathType type, std::string confirmButtonName, std::string dialogCaption, bool getFolder, bool cancelButtonVisible)
 {
-    this->palette->clearPaletteItem();
-    this->filePathData = FilePathData{ type, confirmButtonName, dialogCaption, "", "", FileEntry{"", "", false}, getFolder, true, this->returnFiles(this->constant.gamePath), cancelButtonVisible, false };
+    if (this->hudLoaded) this->palette->clearPaletteItem();
+    this->filePathData = FilePathData{ type, confirmButtonName, dialogCaption, "", "", FileEntry{"", "", false}, getFolder, true, this->returnFiles(this->constant.mapFolder != "" ? this->constant.mapFolder : boost::filesystem::current_path().string()), cancelButtonVisible, false};
     return true;
 }
 
@@ -697,4 +704,78 @@ bool Manager::updatePathImgui()
     ImGui::End();
 
     return true;
+}
+
+bool Manager::loadConfigTxt()
+{
+    std::fstream file("config.txt", std::ios::in | std::ios::out | std::ios::app);
+
+    if (!file.is_open()) return false;
+
+    std::string localGamepath, localMapFolder;
+
+    std::getline(file, localGamepath);
+    std::getline(file, localMapFolder);
+
+    this->constant.gamePath = localGamepath;
+    this->constant.mapFolder = localMapFolder;
+
+    if (this->constant.gamePath != "")
+        this->loadGamepathAfter();
+
+    return this->hudLoaded;
+}
+
+bool Manager::saveConfigTxt()
+{
+    if (!this->hudLoaded) return false;
+
+    std::fstream file("config.txt", std::ios::in | std::ios::out | std::ios::trunc);
+
+    file.clear();
+    file << this->constant.gamePath;
+    file << "\n" << this->constant.mapFolder;
+
+    file.close();
+    return true;
+}
+
+
+std::list<std::string> Manager::loadFileLists(std::string directory, std::string subDirectory)
+{
+    return this->loadFileFromDirectory(directory, "", subDirectory);
+}
+
+std::list<std::string> Manager::loadFileFromDirectory(std::string directory, std::string base, std::string subDirectory)
+{
+    boost::filesystem::path path = directory;
+    if (base == "")
+        path = this->constant.gamePath + "/data/" + directory;
+    else
+        base += "\\";
+
+    std::list<std::string> listFiles = {};
+
+    for (auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(path), {}))
+        if (boost::filesystem::is_directory(entry))
+        {
+            std::ostringstream stringStreamDirectory, stringStreamName;
+            stringStreamDirectory << entry;
+            stringStreamName << entry.path().filename();
+            std::string directory = this->getString(stringStreamDirectory.str()), name = this->getString(stringStreamName.str());
+            boost::algorithm::replace_all(directory, "\\", "/");
+            std::list<std::string> subListFiles = this->loadFileFromDirectory(directory, name);
+            if (subListFiles.size() > 0)
+                listFiles.insert(listFiles.end(), subListFiles.begin(), subListFiles.end());
+        }
+        else if (boost::filesystem::extension(entry) == ".json")
+            listFiles.emplace_back(subDirectory + base + boost::filesystem::basename(entry));
+
+    return listFiles;
+}
+
+std::string Manager::getString(std::string value)
+{
+    boost::erase_all(value, "\"");
+    return value;
 }
