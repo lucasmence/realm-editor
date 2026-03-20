@@ -53,6 +53,9 @@ nlohmann
 
 # Log
 *.log
+
+# Misc
 *.png
 .vscode/settings.json
 imgui.ini
+config.txt
