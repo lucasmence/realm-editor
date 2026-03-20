@@ -53,11 +53,6 @@ namespace script
         return true;
     }
 
-    bool maximizeWindow(std::string windowName)
-    {
-        return true;
-    }
-
     bool openUrl(std::string url)
     {
         std::system(std::string("start " + url).c_str());
