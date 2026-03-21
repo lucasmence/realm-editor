@@ -32,6 +32,8 @@ Manager::Manager()
     this->minimapVisible = false;
     this->canvasPosition = sf::Vector2f(0.f, -115.f);
     this->filePathData.active = false;
+    this->imguiMiscData.active = false;
+    this->closeSignal = false;
 
     if (!this->loadConfigTxt())
         this->choosePath(PathType::ptGamepath, "Select", "Select game folder", true, false);
@@ -39,7 +41,15 @@ Manager::Manager()
 
 Manager::~Manager()
 {
+    this->systemClose();
+}
+
+void Manager::systemClose()
+{
+    this->hudLoaded = false;
     this->unloadAll();
+    this->window->close();
+    ImGui::SFML::Shutdown();
 }
 
 bool Manager::addViewElement(std::shared_ptr<ViewElement> element)
@@ -98,47 +108,157 @@ bool Manager::update()
 
     this->display();
 
+    if (this->closeSignal) 
+        this->systemClose();
+
 	return true;
 }
 
 bool Manager::imguiUpdate()
 {
     ImGui::SFML::Update(*this->window, deltaClock.restart());
-    if (this->updatePathImgui())
-    {
-        if (this->filePathData.path != "" && !this->filePathData.active)
-        {
-            if (this->hudLoaded) this->map->filename = this->filePathData.path;
-            boost::filesystem::path mapFolder(this->filePathData.currentEntry.path);
-            this->constant.mapFolder = mapFolder.parent_path().string();
-            this->filePathData.path = "";
-            switch (this->filePathData.type)
-            {
-                case (PathType::ptLoadMap):
-                {
-                    this->map->loadMapAfter();
-                    break;
-                }
-                case (PathType::ptSaveMap):
-                {
-                    this->map->saveMapAfter();
-                    break;
-                }
-                case (PathType::ptGamepath):
-                {
-                    this->constant.gamePath = this->filePathData.currentEntry.path;
-                    this->loadGamepathAfter();
-                    break;
-                }
-            }
-
-            this->saveConfigTxt();
-        }
-
+    
+    if (this->imguiUpdateDialogBox())
         return true;
-    }
+
+    if (this->updatePathImgui())
+        if (this->imguiUpdatePath())
+            return true;
 
     return false;
+}
+
+bool Manager::imguiUpdateDialogBox()
+{
+    if (!this->imguiMiscData.active) return false;
+
+    switch (this->imguiMiscData.type)
+    {
+        case (ImguiMiscType::imtReloadConfirmation):
+        {
+            ImGui::SetNextWindowSize(ImVec2(1, 1), ImGuiCond_FirstUseEver);
+            ImGui::SetNextWindowPos(
+                ImVec2(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f),
+                ImGuiCond_Always,
+                ImVec2(0.5f, 0.5f)
+            );
+            ImGui::Begin("##placeholder");
+
+            ImGui::OpenPopup("Reload Map");
+
+            if (ImGui::BeginPopupModal("Reload Map", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+            {
+                ImGui::Text("Are you sure?");
+                ImGui::Separator();
+
+                if (ImGui::Button("Yes", ImVec2(120, 0)))
+                {
+                    this->imguiDialogBoxData.result = true;
+                    this->imguiMiscData.active = false;
+                    ImGui::CloseCurrentPopup();
+                }
+
+                ImGui::SameLine();
+
+                if (ImGui::Button("No", ImVec2(120, 0)))
+                {
+                    this->imguiDialogBoxData.result = false;
+                    this->imguiMiscData.active = false;
+                    ImGui::CloseCurrentPopup();
+                }
+
+                ImGui::EndPopup();
+            }
+
+            ImGui::End();
+
+            if (!this->imguiMiscData.active && this->imguiDialogBoxData.result) this->map->loadMap(this->map->filename);
+
+            break;
+        }
+
+        case (ImguiMiscType::imtExitConfirmation):
+        {
+            ImGui::SetNextWindowSize(ImVec2(1, 1), ImGuiCond_FirstUseEver);
+            ImGui::SetNextWindowPos(
+                ImVec2(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f),
+                ImGuiCond_Always,
+                ImVec2(0.5f, 0.5f)
+            );
+            ImGui::Begin("##placeholder");
+
+            ImGui::OpenPopup("Exit");
+
+            if (ImGui::BeginPopupModal("Exit", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+            {
+                ImGui::Text("Are you sure you want to exit? \nAll your non-saved data will be lost!");
+                ImGui::Separator();
+
+                if (ImGui::Button("Yes", ImVec2(120, 0)))
+                {
+                    this->imguiDialogBoxData.result = true;
+                    this->imguiMiscData.active = false;
+                    ImGui::CloseCurrentPopup();
+                }
+
+                ImGui::SameLine();
+
+                if (ImGui::Button("No", ImVec2(120, 0)))
+                {
+                    this->imguiDialogBoxData.result = false;
+                    this->imguiMiscData.active = false;
+                    ImGui::CloseCurrentPopup();
+                }
+
+                ImGui::EndPopup();
+            }
+
+            ImGui::End();
+
+            if (!this->imguiMiscData.active && this->imguiDialogBoxData.result) this->closeSignal = true;
+
+            break;
+        }
+    }
+
+    return true;
+}
+
+bool Manager::imguiUpdatePath()
+{
+    if (this->filePathData.path != "" && !this->filePathData.active)
+    {
+        if (this->hudLoaded) 
+            this->map->filename = this->filePathData.path;
+
+        boost::filesystem::path mapFolder(this->filePathData.currentEntry.path);
+        this->constant.mapFolder = mapFolder.parent_path().string();
+        this->filePathData.path = "";
+
+        switch (this->filePathData.type)
+        {
+            case (PathType::ptLoadMap):
+            {
+                this->map->loadMapAfter();
+                break;
+            }
+            case (PathType::ptSaveMap):
+            {
+                this->map->saveMapAfter();
+                break;
+            }
+            case (PathType::ptGamepath):
+            {
+                this->constant.gamePath = this->filePathData.currentEntry.path;
+                this->loadGamepathAfter();
+                break;
+            }
+        }
+
+        this->saveConfigTxt();
+    }
+
+    return true;
 }
 
 bool Manager::loadGamepathAfter()
@@ -201,6 +321,7 @@ sf::Vector2f Manager::getMousePosition()
 bool Manager::event()
 {
     this->window->setView(*this->canvas);
+
     sf::Event event;
     while (this->window->pollEvent(event))
     {
@@ -210,7 +331,7 @@ bool Manager::event()
             {
                 case sf::Event::Closed:
                 {
-                    this->window->close();
+                    this->imguiTrigger(ImguiMiscData{ true, ImguiMiscType::imtExitConfirmation });
                     break;
                 }
 
@@ -447,8 +568,6 @@ bool Manager::calculateMapEdges()
         {
             pixel.left = x;
             pixel.top = y;
-
-
         }
 
     return true;
@@ -778,4 +897,20 @@ std::string Manager::getString(std::string value)
 {
     boost::erase_all(value, "\"");
     return value;
+}
+
+bool Manager::imguiTrigger(ImguiMiscData data)
+{
+    this->imguiMiscData = data;
+
+    switch (this->imguiMiscData.type)
+    {
+        case (ImguiMiscType::imtReloadConfirmation, ImguiMiscType::imtExitConfirmation):
+        {
+            this->imguiDialogBoxData.result = false;
+            break;
+        }
+    }
+
+    return true;
 }
