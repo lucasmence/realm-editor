@@ -405,7 +405,8 @@ bool Map::reloadMap()
 {
 	if (this->filename == "")
 		return false;
-	this->loadMap(this->filename);
+
+	this->manager->imguiTrigger(ImguiMiscData{ true, ImguiMiscType::imtReloadConfirmation });
 	return true;
 }
 

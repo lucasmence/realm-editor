@@ -17,6 +17,7 @@
 #define MANAGER_HPP
 
 enum class PathType { ptLoadMap, ptSaveMap, ptGamepath };
+enum class ImguiMiscType { imtReloadConfirmation, imtExitConfirmation };
 
 struct ManagerConstant
 {
@@ -63,6 +64,17 @@ struct FilePathData
 	bool overwriteDialog;
 };
 
+struct ImguiMiscData
+{
+	bool active;
+	ImguiMiscType type;
+};
+
+struct ImguiDialogBoxData
+{
+	bool result;
+};
+
 class Manager
 {
 	public:
@@ -84,11 +96,14 @@ class Manager
 		bool minimapViewUpdate;
 		bool minimapVisible;
 		bool hudLoaded;
+		bool closeSignal;
 		sf::Clock deltaClock;
 		std::string appName;
 		sf::FloatRect minimapViewArea;
 		std::vector<MapEdge> mapEdges;
 		FilePathData filePathData;
+		ImguiMiscData imguiMiscData;
+		ImguiDialogBoxData imguiDialogBoxData;
 
 		Manager();
 		~Manager();
@@ -122,10 +137,15 @@ class Manager
 		std::list<FileEntry> returnFiles(std::string pathname);
 		bool updatePathImgui();
 		bool imguiUpdate();
+		bool imguiUpdateDialogBox();
+		bool imguiUpdatePath();
+		bool imguiTrigger(ImguiMiscData data);
 
 		std::list<std::string> loadFileLists(std::string directory, std::string subDirectory = "");
 		std::list<std::string> loadFileFromDirectory(std::string directory, std::string base = "", std::string subDirectory = "");
 		std::string getString(std::string value);
+
+		void systemClose();
 
 };
 
