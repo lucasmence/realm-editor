@@ -11,10 +11,10 @@
     [
         
     ],
-    "procedural": true,
+    "procedural": false,
     "procedural-list": "",
     "procedural-room-size": 10,
-    "procedural-exit-door": "environment/ladder-down",
+    "procedural-exit-door": "",
     "unit-spawn-range": 500,
     "unit-spawn-limit": 10,
     "unit-spawn":
