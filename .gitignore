@@ -32,7 +32,6 @@
 *.app
 
 # Assets folder
-
 v16
 Debug
 Release
@@ -59,3 +58,4 @@ nlohmann
 .vscode/settings.json
 imgui.ini
 config.txt
+libs
