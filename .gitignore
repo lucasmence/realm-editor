@@ -46,9 +46,6 @@ CMakeCache.txt
 Makefile
 .vs
 
-# Json Library
-nlohmann
-
 # Log
 *.log
 
