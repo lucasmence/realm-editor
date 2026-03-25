@@ -685,8 +685,6 @@ bool Hud::showMessage(std::string text, float time)
 	this->messageBox.label->timeMax = time;
 	this->messageBox.border->timeMax = time;
 
-	this->manager->update();
-
 	return true;
 }
 
