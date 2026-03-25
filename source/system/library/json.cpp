@@ -1,11 +1,18 @@
 #include "json.hpp"
 #include <fstream>
 #include <sstream>
+#include <algorithm>
 
 namespace Json
 {
+    void fixPath(std::string& path) 
+    {
+        std::replace(path.begin(), path.end(), '\\', '/');
+    }
+    
     json loadFromFile(std::string filename)
     {
+        fixPath(filename);
         std::ifstream fileStream(filename);
 
         json jsonFile;
