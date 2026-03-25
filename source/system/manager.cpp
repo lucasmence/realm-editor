@@ -75,6 +75,7 @@ bool Manager::addViewElement(std::shared_ptr<ViewElement> element)
     }
 
     this->list.viewElements.emplace_back(element);
+    return true;
 }
 
 bool Manager::addView(std::shared_ptr<ViewElement> element)
@@ -792,7 +793,7 @@ bool Manager::updatePathImgui()
 
         ImGui::SetCursorPos(ImVec2(margin, windowHeight - textHeight - margin));
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
-        ImGui::Text(this->filePathData.currentEntry.name.data());
+        ImGui::Text(this->filePathData.currentEntry.name.c_str());
         ImGui::PopStyleColor();
     }
 
