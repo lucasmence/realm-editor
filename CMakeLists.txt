@@ -45,12 +45,16 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 
 if(WIN32)
     add_definitions(-DSFML_STATIC -D_CRT_SECURE_NO_WARNINGS -DSFML_DYNAMIC)
+    
+    set(BOOST_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/libs/boost_1_74_0")
     set(SFML_LIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/libs/SFML-2.5.1-x64/lib")
     
     target_include_directories(${PROJECT_NAME} PRIVATE 
-        "${CMAKE_CURRENT_SOURCE_DIR}/libs/boost_1_74_0"
+        "${BOOST_ROOT}"
         "libs/SFML-2.5.1-x64/include"
     )
+
+    target_link_directories(${PROJECT_NAME} PRIVATE "${BOOST_ROOT}/stage/lib")
     
     target_link_libraries(${PROJECT_NAME} PRIVATE 
         "${SFML_LIB_PATH}/sfml-graphics-s.lib" "${SFML_LIB_PATH}/sfml-window-s.lib"
