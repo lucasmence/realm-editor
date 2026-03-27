@@ -80,11 +80,23 @@
     <ClCompile Include="source\system\map\map.cpp">
       <Filter>map</Filter>
     </ClCompile>
-    <ClCompile Include="source\system\library\script.cpp">
-      <Filter>library</Filter>
-    </ClCompile>
     <ClCompile Include="source\system\hud\edit.cpp">
       <Filter>hud</Filter>
+    </ClCompile>
+    <ClCompile Include="source\system\external\imgui\imgui-SFML.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\system\external\imgui\imgui.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\system\external\imgui\imgui_draw.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\system\external\imgui\imgui_tables.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\system\external\imgui\imgui_widgets.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -127,14 +139,38 @@
     <ClInclude Include="source\system\map\map.hpp">
       <Filter>map</Filter>
     </ClInclude>
-    <ClInclude Include="source\system\library\script.hpp">
-      <Filter>library</Filter>
-    </ClInclude>
     <ClInclude Include="resource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="source\system\hud\edit.hpp">
       <Filter>hud</Filter>
+    </ClInclude>
+    <ClInclude Include="source\system\external\imgui\imconfig-SFML.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\system\external\imgui\imconfig.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\system\external\imgui\imgui-SFML.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\system\external\imgui\imgui-SFML_export.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\system\external\imgui\imgui.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\system\external\imgui\imgui_internal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\system\external\imgui\imstb_rectpack.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\system\external\imgui\imstb_textedit.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\system\external\imgui\imstb_truetype.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
