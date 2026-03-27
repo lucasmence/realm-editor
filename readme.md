@@ -39,4 +39,7 @@ With the recurring development of my next projects, I have some plans for Realm-
 - Trigger editor, to facilitate the use of syntaxes.
 - Integration of the editor within the games themselves.
 
+## License
+- Licensed under [CC0 1.0](https://creativecommons.org/public-domain/cc0/)
+
 **[Mence](https://mence.dev/), 2026**
