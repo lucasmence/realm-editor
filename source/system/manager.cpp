@@ -5,7 +5,6 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 #include "manager.hpp"
-#include "library/script.hpp"
 #include "external/imgui/imgui.h"
 #include "external/imgui/imgui-SFML.h"
 

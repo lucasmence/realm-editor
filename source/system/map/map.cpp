@@ -5,7 +5,6 @@
 #include <boost/dll.hpp>
 #include "map.hpp"
 #include "../manager.hpp"
-#include "../library/script.hpp"
 
 Map::Map(Manager* manager)
 {

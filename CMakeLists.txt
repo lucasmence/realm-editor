@@ -17,7 +17,6 @@ set(SOURCES
     "source/system/hud/hud.cpp"
     "source/system/library/json.cpp"
     "source/system/library/position.cpp"
-    "source/system/library/script.cpp"
     "source/system/manager.cpp"
     "source/system/map/map.cpp"
     "source/system/model/model.cpp"
