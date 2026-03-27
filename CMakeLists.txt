@@ -39,7 +39,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     "source/system/object"
     "source/system/palette"
     "source/system/text"
-    "libs/Candle-master/include"
 )
 
 if(WIN32)
