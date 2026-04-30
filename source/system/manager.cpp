@@ -607,13 +607,13 @@ std::string Manager::setTitle(std::string value)
     return title;
 }
 
-std::shared_ptr<Texture> Manager::getTexture(std::string filename)
+std::shared_ptr<Texture> Manager::getTexture(std::string filename, std::string jsonPath)
 {
     for (auto& texture : this->list.textures)
         if (texture->filename == filename)
             return texture; 
 
-    std::shared_ptr<Texture> texture = std::make_shared<Texture>(filename);
+    std::shared_ptr<Texture> texture = std::make_shared<Texture>(filename, jsonPath);
     this->list.textures.emplace_back(texture);
     return texture;
 }

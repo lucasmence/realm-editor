@@ -11,10 +11,13 @@ class Texture
 	public:
 		sf::Texture texture;
 		std::string filename;
+		std::string jsonPath;
+		bool bitmask;
 
-		Texture(std::string filename);
+		Texture(std::string filename, std::string jsonPath = "");
 		~Texture();
 
+		bool checkBitmasking();
 };
 
 #endif

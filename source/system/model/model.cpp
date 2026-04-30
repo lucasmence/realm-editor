@@ -3,7 +3,7 @@
 #include "../library/json.hpp"
 #include "../manager.hpp"
 
-Model::Model(Manager* manager, sf::Vector2f position, std::string filename, int priority, bool canvasBound, std::string name, std::string origin)
+Model::Model(Manager* manager, sf::Vector2f position, std::string filename, int priority, bool canvasBound, std::string name, std::string origin, std::string animation)
 {
 	this->manager = manager;
 	this->priority = priority;
@@ -14,6 +14,7 @@ Model::Model(Manager* manager, sf::Vector2f position, std::string filename, int 
 	this->name = name;
 	this->filename = filename;
 	this->origin = origin;
+	this->animation = animation;
 	this->shapeType = ShapeType::stRectangle;
 	this->elementType = ElementType::etModel;
 
@@ -68,10 +69,10 @@ bool Model::loadSprite(std::string filename, sf::Vector2f position)
 {
 	this->filename = filename;
 	bool textureFound = false;
-	sf::Vector2i dimension(0, 0);
+	sf::Vector2i dimension(0, 0), direction(0, 0);
 	std::shared_ptr<Model> usedModel = nullptr;
 		
-	if (!usedModel)
+	if (!usedModel && this->animation == "stand")
 		for (auto& modelIndex : this->manager->list.viewElements)
 			if (modelIndex->elementType == this->elementType)
 				if (std::dynamic_pointer_cast<Model>(modelIndex)->filename == this->filename)
@@ -95,18 +96,23 @@ bool Model::loadSprite(std::string filename, sf::Vector2f position)
 		
 		for (int index = 0; index < jsonFile["animation"].size(); index++)
 		{
-			dimension = sf::Vector2i(jsonFile["animation"][index].value("sprite-direction-width", 0), jsonFile["animation"][index].value("sprite-direction-height", 0));
-			break;
+			if (this->animation == "stand" || this->animation == jsonFile["animation"][index].value("name", ""))
+			{
+				direction = sf::Vector2i(jsonFile["animation"][index].value("sprite-direction-left", 0), jsonFile["animation"][index].value("sprite-direction-top", 0));
+				dimension = sf::Vector2i(jsonFile["animation"][index].value("sprite-direction-width", 0), jsonFile["animation"][index].value("sprite-direction-height", 0));
+				break;
+			}
 		}
 
 		textureName = jsonFile.value("texturename", "");
-		this->texture = this->manager->getTexture(this->manager->constant.gamePath + "/resources/sprites/" + textureName);
+		this->texture = this->manager->getTexture(this->manager->constant.gamePath + "/resources/sprites/" + textureName, filename);
+		jsonFile.clear();
 	}
 	
 	this->sprite = std::make_shared<sf::Sprite>();
 	this->sprite->setTexture(this->texture->texture);
-	this->sprite->setTextureRect(sf::IntRect(0, 0, dimension.x, dimension.y));
-	this->sprite->setPosition(position);
+	this->sprite->setTextureRect(sf::IntRect(direction.x, direction.y, dimension.x, dimension.y));
+	this->sprite->setPosition(position);	
 
 	return true;
 }
