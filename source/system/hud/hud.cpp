@@ -559,7 +559,10 @@ bool Hud::deleteSelectedItem()
 		return false;
 
 	this->manager->palette->clearPaletteItem();
+	std::vector<MapObjectUnit> objectList = this->updateBitmaskRemove(objectSelected);
 	this->manager->map->removeObjectUnit(objectSelected);
+	this->updateBitmaskList(objectList);
+	objectList.clear();
 	return true;
 }
 
@@ -1177,7 +1180,12 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 				}	
 
 			if (objectSelected.model)
+			{
+				std::vector<MapObjectUnit> objectList = this->updateBitmaskRemove(objectSelected);
 				this->manager->map->removeObjectUnit(objectSelected);
+				this->updateBitmaskList(objectList);
+				objectList.clear();
+			}
 
 			break;
 		}
@@ -1191,9 +1199,11 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 std::shared_ptr<Model> Hud::spawnItem(sf::Vector2f tilesetPosition, std::string paletteTypeField, std::string texture, int priorityValue,
 									  sf::Vector2f tilesetOrigin, int x, int y, MapObjectType objectType, std::list<MapObjectField> fields)
 {
+	
+	std::string filename = paletteTypeField + texture;
 	std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, 
 														   tilesetPosition, 
-														   paletteTypeField + texture, priorityValue, false, "", this->manager->palette->selectedOrigin);
+														   filename, priorityValue, false, "", this->manager->palette->selectedOrigin);
 	
 	model->autoPriority = this->manager->map->getObjectAutoPriority(objectType);
 	model->sprite->setOrigin(tilesetOrigin);
@@ -1204,7 +1214,94 @@ std::shared_ptr<Model> Hud::spawnItem(sf::Vector2f tilesetPosition, std::string 
 	this->manager->addView(std::static_pointer_cast<ViewElement>(model));
 	this->manager->map->addObjectUnit(MapObjectUnit{ objectType, model->sprite->getPosition(), 0.f, model, fields });
 
+	if (model->texture->bitmask)
+	{
+		std::vector<sf::Vector2f> bitmaskPositionList = {
+		sf::Vector2f(model->sprite->getGlobalBounds().left + (model->sprite->getGlobalBounds().width * 0.5f), model->sprite->getGlobalBounds().top - (model->sprite->getGlobalBounds().height * 0.5f)),
+		sf::Vector2f(model->sprite->getGlobalBounds().left - (model->sprite->getGlobalBounds().width * 0.5f), model->sprite->getGlobalBounds().top + (model->sprite->getGlobalBounds().height * 0.5f)),
+		sf::Vector2f(model->sprite->getGlobalBounds().left + (model->sprite->getGlobalBounds().width * 1.5f), model->sprite->getGlobalBounds().top + (model->sprite->getGlobalBounds().height * 0.5f)),
+		sf::Vector2f(model->sprite->getGlobalBounds().left + (model->sprite->getGlobalBounds().width * 0.5f), model->sprite->getGlobalBounds().top + (model->sprite->getGlobalBounds().height * 1.5f)) };
+
+		int index = 1, bitmaskSum = 0;
+		std::vector<MapObjectUnit> bitmapObjects = {};
+		for (auto& bitmaskPosition : bitmaskPositionList)
+		{
+			for (auto& object : this->manager->map->objects)
+				if (object.type == MapObjectType::motTerrain && object.model && object.model->filename == filename && object.model->sprite->getGlobalBounds().contains(bitmaskPosition))
+				{
+					bitmapObjects.emplace_back(object);
+					bitmaskSum += index;
+					break;
+				}
+			index *= 2;
+		}
+
+		model->animation = "stand:" + boost::lexical_cast<std::string>(bitmaskSum);
+		model->loadSprite(model->filename, model->position);
+
+		for (auto& object : bitmapObjects)
+			this->updateBitmask(object);
+	}
+	
 	return model;
+}
+
+bool Hud::updateBitmask(MapObjectUnit object)
+{
+	if (object.type != MapObjectType::motTerrain)
+		return false;
+
+	std::vector<sf::Vector2f> bitmaskPositionList = {
+	sf::Vector2f(object.model->sprite->getGlobalBounds().left + (object.model->sprite->getGlobalBounds().width * 0.5f), object.model->sprite->getGlobalBounds().top - (object.model->sprite->getGlobalBounds().height * 0.5f)),
+	sf::Vector2f(object.model->sprite->getGlobalBounds().left - (object.model->sprite->getGlobalBounds().width * 0.5f), object.model->sprite->getGlobalBounds().top + (object.model->sprite->getGlobalBounds().height * 0.5f)),
+	sf::Vector2f(object.model->sprite->getGlobalBounds().left + (object.model->sprite->getGlobalBounds().width * 1.5f), object.model->sprite->getGlobalBounds().top + (object.model->sprite->getGlobalBounds().height * 0.5f)),
+	sf::Vector2f(object.model->sprite->getGlobalBounds().left + (object.model->sprite->getGlobalBounds().width * 0.5f), object.model->sprite->getGlobalBounds().top + (object.model->sprite->getGlobalBounds().height * 1.5f)) };
+
+	int index = 1, bitmaskSum = 0;
+	for (auto& bitmaskPosition : bitmaskPositionList)
+	{
+		for (auto& subObject : this->manager->map->objects)
+			if (subObject.type == MapObjectType::motTerrain && subObject.model && subObject.model->filename == object.model->filename && subObject.model->sprite->getGlobalBounds().contains(bitmaskPosition))
+			{
+				bitmaskSum += index;
+				break;
+			}
+		index *= 2;
+	}
+	object.model->animation = "stand:" + boost::lexical_cast<std::string>(bitmaskSum);
+	object.model->loadSprite(object.model->filename, object.model->position);
+
+	return true;
+}
+
+bool Hud::updateBitmaskList(std::vector<MapObjectUnit> list)
+{
+	for (auto& object : list)
+		this->updateBitmask(object);
+	return true;
+}
+
+std::vector<MapObjectUnit> Hud::updateBitmaskRemove(MapObjectUnit object)
+{
+	if (object.type != MapObjectType::motTerrain || !object.model->texture->bitmask)
+		return {};
+
+	std::vector<sf::Vector2f> bitmaskPositionList = {
+		sf::Vector2f(object.model->sprite->getGlobalBounds().left + (object.model->sprite->getGlobalBounds().width * 0.5f), object.model->sprite->getGlobalBounds().top - (object.model->sprite->getGlobalBounds().height * 0.5f)),
+		sf::Vector2f(object.model->sprite->getGlobalBounds().left - (object.model->sprite->getGlobalBounds().width * 0.5f), object.model->sprite->getGlobalBounds().top + (object.model->sprite->getGlobalBounds().height * 0.5f)),
+		sf::Vector2f(object.model->sprite->getGlobalBounds().left + (object.model->sprite->getGlobalBounds().width * 1.5f), object.model->sprite->getGlobalBounds().top + (object.model->sprite->getGlobalBounds().height * 0.5f)),
+		sf::Vector2f(object.model->sprite->getGlobalBounds().left + (object.model->sprite->getGlobalBounds().width * 0.5f), object.model->sprite->getGlobalBounds().top + (object.model->sprite->getGlobalBounds().height * 1.5f)) };
+
+	std::vector<MapObjectUnit> bitmapObjects = {};
+	for (auto& bitmaskPosition : bitmaskPositionList)
+		for (auto& subObject : this->manager->map->objects)
+			if (subObject.type == MapObjectType::motTerrain && subObject.model && object.model->filename == subObject.model->filename && subObject.model->sprite->getGlobalBounds().contains(bitmaskPosition))
+			{
+				bitmapObjects.emplace_back(subObject);
+				break;
+			}
+
+	return bitmapObjects;
 }
 
 bool Hud::buttonsClick(sf::Vector2f cursor)

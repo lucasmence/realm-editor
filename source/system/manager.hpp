@@ -126,7 +126,7 @@ class Manager
 		bool display();
 		bool resetView();
 		bool calculateMapEdges();
-		std::shared_ptr<Texture> getTexture(std::string filename);
+		std::shared_ptr<Texture> getTexture(std::string filename, std::string jsonPath = "");
 		std::string setTitle(std::string value);
 		sf::Vector2f getMousePosition();
 		bool loadGamepathAfter();

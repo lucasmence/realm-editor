@@ -21,9 +21,10 @@ class Model : public ViewElement
 		std::shared_ptr<Texture> texture;
 		std::string filename;
 		std::string origin;
+		std::string animation;
 		ShapeType shapeType;
 
-		Model(Manager* manager, sf::Vector2f position, std::string filename = "", int priority = 2, bool canvasBound = true, std::string name = "", std::string origin = "");
+		Model(Manager* manager, sf::Vector2f position, std::string filename = "", int priority = 2, bool canvasBound = true, std::string name = "", std::string origin = "", std::string animation = "stand");
 		~Model();
 
 		bool loadSprite(std::string filename, sf::Vector2f position);

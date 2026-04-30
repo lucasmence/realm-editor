@@ -135,6 +135,9 @@ class Hud
 		Hud(Manager* manager);
 		~Hud();
 
+		bool updateBitmask(MapObjectUnit object);
+		bool updateBitmaskList(std::vector<MapObjectUnit> list);
+		std::vector<MapObjectUnit> updateBitmaskRemove(MapObjectUnit object);
 };
 
 #endif
