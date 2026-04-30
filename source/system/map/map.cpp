@@ -240,6 +240,7 @@ bool Map::renderObject(json& localfile, MapObjectUnit& object)
 			if (priority > 0)
 				localfile["priority"] = object.model->priority;
 			localfile["auto-priority"] = object.model->autoPriority;
+			localfile["animation"] = object.model->animation;
 			break;
 		}
 	}
@@ -537,23 +538,26 @@ bool Map::loadMapAfter()
 				std::shared_ptr<Model> model = nullptr;
 				switch (type)
 				{
-				case (MapObjectType::motPortal):
-				{
-					model = std::make_shared<Model>(this->manager, position, "", priorityIndex, false, "", this->getOriginFromField(this->file[field][index], type));
-					this->manager->palette->loadPaletteShape(model, texture, sf::Vector2f(this->file[field][index][dimensionField][dimensionIndex].value("width", 0.f),
-						this->file[field][index][dimensionField][dimensionIndex].value("height", 0.f)));
-					break;
-				}
+					case (MapObjectType::motPortal):
+					{
+						model = std::make_shared<Model>(this->manager, position, "", priorityIndex, false, "", this->getOriginFromField(this->file[field][index], type));
+						this->manager->palette->loadPaletteShape(model, texture, sf::Vector2f(this->file[field][index][dimensionField][dimensionIndex].value("width", 0.f),
+							this->file[field][index][dimensionField][dimensionIndex].value("height", 0.f)));
+						break;
+					}
 
-				default:
-				{
-					model = std::make_shared<Model>(this->manager, position, "" + texture, priorityIndex, false, "",
-						this->getOriginFromField(this->file[field][index], type));
-					model->sprite->setScale(sf::Vector2f(this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f),
-						this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f)));
-					model->sprite->setRotation(this->file[field][index][dimensionField][dimensionIndex].value("rotation", 0.f));
-					model->autoPriority = this->file[field][index][dimensionField][dimensionIndex].value("auto-priority", 0);
-				}
+					default:
+					{
+						model = std::make_shared<Model>(this->manager, position, "" + texture, priorityIndex, false, "",
+							this->getOriginFromField(this->file[field][index], type));
+						model->sprite->setScale(sf::Vector2f(this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f),
+							this->file[field][index][dimensionField][dimensionIndex].value("scale", 1.f)));
+						model->sprite->setRotation(this->file[field][index][dimensionField][dimensionIndex].value("rotation", 0.f));
+						model->autoPriority = this->file[field][index][dimensionField][dimensionIndex].value("auto-priority", 0);
+						model->animation = this->file[field][index][dimensionField][dimensionIndex].value("animation", "stand");
+						if (model->animation != "stand")
+							model->loadSprite(model->filename, model->position);
+					}
 				}
 				this->manager->addView(std::static_pointer_cast<ViewElement>(model));
 
