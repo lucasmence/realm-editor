@@ -251,6 +251,16 @@ bool Map::renderObject(json& localfile, MapObjectUnit& object)
 	return true;
 }
 
+std::string Map::getRelativePath(std::string path, std::string target) 
+{
+	size_t pos = path.find(target);
+	if (pos == std::string::npos) return path;
+
+	size_t start = path.find_first_not_of("\\/", pos + target.length());
+
+	return (start != std::string::npos) ? path.substr(start) : "";
+}
+
 bool Map::renderMap()
 {
 	this->manager->hud->showMessage("Rendering map...");
@@ -276,13 +286,14 @@ bool Map::renderMap()
 	if (this->data.textureBackground.model != nullptr)
 	{
 		this->file["terrain-default"]["texture"] = std::regex_replace(this->data.textureBackground.model->filename, std::regex(this->manager->constant.gamePath + "/data/textures/"), "");
+		
 		this->renderObject(this->file["terrain-default"], this->data.textureBackground);
 	}		
 
 	for (auto& object : this->objects)
 	{
 		std::string fieldName = "", fieldCaption = "texture";
-		std::string filename = std::regex_replace(object.model->filename, std::regex(this->manager->constant.gamePath + "/data/textures/"), "");
+		std::string filename = this->getRelativePath(std::regex_replace(object.model->filename, std::regex(this->manager->constant.gamePath + "/data/textures/"), ""), "textures");
 
 		switch (object.type)
 		{
