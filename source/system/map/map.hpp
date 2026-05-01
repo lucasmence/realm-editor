@@ -108,6 +108,7 @@ class Map
 		bool newMap();
 		bool reloadMap();
 		bool createTriggerFile();
+		std::string getRelativePath(std::string path, std::string target);
 };
 
 #endif
