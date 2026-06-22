@@ -85,7 +85,10 @@ bool Model::loadSprite(std::string filename, sf::Vector2f position)
 	{
 		this->texture = usedModel->texture;
 		sf::IntRect textureRect = usedModel->sprite->getTextureRect();
+		
+		direction = sf::Vector2i(textureRect.left, textureRect.top);
 		dimension = sf::Vector2i(textureRect.width, textureRect.height);
+				
 		textureFound = true;
 	}
 
