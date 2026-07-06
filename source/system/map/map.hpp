@@ -103,6 +103,9 @@ class Map
 		bool saveMap();
 		bool saveMapAs();
 		bool saveMapAfter();
+		bool saveMapTemp();
+		bool deleteMapTemp();
+		bool loadMapTemp();
 		bool loadMap(std::string file = "");
 		bool loadMapAfter();
 		bool newMap();

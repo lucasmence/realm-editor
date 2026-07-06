@@ -33,6 +33,7 @@ Hud::Hud(Manager* manager)
 	this->hoverShapeSize = sf::Vector2f(0.f, 0.f);
 	this->mousePressPosition = sf::Vector2f(0.f, 0.f);
 	this->messageBox = MessageBox{ nullptr, nullptr };
+	this->mapTempTick = GameTick{ 0, 50000 };
 
 	this->shapeHover = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, 300.f), "", 1, false);
 	this->shapeHover->loadShape(sf::Vector2f(1.f, 1.f), sf::Color(150, 200, 150, 100));
@@ -86,8 +87,21 @@ bool Hud::update(sf::Vector2f cursor)
 	this->updateHoverMapSize();
 	this->updateMousePressed(cursor);
 	this->updateHoverGeneral();
+	this->updateMapTemp();
 
 	return true;
+}
+
+bool Hud::updateMapTemp()
+{
+	this->mapTempTick.tickValue += 1;
+	if (this->mapTempTick.tickMax <= this->mapTempTick.tickValue)
+	{
+		this->manager->map->saveMapTemp();
+		this->mapTempTick.tickValue = 0;
+		return true;
+	}
+	return false;
 }
 
 bool Hud::updateClick(sf::Vector2f cursor, bool rightButton)

@@ -20,6 +20,12 @@ struct MessageBox
 	std::shared_ptr<Model> border;
 };
 
+struct GameTick
+{
+	int tickValue;
+	int tickMax;
+};
+
 class Hud 
 {
 	public:
@@ -47,6 +53,7 @@ class Hud
 		bool itemSelected;
 		bool itemSelectedMove;
 		bool dragCursor;
+		GameTick mapTempTick;
 		std::vector<int> gridSizeList;
 		std::vector<int> brushSizeList;
 		std::list<std::shared_ptr<Button>> buttons;
@@ -82,6 +89,7 @@ class Hud
 		bool updateLabels(sf::Vector2f cursor);
 		bool updateLabelPaletteStatus(std::shared_ptr<sf::Text> text);
 		bool updateCursor(sf::Vector2f cursor);
+		bool updateMapTemp();
 		bool buttonsClick(sf::Vector2f cursor);
 		bool editsClick(sf::Vector2f cursor);
 		bool spawnClick(sf::Vector2f cursor);
