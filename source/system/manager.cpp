@@ -198,6 +198,7 @@ bool Manager::imguiUpdateDialogBox()
                 {
                     this->imguiDialogBoxData.result = true;
                     this->imguiMiscData.active = false;
+                    this->map->deleteMapTemp();
                     ImGui::CloseCurrentPopup();
                 }
 
@@ -270,6 +271,7 @@ bool Manager::loadGamepathAfter()
     this->minimapViewArea = sf::FloatRect(0.f, 0.f, 0.f, 0.f);
 
     this->map->newMap();
+    this->map->loadMapTemp();
 
     this->hudLoaded = true;
 

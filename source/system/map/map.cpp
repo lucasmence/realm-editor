@@ -407,7 +407,50 @@ bool Map::saveMapAfter()
 
 	this->manager->setTitle(this->filename);
 
+	this->deleteMapTemp();
 	this->manager->hud->showMessage("Map saved successfully!");
+
+	return true;
+}
+
+bool Map::saveMapTemp()
+{
+	this->renderMap();
+	
+	boost::filesystem::path mainPath = this->manager->constant.gamePath + "/temp";
+	std::string filePath = Json::convertPathToString(mainPath) + "/temp.json";
+
+	std::ofstream fileStream(filePath);
+	fileStream << this->file;
+
+	this->manager->hud->showMessage("Snapshot saved successfully!");
+
+	return true;
+}
+
+bool Map::deleteMapTemp()
+{
+	boost::filesystem::path mainPath = this->manager->constant.gamePath + "/temp";
+	std::string filePath = Json::convertPathToString(mainPath) + "/temp.json";
+
+	if (boost::filesystem::exists(filePath))
+		boost::filesystem::remove(filePath);
+
+	return true;
+}
+
+bool Map::loadMapTemp()
+{
+	boost::filesystem::path mainPath = this->manager->constant.gamePath + "/temp";
+	std::string filePath = Json::convertPathToString(mainPath) + "/temp.json";
+
+	if (boost::filesystem::exists(filePath))
+	{
+		this->filename = filePath;
+		this->loadMap(this->filename);
+		this->filename = "";
+		this->manager->setTitle("map recovered");
+	}
 
 	return true;
 }
