@@ -2,8 +2,7 @@
 #include <memory>
 #include <list>
 #include <vector>
-#include "button.hpp"
-#include "edit.hpp"
+#include <string>
 #include "../palette/palette.hpp"
 #include "../map/map.hpp"
 
@@ -14,16 +13,29 @@
 
 class Manager;
 
-struct MessageBox
-{
-	std::shared_ptr<Label> label;
-	std::shared_ptr<Model> border;
-};
-
 struct GameTick
 {
 	int tickValue;
 	int tickMax;
+};
+
+enum class EditType {etString, etInteger, etBoolean};
+
+struct ImguiEditValue
+{
+	std::string string;
+	int integer;
+	bool boolean;
+	bool active;
+};
+
+enum class HistoryActionType {hatSpawn, hatDelete};
+
+struct HistoryEntry
+{
+	HistoryActionType type;
+	std::list<MapObjectUnit> objects;
+	std::string description;
 };
 
 class Hud 
@@ -53,45 +65,39 @@ class Hud
 		bool itemSelected;
 		bool itemSelectedMove;
 		bool dragCursor;
+		bool gridVisible;
+		bool removeBgVisible;
+		std::string weatherName;
+		int weatherChance;
+		std::string particles;
+		std::string mapName;
+		std::string mapMusic;
+		std::string mapVersion;
+		std::string bgTexture;
 		GameTick mapTempTick;
 		std::vector<int> gridSizeList;
 		std::vector<int> brushSizeList;
-		std::list<std::shared_ptr<Button>> buttons;
-		std::list<std::shared_ptr<Edit>> edits;
-		std::list<std::shared_ptr<Label>> labels;
+
 		std::list<std::shared_ptr<Model>> models;
 		std::list<std::shared_ptr<Model>> grid;
-		std::shared_ptr<Label> labelTooltip;
 		std::shared_ptr<Model> shapeHover;
 		std::shared_ptr<Model> shapeMapArea;
 		std::shared_ptr<Model> shapeMatrix;
-		std::shared_ptr<Model> shapeTooltip;
 		std::shared_ptr<Model> shapeItemSelected;
 		std::shared_ptr<Model> itemModelSelected;
 		std::shared_ptr<Model> shapeMinimap;
-		MessageBox messageBox;
 
 		bool unloadLists();
 		bool loadLists();
 		bool loadModels();
 		bool loadGrid();
-		bool loadButtons();
-		bool loadLabels();
 		bool update(sf::Vector2f cursor);
 		bool updateClick(sf::Vector2f cursor, bool rightButton);
-		bool updateButtonsColor(sf::Vector2f cursor);
-		bool updateEditsColor(sf::Vector2f cursor);
 		bool updateMouseReleased(sf::Vector2f cursor);
 		bool updateMousePressed(sf::Vector2f cursor);
 		bool updateItemSelectedMove(sf::Vector2f cursor);
-		bool updateEdit(char text);
-		bool updateEditValues();
-		bool updateLabels(sf::Vector2f cursor);
-		bool updateLabelPaletteStatus(std::shared_ptr<sf::Text> text);
 		bool updateCursor(sf::Vector2f cursor);
 		bool updateMapTemp();
-		bool buttonsClick(sf::Vector2f cursor);
-		bool editsClick(sf::Vector2f cursor);
 		bool spawnClick(sf::Vector2f cursor);
 		std::list<MapObjectField> getExtraEditValuesByType();
 		bool matrixActivate(sf::Vector2f cursor);
@@ -106,17 +112,8 @@ class Hud
 		bool updateShapeMatrix(sf::Vector2f cursor);
 		bool updateMapBounds();
 		bool toggleGridVisibility();
-		bool toggleMatrixTriggered(std::shared_ptr<Button> button);
-		bool toggleWallTriggered(std::shared_ptr<Button> button);
-		bool toggleSpawnPress(std::shared_ptr<Button> button);
-		bool toggleCenterShape(std::shared_ptr<Button> button);
-		bool toggleMapAreaSize(std::shared_ptr<Button> button);
-		bool toggleGridSpawn(std::shared_ptr<Button> button);
-		bool toggleItemSelectedMove(std::shared_ptr<Button> button);
-		bool toggleDragCursor(std::shared_ptr<Button> button);
-		bool removeBackground(std::shared_ptr<Button> button, const bool message = true);
-		bool enableItemSelect(std::shared_ptr<Button> button);
-		bool formShapeClick(std::shared_ptr<Button> button);
+		bool removeBackground();
+		bool formShapeClick(const std::string& shapeName);
 		bool selectItem(sf::Vector2f cursor);
 		bool deleteSelectedItem();
 		bool selectedItemUpdate();
@@ -124,8 +121,6 @@ class Hud
 		bool updateDragCursor(sf::Vector2f cursor);
 		bool zoomMap(int value);
 		bool zoomMapReset();
-		bool setTooltip(std::string hint, sf::Vector2f cursor);
-		bool resetTooltip();
 		bool help();
 		bool getCheckEditing();
 		std::shared_ptr<Model> spawnItem(sf::Vector2f tilesetPosition, std::string paletteTypeField, std::string texture, int priorityValue,
@@ -136,16 +131,62 @@ class Hud
 		bool setExtraEditsValue(std::vector<std::string> value);
 		bool setExtraEditValue(std::string value, int index);
 		bool resetExtraEditsValue();
-		std::vector<EditValue> getExtraEditsValue();
+		std::vector<ImguiEditValue> getExtraEditsValue();
 		bool setEditValue(std::string editName, std::string value);
-		std::shared_ptr<Button> getButton(std::string name);
-		std::shared_ptr<Label> getLabel(std::string name);
 		Hud(Manager* manager);
 		~Hud();
 
 		bool updateBitmask(MapObjectUnit object);
 		bool updateBitmaskList(std::vector<MapObjectUnit> list);
 		std::vector<MapObjectUnit> updateBitmaskRemove(MapObjectUnit object);
+
+		// History (undo/redo)
+		static const int historyMaxSize = 100;
+		std::vector<HistoryEntry> undoStack;
+		std::vector<HistoryEntry> redoStack;
+		std::list<MapObjectUnit> historySpawnBuffer;
+		bool matrixSpawnInProgress;
+		bool recordHistory(HistoryActionType type, std::string description);
+		bool undoAction();
+		bool redoAction();
+		bool clearHistory();
+
+		// IMGUI rendering
+		bool imguiRender();
+		void imguiRenderMenuBar();
+		void imguiRenderToolPanel();
+		void imguiRenderPalettePanel();
+		void imguiRenderPropertiesPanel();
+		void imguiRenderEditsPanel();
+		void imguiRenderNotification();
+		void imguiRenderPaletteItems();
+		void imguiRenderPaletteSelector();
+		void imguiRenderPreferencesWindow();
+
+		// Preferences window flag
+		bool showPreferencesWindow;
+
+		// Notification message
+		std::string notificationText;
+		float notificationTimer;
+		float notificationDuration;
+
+		// IMGUI edit state buffers
+		char imguiMapName[128];
+		char imguiMapMusic[128];
+		char imguiMapVersion[128];
+		char imguiWeatherName[128];
+		char imguiParticles[128];
+		char imguiExtraFields[7][128];
+
+	private:
+		// Track toggle button states for ImGui rendering
+		bool gettingExtraValues;
+		std::vector<std::string> extraFieldCaptions;
+		std::vector<EditType> extraFieldTypes;
+		std::vector<int> extraFieldMaxValues;
+		std::vector<std::string> extraFieldOrigins;
+		std::string formShapeSelected;
 };
 
 #endif

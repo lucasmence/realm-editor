@@ -65,9 +65,6 @@
     <ClCompile Include="source\system\hud\hud.cpp">
       <Filter>hud</Filter>
     </ClCompile>
-    <ClCompile Include="source\system\hud\button.cpp">
-      <Filter>hud</Filter>
-    </ClCompile>
     <ClCompile Include="source\system\text\label.cpp">
       <Filter>text</Filter>
     </ClCompile>
@@ -79,9 +76,6 @@
     </ClCompile>
     <ClCompile Include="source\system\map\map.cpp">
       <Filter>map</Filter>
-    </ClCompile>
-    <ClCompile Include="source\system\hud\edit.cpp">
-      <Filter>hud</Filter>
     </ClCompile>
     <ClCompile Include="source\system\external\imgui\imgui-SFML.cpp">
       <Filter>Source Files</Filter>
@@ -124,9 +118,6 @@
     <ClInclude Include="source\system\hud\hud.hpp">
       <Filter>hud</Filter>
     </ClInclude>
-    <ClInclude Include="source\system\hud\button.hpp">
-      <Filter>hud</Filter>
-    </ClInclude>
     <ClInclude Include="source\system\text\label.hpp">
       <Filter>text</Filter>
     </ClInclude>
@@ -141,9 +132,6 @@
     </ClInclude>
     <ClInclude Include="resource.h">
       <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="source\system\hud\edit.hpp">
-      <Filter>hud</Filter>
     </ClInclude>
     <ClInclude Include="source\system\external\imgui\imconfig-SFML.h">
       <Filter>Header Files</Filter>

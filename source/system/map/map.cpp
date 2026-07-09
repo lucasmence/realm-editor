@@ -538,10 +538,8 @@ bool Map::loadMapAfter()
 		model->sprite->setScale(sf::Vector2f(scale, scale));
 		this->data.textureBackground = MapObjectUnit{ MapObjectType::motTerrain, position, 0.f, model, this->getSubfieldsFromLine(this->file["terrain-default"]) };
 
-		this->manager->hud->getButton("btnRemoveBackground")->setVisible(true);
-		std::shared_ptr<Label> label = this->manager->hud->getLabel("lblBackground");
-		label->text->setString(texture);
-		label->visible = true;
+		this->manager->hud->removeBgVisible = true;
+		this->manager->hud->bgTexture = texture;
 	}
 
 	this->updateMapInfo();
@@ -648,8 +646,11 @@ bool Map::newMap()
 {
 	this->clearObjects();
 	this->manager->palette->clearPaletteItem();
-	this->manager->hud->removeBackground(this->manager->hud->getButton("btnRemoveBackground"), false);
+	this->manager->hud->removeBgVisible = false;
+	this->manager->hud->bgTexture = "";
+	this->manager->hud->removeBackground();
 	this->manager->hud->zoomMapReset();
+	this->manager->hud->clearHistory();
 
 	this->filename = "";
 	this->data.size = sf::Vector2i(3000, 3000);

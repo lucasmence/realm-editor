@@ -57,8 +57,6 @@ bool Palette::loadPalettes()
 
 bool Palette::clearPaletteItems()
 {
-    for (auto& item : this->paletteItems)
-        this->manager->removeView(item.model);
     this->paletteItems.clear();
 
     if (this->pageIndex < 0)
@@ -115,7 +113,7 @@ bool Palette::loadPaletteItemList(std::list<std::string>& list, std::string fiel
         {
             if (model->sprite)
                 model->sprite->setScale(sf::Vector2f(64.f / model->sprite->getGlobalBounds().width, 64.f / model->sprite->getGlobalBounds().height));
-            this->manager->addView(std::static_pointer_cast<ViewElement>(model));
+            model->initialization();
             this->paletteItems.emplace_back(PaletteItem{ model, filename });
         }
 
@@ -376,32 +374,35 @@ bool Palette::checkModels(std::shared_ptr<Model> modelX, std::shared_ptr<Model> 
     return (modelX->origin == modelY->origin);
 }
 
-bool Palette::selectPaletteItem(sf::Vector2f cursor, std::shared_ptr<Model> model)
+bool Palette::selectPaletteItem(int index)
 {
-    std::string filename = "";
-    for (auto& item : this->paletteItems)
-        if (item.model->getGlobalBounds().contains(cursor) || this->checkModels(model, item.model))
-        {
-            if (item.model->sprite)
-                item.model->setColor(sf::Color(255,0,0,255));
-            filename = item.filename;
-            this->selectedItem = item.filename;
-            this->selectedTexture = item.model->filename;
-            this->selectedOrigin = item.model->origin;
-            this->manager->hud->hoverShapeSize = sf::Vector2f(item.model->getGlobalBounds().width / item.model->getScale().x,
-                                                              item.model->getGlobalBounds().height / item.model->getScale().y);
-            this->manager->hud->updateHoverShapeSize();
-            this->manager->hud->shapeHover->visible = true;
-            this->status = PaletteStatus::psInsert;
-            break;
-        }
+    if (index < 0 || index >= (int)this->paletteItems.size())
+        return false;
 
-    for (auto& item : this->paletteItems)
-        if (filename != item.filename && item.model->sprite)
-            item.model->setColor(sf::Color(255, 255, 255, 255));
+    auto it = std::next(this->paletteItems.begin(), index);
+    PaletteItem& item = *it;
 
+    // Clear previous selection highlight
+    for (auto& pi : this->paletteItems)
+        if (pi.model->sprite)
+            pi.model->setColor(sf::Color(255, 255, 255, 255));
+
+    if (item.model->sprite)
+        item.model->setColor(sf::Color(255, 0, 0, 255));
+
+    this->selectedItem = item.filename;
+    this->selectedTexture = item.model->filename;
+    this->selectedOrigin = item.model->origin;
+    this->manager->hud->hoverShapeSize = sf::Vector2f(item.model->getGlobalBounds().width / item.model->getScale().x,
+                                                      item.model->getGlobalBounds().height / item.model->getScale().y);
+    this->manager->hud->updateHoverShapeSize();
+    this->manager->hud->shapeHover->visible = true;
+    this->status = PaletteStatus::psInsert;
+
+    // Update extra edit values for portal types
     if (this->type == PaletteType::ptPortal)
     {
+        std::string& filename = item.filename;
         if (filename == "spawner")
             this->manager->hud->updateExtraEditsValue({ "Default", "index" }, { EditType::etInteger, EditType::etInteger }, { "1", "0" }, { 1, 32 }, {"default", "index"});
         else if (filename == "level")
@@ -450,11 +451,21 @@ bool Palette::selectPaletteItem(sf::Vector2f cursor, std::shared_ptr<Model> mode
                 { "64", "64", "0" }, { 99999, 99999, 99 }, { "width", "height", "index" });
     }
 
-    if (filename != "")
-    {
-        this->manager->hud->itemSelected = false;
-        this->manager->hud->itemModelSelected = nullptr;
-    }
+    this->manager->hud->itemSelected = false;
+    this->manager->hud->itemModelSelected = nullptr;
 
     return true;
+}
+
+bool Palette::selectPaletteItem(sf::Vector2f cursor, std::shared_ptr<Model> model)
+{
+    // Find item by model match (used when selecting items on the map)
+    int index = 0;
+    for (auto& item : this->paletteItems)
+    {
+        if (model != nullptr && this->checkModels(model, item.model))
+            return this->selectPaletteItem(index);
+        index++;
+    }
+    return false;
 }
