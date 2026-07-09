@@ -50,6 +50,7 @@ class Palette
 
 		bool checkModels(std::shared_ptr<Model> modelX, std::shared_ptr<Model> modelY);
 		bool selectPaletteItem(sf::Vector2f cursor, std::shared_ptr<Model> model = nullptr);
+		bool selectPaletteItem(int index);
 		bool clearPaletteItem();
 		bool erasePaletteItem();
 		bool loadPaletteItemList(std::list<std::string>& list, std::string field);

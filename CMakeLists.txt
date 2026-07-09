@@ -12,8 +12,6 @@ set(SOURCES
     "source/system/external/imgui/imgui_tables.cpp"
     "source/system/external/imgui/imgui_widgets.cpp"
     "source/system/external/RichText/RichText.cpp"
-    "source/system/hud/button.cpp"
-    "source/system/hud/edit.cpp"
     "source/system/hud/hud.cpp"
     "source/system/library/json.cpp"
     "source/system/library/position.cpp"

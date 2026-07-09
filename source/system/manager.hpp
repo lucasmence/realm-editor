@@ -90,6 +90,8 @@ class Manager
 
 		sf::Vector2f canvasPosition;
 		sf::Image icon;
+		sf::Texture splashLogoTexture;
+		sf::Sprite splashLogoSprite;
 
 		bool hasFocus;
 		bool open;
@@ -97,7 +99,9 @@ class Manager
 		bool minimapVisible;
 		bool hudLoaded;
 		bool closeSignal;
+		bool splashActive;
 		sf::Clock deltaClock;
+		sf::Clock splashClock;
 		std::string appName;
 		sf::FloatRect minimapViewArea;
 		std::vector<MapEdge> mapEdges;
@@ -146,6 +150,7 @@ class Manager
 		std::string getString(std::string value);
 
 		void systemClose();
+		void renderSplash();
 
 };
 

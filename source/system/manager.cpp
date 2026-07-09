@@ -23,6 +23,16 @@ Manager::Manager()
     this->font->loadFromFile(this->constant.fontFilePath);
     this->icon.loadFromFile("realm-editor.png");
     this->window->setIcon(this->icon.getSize().x, this->icon.getSize().y, this->icon.getPixelsPtr());
+
+    // Load splash logo texture from the icon image
+    this->splashLogoTexture.loadFromImage(this->icon);
+    this->splashLogoSprite.setTexture(this->splashLogoTexture);
+    // Scale logo to a reasonable size for the splash
+    float logoMaxDim = 100.f;
+    sf::Vector2u logoSize = this->splashLogoTexture.getSize();
+    float logoScale = logoMaxDim / std::max(logoSize.x, logoSize.y);
+    this->splashLogoSprite.setScale(logoScale, logoScale);
+
     this->hudLoaded = false;
 
     this->hasFocus = true;
@@ -33,6 +43,7 @@ Manager::Manager()
     this->filePathData.active = false;
     this->imguiMiscData.active = false;
     this->closeSignal = false;
+    this->splashActive = false;
 
     if (!this->loadConfigTxt())
         this->choosePath(PathType::ptGamepath, "Select", "Select game folder", true, false);
@@ -97,14 +108,28 @@ bool Manager::update()
 
     this->window->clear();
 
-    if (this->hudLoaded)
+    if (this->splashActive)
     {
-        this->setCanvas();
-
-        this->hud->update(this->getMousePosition());
+        // Check if 5 seconds have elapsed
+        if (this->splashClock.getElapsedTime().asSeconds() >= 2.5f)
+            this->splashActive = false;
     }
 
-    this->imguiUpdate();
+    if (this->splashActive)
+    {
+        this->renderSplash();
+    }
+    else
+    {
+        if (this->hudLoaded)
+        {
+            this->setCanvas();
+
+            this->hud->update(this->getMousePosition());
+        }
+
+        this->imguiUpdate();
+    }
 
     this->display();
 
@@ -117,6 +142,9 @@ bool Manager::update()
 bool Manager::imguiUpdate()
 {
     ImGui::SFML::Update(*this->window, deltaClock.restart());
+    
+    if (this->hudLoaded)
+        this->hud->imguiRender();
     
     if (this->imguiUpdateDialogBox())
         return true;
@@ -271,9 +299,19 @@ bool Manager::loadGamepathAfter()
     this->minimapViewArea = sf::FloatRect(0.f, 0.f, 0.f, 0.f);
 
     this->map->newMap();
+
+    // Check if a recovery temp map exists BEFORE loading it
+    boost::filesystem::path tempPath = boost::filesystem::path(this->constant.gamePath) / "temp" / "temp.json";
+    bool tempMapExists = boost::filesystem::exists(tempPath);
+
     this->map->loadMapTemp();
 
     this->hudLoaded = true;
+
+    // Show splash only if no recovery map is being loaded
+    this->splashActive = !tempMapExists;
+    if (this->splashActive)
+        this->splashClock.restart();
 
     return true;
 }
@@ -282,7 +320,7 @@ bool Manager::display()
 {
     this->minimapViewUpdate = false;
 
-    if (!this->filePathData.active && this->hudLoaded)
+    if (!this->splashActive && !this->filePathData.active && this->hudLoaded)
     {
         for (auto& element : this->list.viewElements)
             element->draw();
@@ -308,7 +346,9 @@ bool Manager::display()
             this->minimapViewArea = sf::FloatRect(0.f, 0.f, 0.f, 0.f);
     } 
     
-    ImGui::SFML::Render(*this->window);
+    if (!this->splashActive)
+        ImGui::SFML::Render(*this->window);
+    
     this->window->display();
 
     return true;
@@ -327,6 +367,17 @@ bool Manager::event()
     sf::Event event;
     while (this->window->pollEvent(event))
     {
+        if (this->splashActive)
+        {
+            // During splash, close the window directly without confirmation
+            if (event.type == sf::Event::Closed)
+            {
+                this->closeSignal = true;
+                return true;
+            }
+            continue;
+        }
+
         ImGui::SFML::ProcessEvent(event);
         if (this->hudLoaded)
             switch (event.type)
@@ -386,10 +437,14 @@ bool Manager::event()
 
 bool Manager::eventClick(sf::Event& event)
 {
+    // Only block clicks on interactive ImGui widgets (buttons, inputs, etc.),
+    // not on transparent window backgrounds (the tool panel covers the map area)
+    if (ImGui::IsAnyItemHovered())
+        return true;
+
     sf::Vector2f cursor = this->getMousePosition();
     
     this->hud->updateClick(cursor, sf::Mouse::isButtonPressed(sf::Mouse::Right));
-    this->palette->selectPaletteItem(cursor);
 
     return true;
 }
@@ -443,87 +498,105 @@ bool Manager::eventKey(sf::Event& event)
         }
         case (sf::Keyboard::C):
         {
-            this->hud->buttonsClick(this->hud->getButton("btnClear")->shape->getPosition());
+            this->hud->manager->palette->clearPaletteItem();
             break;
         }
         case (sf::Keyboard::E):
         {
-            this->hud->buttonsClick(this->hud->getButton("btnErase")->shape->getPosition());
+            this->hud->manager->palette->erasePaletteItem();
             break;
         }
         case (sf::Keyboard::G):
         {
-            this->hud->buttonsClick(this->hud->getButton("btnGridVisibilityToggle")->shape->getPosition());
+            this->hud->toggleGridVisibility();
             break;
         }
         case (sf::Keyboard::P):
         {
-            this->hud->buttonsClick(this->hud->getButton("btnSpawnPress")->shape->getPosition());
+            this->hud->spawnPress = !this->hud->spawnPress;
             break;
         }
         case (sf::Keyboard::S):
         {
-            this->hud->buttonsClick(this->hud->getButton("btnCenterShape")->shape->getPosition());
+            this->hud->centerShape = !this->hud->centerShape;
             break;
         }
         case (sf::Keyboard::M):
         {
-            this->hud->buttonsClick(this->hud->getButton("btnMatrix")->shape->getPosition());
+            this->hud->matrixActivated = !this->hud->matrixActivated;
             break;
         }
         case (sf::Keyboard::W):
         {
-            this->hud->buttonsClick(this->hud->getButton("btnWall")->shape->getPosition());
+            this->hud->wallActivated = !this->hud->wallActivated;
             break;
         }
         case (sf::Keyboard::A):
         {
-            this->hud->buttonsClick(this->hud->getButton("btnMapAreaSize")->shape->getPosition());
+            this->hud->shapeMapArea->visible = !this->hud->shapeMapArea->visible;
             break;
         }
         case (sf::Keyboard::D):
         {
-            this->hud->buttonsClick(this->hud->getButton("btnGridSpawn")->shape->getPosition());
+            this->hud->gridSpawn = !this->hud->gridSpawn;
             break;
         }
         case (sf::Keyboard::I):
         {
-            this->hud->buttonsClick(this->hud->getButton("btnSelectItem")->shape->getPosition());
+            this->hud->manager->palette->clearPaletteItem();
+            this->hud->itemSelect = true;
             break;
         }
         case (sf::Keyboard::B):
         {
-            this->hud->buttonsClick(this->hud->getButton("btnUpdateMapBounds")->shape->getPosition());
+            this->hud->updateMapBounds();
             break;
         }
         case (sf::Keyboard::Tilde):
         {
-            this->hud->buttonsClick(this->hud->getButton("btnDragCursor")->shape->getPosition());
+            this->hud->dragCursor = !this->hud->dragCursor;
+            if (this->hud->dragCursor)
+                this->hud->manager->palette->clearPaletteItem();
             break;
         }
         case (sf::Keyboard::Period):
         {
-            this->hud->buttonsClick(this->hud->getButton("btnSelectItemMove")->shape->getPosition());
+            if (this->hud->itemSelected)
+                this->hud->itemSelectedMove = !this->hud->itemSelectedMove;
+            else
+                this->hud->itemSelectedMove = false;
             break;
         }
         case (sf::Keyboard::Q):
         {
-            this->hud->buttonsClick(this->hud->getButton("btnFormShapeSquare")->shape->getPosition());
+            this->hud->formShapeClick("square");
             break;
         }
         case (sf::Keyboard::R):
         {
-            this->hud->buttonsClick(this->hud->getButton("btnFormShapeCircle")->shape->getPosition());
+            this->hud->formShapeClick("circle");
             break;
         }
         case (sf::Keyboard::O):
         {
-            this->hud->buttonsClick(this->hud->getButton("btnFormShapeNone")->shape->getPosition());
+            this->hud->formShapeClick("none");
             break;
         }
         case (sf::Keyboard::L):
         {
             this->calculateMapEdges();
+            break;
+        }
+        case (sf::Keyboard::Z):
+        {
+            if (event.key.control)
+                this->hud->undoAction();
+            break;
+        }
+        case (sf::Keyboard::Y):
+        {
+            if (event.key.control)
+                this->hud->redoAction();
             break;
         }
     }
@@ -545,7 +618,6 @@ bool Manager::eventMouseMoved(sf::Event& event)
 
 bool Manager::eventType(sf::Event& event)
 {
-    this->hud->updateEdit(static_cast<char>(event.text.unicode));
     return true;
 }
 
@@ -889,8 +961,8 @@ std::list<std::string> Manager::loadFileFromDirectory(std::string directory, std
             if (subListFiles.size() > 0)
                 listFiles.insert(listFiles.end(), subListFiles.begin(), subListFiles.end());
         }
-        else if (boost::filesystem::extension(entry) == ".json")
-            listFiles.emplace_back(subDirectory + base + boost::filesystem::basename(entry));
+        else if (entry.path().extension().string() == ".json")
+            listFiles.emplace_back(subDirectory + base + entry.path().stem().string());
 
     return listFiles;
 }
@@ -915,4 +987,110 @@ bool Manager::imguiTrigger(ImguiMiscData data)
     }
 
     return true;
+}
+
+void Manager::renderSplash()
+{
+    // Use the default window view (not the canvas) for splash rendering
+    this->window->setView(this->window->getDefaultView());
+
+    sf::Vector2u winSize = this->window->getSize();
+    float w = static_cast<float>(winSize.x);
+    float h = static_cast<float>(winSize.y);
+
+    // Dark gradient-like background
+    sf::RectangleShape background(sf::Vector2f(w, h));
+    background.setFillColor(sf::Color(18, 18, 28));
+    this->window->draw(background);
+
+    // Decorative accent line at the top
+    sf::RectangleShape accentLine(sf::Vector2f(w, 3.f));
+    accentLine.setFillColor(sf::Color(70, 130, 200));
+    this->window->draw(accentLine);
+
+    // Centered card/panel
+    float cardWidth = 420.f;
+    float cardHeight = 320.f;
+    sf::RectangleShape card(sf::Vector2f(cardWidth, cardHeight));
+    card.setPosition(w / 2.f - cardWidth / 2.f, h / 2.f - cardHeight / 2.f);
+    card.setFillColor(sf::Color(24, 24, 36));
+    card.setOutlineThickness(1.f);
+    card.setOutlineColor(sf::Color(50, 50, 70));
+    this->window->draw(card);
+
+    // Logo / Icon
+    sf::Vector2u logoSize = this->splashLogoTexture.getSize();
+    if (logoSize.x > 0 && logoSize.y > 0)
+    {
+        this->splashLogoSprite.setPosition(
+            w / 2.f - this->splashLogoSprite.getGlobalBounds().width / 2.f,
+            h / 2.f - 120.f);
+        this->window->draw(this->splashLogoSprite);
+    }
+
+    // Title text
+    sf::Text titleText;
+    titleText.setFont(*this->font);
+    titleText.setString("realm-editor");
+    titleText.setCharacterSize(32);
+    titleText.setStyle(sf::Text::Bold);
+    titleText.setFillColor(sf::Color(220, 220, 245));
+    sf::FloatRect titleBounds = titleText.getLocalBounds();
+    titleText.setOrigin(titleBounds.left + titleBounds.width / 2.f, titleBounds.top + titleBounds.height / 2.f);
+    titleText.setPosition(w / 2.f, h / 2.f - 25.f);
+    this->window->draw(titleText);
+
+    // Version text
+    sf::Text versionText;
+    versionText.setFont(*this->font);
+    versionText.setString("v1.0.0");
+    versionText.setCharacterSize(16);
+    versionText.setFillColor(sf::Color(130, 130, 170));
+    sf::FloatRect verBounds = versionText.getLocalBounds();
+    versionText.setOrigin(verBounds.left + verBounds.width / 2.f, verBounds.top + verBounds.height / 2.f);
+    versionText.setPosition(w / 2.f, h / 2.f + 10.f);
+    this->window->draw(versionText);
+
+    // Divider line
+    sf::RectangleShape divider(sf::Vector2f(200.f, 1.f));
+    divider.setFillColor(sf::Color(60, 60, 85));
+    divider.setPosition(w / 2.f - 100.f, h / 2.f + 40.f);
+    this->window->draw(divider);
+
+    // Development credit
+    sf::Text creditText;
+    creditText.setFont(*this->font);
+    creditText.setString("Developed by Mence");
+    creditText.setCharacterSize(14);
+    creditText.setFillColor(sf::Color(110, 110, 150));
+    sf::FloatRect creditBounds = creditText.getLocalBounds();
+    creditText.setOrigin(creditBounds.left + creditBounds.width / 2.f, creditBounds.top + creditBounds.height / 2.f);
+    creditText.setPosition(w / 2.f, h / 2.f + 65.f);
+    this->window->draw(creditText);
+
+    // Loading / progress hint
+    float elapsed = this->splashClock.getElapsedTime().asSeconds();
+    float progress = std::min(elapsed / 2.5f, 1.f);
+
+    sf::Text loadingText;
+    loadingText.setFont(*this->font);
+    loadingText.setString("Loading...");
+    loadingText.setCharacterSize(12);
+    loadingText.setFillColor(sf::Color(90, 90, 130));
+    sf::FloatRect loadBounds = loadingText.getLocalBounds();
+    loadingText.setOrigin(loadBounds.left + loadBounds.width / 2.f, loadBounds.top + loadBounds.height / 2.f);
+    loadingText.setPosition(w / 2.f, h / 2.f + 105.f);
+    this->window->draw(loadingText);
+
+    // Progress bar background
+    sf::RectangleShape progressBg(sf::Vector2f(200.f, 4.f));
+    progressBg.setFillColor(sf::Color(40, 40, 55));
+    progressBg.setPosition(w / 2.f - 100.f, h / 2.f + 120.f);
+    this->window->draw(progressBg);
+
+    // Progress bar fill
+    sf::RectangleShape progressFill(sf::Vector2f(200.f * progress, 4.f));
+    progressFill.setFillColor(sf::Color(70, 130, 200));
+    progressFill.setPosition(w / 2.f - 100.f, h / 2.f + 120.f);
+    this->window->draw(progressFill);
 }
