@@ -221,11 +221,20 @@ std::shared_ptr<Model> Palette::loadPaletteItemModel(std::string filename, sf::V
         {   
             json file = Json::loadFromFile(this->manager->constant.gamePath + "/data/characters/" + filename + ".json");
 
+            if (file.is_null())
+            {
+                this->manager->hud->showMessage("Could not load unit: " + filename + " - file not found", 3.f);
+                return nullptr;
+            }
+
             std::string texture = this->manager->constant.gamePath + "/data/textures/" + Json::getString(file.value("texture", ""));
             file.clear();
 
             if (texture == "")
+            {
+                this->manager->hud->showMessage("Could not load unit: " + filename + " - missing texture field", 3.f);
                 return nullptr;
+            }
 
             return std::make_shared<Model>(this->manager, position, texture, 2, true, "", "characters/" + filename);
 
@@ -236,11 +245,26 @@ std::shared_ptr<Model> Palette::loadPaletteItemModel(std::string filename, sf::V
         {
             json file = Json::loadFromFile(this->manager->constant.gamePath + "/data/merchants/stores/" + filename + ".json");
 
+            if (file.is_null())
+            {
+                this->manager->hud->showMessage("Could not load merchant: " + filename + " - file not found", 3.f);
+                return nullptr;
+            }
+
+            if (!file.contains("models") || file["models"].empty())
+            {
+                this->manager->hud->showMessage("Could not load merchant: " + filename + " - invalid models field", 3.f);
+                return nullptr;
+            }
+
             std::string texture = this->manager->constant.gamePath + "/data/textures/" + Json::getString(file["models"][0].value("value", ""));
             file.clear();
 
             if (texture == "")
+            {
+                this->manager->hud->showMessage("Could not load merchant: " + filename + " - missing texture value", 3.f);
                 return nullptr;
+            }
 
             return std::make_shared<Model>(this->manager, position, texture, 2, true, "", "merchants/stores/" + filename);
 
@@ -251,11 +275,20 @@ std::shared_ptr<Model> Palette::loadPaletteItemModel(std::string filename, sf::V
         { 
             json file = Json::loadFromFile(this->manager->constant.gamePath + "/data/items/" + filename + ".json");
 
+            if (file.is_null())
+            {
+                this->manager->hud->showMessage("Could not load item: " + filename + " - file not found", 3.f);
+                return nullptr;
+            }
+
             std::string texture = this->manager->constant.gamePath + "/data/textures/" + Json::getString(file.value("texture", ""));
             file.clear();
 
             if (texture == "")
+            {
+                this->manager->hud->showMessage("Could not load item: " + filename + " - missing texture field", 3.f);
                 return nullptr;
+            }
 
             return std::make_shared<Model>(this->manager, position, texture, 2, true, "", "items/" + filename);
 
@@ -371,18 +404,42 @@ bool Palette::checkModels(std::shared_ptr<Model> modelX, std::shared_ptr<Model> 
     if (!modelX || !modelY)
         return false;
 
+    
+    if (modelX->filename != "" && modelY->filename != "")
+    {
+        if (modelX->filename != modelY->filename)
+            return false;
+
+        
+        
+        if (modelX->origin != "" && modelY->origin != "")
+            return (modelX->origin == modelY->origin);
+
+        return true;
+    }
+
+    
     return (modelX->origin == modelY->origin);
 }
 
 bool Palette::selectPaletteItem(int index)
 {
-    if (index < 0 || index >= (int)this->paletteItems.size())
-        return false;
+	if (index < 0 || index >= (int)this->paletteItems.size())
+	{
+		this->manager->hud->showMessage("Error: Invalid palette item index: " + boost::lexical_cast<std::string>(index), 3.f);
+		return false;
+	}
 
-    auto it = std::next(this->paletteItems.begin(), index);
-    PaletteItem& item = *it;
+	auto it = std::next(this->paletteItems.begin(), index);
+	PaletteItem& item = *it;
 
-    // Clear previous selection highlight
+	if (!item.model)
+	{
+		this->manager->hud->showMessage("Error: Failed to select item '" + item.filename + "' - invalid model", 3.f);
+		return false;
+	}
+
+    
     for (auto& pi : this->paletteItems)
         if (pi.model->sprite)
             pi.model->setColor(sf::Color(255, 255, 255, 255));
@@ -399,7 +456,7 @@ bool Palette::selectPaletteItem(int index)
     this->manager->hud->shapeHover->visible = true;
     this->status = PaletteStatus::psInsert;
 
-    // Update extra edit values for portal types
+    
     if (this->type == PaletteType::ptPortal)
     {
         std::string& filename = item.filename;
@@ -459,7 +516,7 @@ bool Palette::selectPaletteItem(int index)
 
 bool Palette::selectPaletteItem(sf::Vector2f cursor, std::shared_ptr<Model> model)
 {
-    // Find item by model match (used when selecting items on the map)
+    
     int index = 0;
     for (auto& item : this->paletteItems)
     {

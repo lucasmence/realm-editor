@@ -3,6 +3,7 @@
 #include <list>
 #include <vector>
 #include <string>
+#include <functional>
 #include "../palette/palette.hpp"
 #include "../map/map.hpp"
 
@@ -12,6 +13,13 @@
 #define HUD_HPP
 
 class Manager;
+
+struct CommandPaletteEntry
+{
+    std::string name;
+    std::string category;
+    std::function<void()> action;
+};
 
 struct GameTick
 {
@@ -60,6 +68,9 @@ class Hud
 		bool matrixTriggered;
 		bool matrixPosSpawn;
 		bool wallActivated;
+		bool terrainFillActivated;
+		bool terrainFillTriggered;
+		sf::Vector2f terrainFillStartPos;
 		bool gridSpawn;
 		bool itemSelect;
 		bool itemSelected;
@@ -84,6 +95,7 @@ class Hud
 		std::shared_ptr<Model> shapeMapArea;
 		std::shared_ptr<Model> shapeMatrix;
 		std::shared_ptr<Model> shapeItemSelected;
+		std::shared_ptr<Model> shapeTerrainFill;
 		std::shared_ptr<Model> itemModelSelected;
 		std::shared_ptr<Model> shapeMinimap;
 
@@ -114,6 +126,10 @@ class Hud
 		bool toggleGridVisibility();
 		bool removeBackground();
 		bool formShapeClick(const std::string& shapeName);
+		bool terrainFillActivate(sf::Vector2f cursor);
+		bool terrainFillDeactivate(sf::Vector2f cursor);
+		bool terrainFillGenerate(sf::Vector2f cursor);
+		bool updateShapeTerrainFill(sf::Vector2f cursor);
 		bool selectItem(sf::Vector2f cursor);
 		bool deleteSelectedItem();
 		bool selectedItemUpdate();
@@ -140,7 +156,7 @@ class Hud
 		bool updateBitmaskList(std::vector<MapObjectUnit> list);
 		std::vector<MapObjectUnit> updateBitmaskRemove(MapObjectUnit object);
 
-		// History (undo/redo)
+		
 		static const int historyMaxSize = 100;
 		std::vector<HistoryEntry> undoStack;
 		std::vector<HistoryEntry> redoStack;
@@ -151,7 +167,16 @@ class Hud
 		bool redoAction();
 		bool clearHistory();
 
-		// IMGUI rendering
+		
+		bool showCommandPalette;
+		char commandPaletteSearch[128];
+		std::vector<CommandPaletteEntry> commandPaletteEntries;
+		std::vector<int> commandPaletteFilteredIndices;
+		int commandPaletteSelectedIndex;
+		void buildCommandPalette();
+		void executeCommandPalette(int index);
+
+		
 		bool imguiRender();
 		void imguiRenderMenuBar();
 		void imguiRenderToolPanel();
@@ -162,16 +187,21 @@ class Hud
 		void imguiRenderPaletteItems();
 		void imguiRenderPaletteSelector();
 		void imguiRenderPreferencesWindow();
+		void imguiRenderAboutWindow();
+		void imguiRenderCommandPalette();
 
-		// Preferences window flag
+		
 		bool showPreferencesWindow;
 
-		// Notification message
+		
+		bool showAboutWindow;
+
+		
 		std::string notificationText;
 		float notificationTimer;
 		float notificationDuration;
 
-		// IMGUI edit state buffers
+		
 		char imguiMapName[128];
 		char imguiMapMusic[128];
 		char imguiMapVersion[128];
@@ -180,7 +210,7 @@ class Hud
 		char imguiExtraFields[7][128];
 
 	private:
-		// Track toggle button states for ImGui rendering
+		
 		bool gettingExtraValues;
 		std::vector<std::string> extraFieldCaptions;
 		std::vector<EditType> extraFieldTypes;

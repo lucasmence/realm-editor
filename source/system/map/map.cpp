@@ -10,6 +10,7 @@ Map::Map(Manager* manager)
 {
 	this->filename = "";
 	this->manager = manager;
+	this->dirty = false;
 	this->clearObjects();
 }
 
@@ -199,6 +200,7 @@ std::string Map::getTextureFromUnit(json line, MapObjectType type)
 bool Map::addObjectUnit(MapObjectUnit object)
 {
 	this->objects.emplace_back(object);
+	this->dirty = true;
 	return true;
 }
 
@@ -209,6 +211,7 @@ bool Map::removeObjectUnit(MapObjectUnit& object)
                                        this->objects.end(),
                                        [object](MapObjectUnit& objectIndex) { return object.model == objectIndex.model; }),
                                        this->objects.end());
+	this->dirty = true;
 	return true;
 }
 
@@ -406,6 +409,7 @@ bool Map::saveMapAfter()
 	fileStream << this->file;
 
 	this->manager->setTitle(this->filename);
+	this->dirty = false;
 
 	this->deleteMapTemp();
 	this->manager->hud->showMessage("Map saved successfully!");
@@ -618,6 +622,7 @@ bool Map::loadMapAfter()
 		}
 	}
 
+	this->dirty = false;
 	this->manager->setTitle(this->filename);
 
 	this->manager->hud->showMessage("Map loaded successfully!");
@@ -653,6 +658,7 @@ bool Map::newMap()
 	this->manager->hud->clearHistory();
 
 	this->filename = "";
+	this->dirty = false;
 	this->data.size = sf::Vector2i(3000, 3000);
 	this->data.name = "map";
 	this->data.music = "none";

@@ -82,6 +82,7 @@ class Map
 		MapData data;
 		json file;
 		std::string filename;
+		bool dirty;
 
 		Map(Manager* manager);
 		~Map();

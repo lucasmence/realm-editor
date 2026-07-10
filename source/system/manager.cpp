@@ -14,7 +14,9 @@ Manager::Manager()
     this->loadConstants();
 
     this->appName = "realm-editor";
-    this->window = std::make_shared<sf::RenderWindow>(sf::VideoMode(sf::VideoMode::getDesktopMode().width, sf::VideoMode::getDesktopMode().height), appName, sf::Style::Default);
+    sf::VideoMode desktop = sf::VideoMode::getDesktopMode();
+    this->window = std::make_shared<sf::RenderWindow>(desktop, appName, sf::Style::Default);
+    this->window->setPosition(sf::Vector2i(0, 0));
     this->canvas = std::make_shared<sf::View>();
     this->minimapView = std::make_shared<sf::View>();
     ImGui::SFML::Init(*this->window);
@@ -24,10 +26,10 @@ Manager::Manager()
     this->icon.loadFromFile("realm-editor.png");
     this->window->setIcon(this->icon.getSize().x, this->icon.getSize().y, this->icon.getPixelsPtr());
 
-    // Load splash logo texture from the icon image
+    
     this->splashLogoTexture.loadFromImage(this->icon);
     this->splashLogoSprite.setTexture(this->splashLogoTexture);
-    // Scale logo to a reasonable size for the splash
+    
     float logoMaxDim = 100.f;
     sf::Vector2u logoSize = this->splashLogoTexture.getSize();
     float logoScale = logoMaxDim / std::max(logoSize.x, logoSize.y);
@@ -41,9 +43,9 @@ Manager::Manager()
     this->minimapVisible = false;
     this->canvasPosition = sf::Vector2f(0.f, -115.f);
     this->filePathData.active = false;
-    this->imguiMiscData.active = false;
-    this->closeSignal = false;
-    this->splashActive = false;
+    this->imguiMiscData.active = false;	this->closeSignal = false;
+	this->splashActive = false;
+	this->pendingExitAfterSave = false;
 
     if (!this->loadConfigTxt())
         this->choosePath(PathType::ptGamepath, "Select", "Select game folder", true, false);
@@ -110,7 +112,7 @@ bool Manager::update()
 
     if (this->splashActive)
     {
-        // Check if 5 seconds have elapsed
+        
         if (this->splashClock.getElapsedTime().asSeconds() >= 2.5f)
             this->splashActive = false;
     }
@@ -129,12 +131,19 @@ bool Manager::update()
         }
 
         this->imguiUpdate();
-    }
+    }	this->display();
 
-    this->display();
+	
+	if (this->pendingExitAfterSave && !this->filePathData.active)
+	{
+		this->pendingExitAfterSave = false;
+		
+		if (this->map && !this->map->dirty)
+			this->closeSignal = true;
+	}
 
-    if (this->closeSignal) 
-        this->systemClose();
+	if (this->closeSignal) 
+		this->systemClose();
 
 	return true;
 }
@@ -203,51 +212,103 @@ bool Manager::imguiUpdateDialogBox()
             if (!this->imguiMiscData.active && this->imguiDialogBoxData.result) this->map->loadMap(this->map->filename);
 
             break;
-        }
+        }		case (ImguiMiscType::imtExitConfirmation):
+		{
+			ImGui::SetNextWindowSize(ImVec2(1, 1), ImGuiCond_FirstUseEver);
+			ImGui::SetNextWindowPos(
+				ImVec2(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f),
+				ImGuiCond_Always,
+				ImVec2(0.5f, 0.5f)
+			);
+			ImGui::Begin("##placeholder");
 
-        case (ImguiMiscType::imtExitConfirmation):
-        {
-            ImGui::SetNextWindowSize(ImVec2(1, 1), ImGuiCond_FirstUseEver);
-            ImGui::SetNextWindowPos(
-                ImVec2(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f),
-                ImGuiCond_Always,
-                ImVec2(0.5f, 0.5f)
-            );
-            ImGui::Begin("##placeholder");
+			
+			bool hasUnsavedChanges = (this->map && this->map->dirty);
 
-            ImGui::OpenPopup("Exit");
+			ImGui::OpenPopup("Exit");
 
-            if (ImGui::BeginPopupModal("Exit", NULL, ImGuiWindowFlags_AlwaysAutoResize))
-            {
-                ImGui::Text("Are you sure you want to exit? \nAll your non-saved data will be lost!");
-                ImGui::Separator();
+			if (ImGui::BeginPopupModal("Exit", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+			{
+				if (hasUnsavedChanges)
+				{
+					ImGui::Text("You have unsaved changes.");
+					ImGui::Text("Do you want to save before exiting?");
+				}
+				else
+				{
+					ImGui::Text("Are you sure you want to exit?");
+				}
+				ImGui::Separator();
 
-                if (ImGui::Button("Yes", ImVec2(120, 0)))
-                {
-                    this->imguiDialogBoxData.result = true;
-                    this->imguiMiscData.active = false;
-                    this->map->deleteMapTemp();
-                    ImGui::CloseCurrentPopup();
-                }
+				if (hasUnsavedChanges)
+				{
+					
+					if (ImGui::Button("Save and Exit", ImVec2(140, 0)))
+					{
+						this->imguiMiscData.active = false;
+						this->map->saveMap();
+						
+						if (this->filePathData.active)
+							this->pendingExitAfterSave = true;
+						else
+							this->closeSignal = true;
+						ImGui::CloseCurrentPopup();
+					}
 
-                ImGui::SameLine();
+					ImGui::SameLine();
 
-                if (ImGui::Button("No", ImVec2(120, 0)))
-                {
-                    this->imguiDialogBoxData.result = false;
-                    this->imguiMiscData.active = false;
-                    ImGui::CloseCurrentPopup();
-                }
+					
+					if (ImGui::Button("Exit without Saving", ImVec2(160, 0)))
+					{
+						this->imguiDialogBoxData.result = true;
+						this->imguiMiscData.active = false;
+						this->map->deleteMapTemp();
+						this->closeSignal = true;
+						ImGui::CloseCurrentPopup();
+					}
 
-                ImGui::EndPopup();
-            }
+					ImGui::SameLine();
 
-            ImGui::End();
+					
+					if (ImGui::Button("Cancel", ImVec2(100, 0)))
+					{
+						this->imguiDialogBoxData.result = false;
+						this->imguiMiscData.active = false;
+						ImGui::CloseCurrentPopup();
+					}
+				}
+				else
+				{
+					if (ImGui::Button("Yes", ImVec2(120, 0)))
+					{
+						this->imguiDialogBoxData.result = true;
+						this->imguiMiscData.active = false;
+						this->map->deleteMapTemp();
+						this->closeSignal = true;
+						ImGui::CloseCurrentPopup();
+					}
 
-            if (!this->imguiMiscData.active && this->imguiDialogBoxData.result) this->closeSignal = true;
+					ImGui::SameLine();
 
-            break;
-        }
+					if (ImGui::Button("No", ImVec2(120, 0)))
+					{
+						this->imguiDialogBoxData.result = false;
+						this->imguiMiscData.active = false;
+						ImGui::CloseCurrentPopup();
+					}
+				}
+
+				ImGui::EndPopup();
+			}
+
+			ImGui::End();
+
+			
+			if (!hasUnsavedChanges && !this->imguiMiscData.active && this->imguiDialogBoxData.result)
+				this->closeSignal = true;
+
+			break;
+		}
     }
 
     return true;
@@ -300,7 +361,7 @@ bool Manager::loadGamepathAfter()
 
     this->map->newMap();
 
-    // Check if a recovery temp map exists BEFORE loading it
+    
     boost::filesystem::path tempPath = boost::filesystem::path(this->constant.gamePath) / "temp" / "temp.json";
     bool tempMapExists = boost::filesystem::exists(tempPath);
 
@@ -308,7 +369,7 @@ bool Manager::loadGamepathAfter()
 
     this->hudLoaded = true;
 
-    // Show splash only if no recovery map is being loaded
+    
     this->splashActive = !tempMapExists;
     if (this->splashActive)
         this->splashClock.restart();
@@ -369,7 +430,7 @@ bool Manager::event()
     {
         if (this->splashActive)
         {
-            // During splash, close the window directly without confirmation
+            
             if (event.type == sf::Event::Closed)
             {
                 this->closeSignal = true;
@@ -437,8 +498,8 @@ bool Manager::event()
 
 bool Manager::eventClick(sf::Event& event)
 {
-    // Only block clicks on interactive ImGui widgets (buttons, inputs, etc.),
-    // not on transparent window backgrounds (the tool panel covers the map area)
+    
+    
     if (ImGui::IsAnyItemHovered())
         return true;
 
@@ -569,7 +630,7 @@ bool Manager::eventKey(sf::Event& event)
         }
         case (sf::Keyboard::Q):
         {
-            this->hud->formShapeClick("square");
+            this->hud->terrainFillActivated = !this->hud->terrainFillActivated;
             break;
         }
         case (sf::Keyboard::R):
@@ -585,6 +646,19 @@ bool Manager::eventKey(sf::Event& event)
         case (sf::Keyboard::L):
         {
             this->calculateMapEdges();
+            break;
+        }
+        case (sf::Keyboard::Return):
+        {
+            if (event.key.control)
+            {
+                this->hud->showCommandPalette = !this->hud->showCommandPalette;
+                if (this->hud->showCommandPalette)
+                {
+                    this->hud->commandPaletteSearch[0] = '\0';
+                    this->hud->commandPaletteSelectedIndex = 0;
+                }
+            }
             break;
         }
         case (sf::Keyboard::Z):
@@ -991,24 +1065,24 @@ bool Manager::imguiTrigger(ImguiMiscData data)
 
 void Manager::renderSplash()
 {
-    // Use the default window view (not the canvas) for splash rendering
+    
     this->window->setView(this->window->getDefaultView());
 
     sf::Vector2u winSize = this->window->getSize();
     float w = static_cast<float>(winSize.x);
     float h = static_cast<float>(winSize.y);
 
-    // Dark gradient-like background
+    
     sf::RectangleShape background(sf::Vector2f(w, h));
     background.setFillColor(sf::Color(18, 18, 28));
     this->window->draw(background);
 
-    // Decorative accent line at the top
+    
     sf::RectangleShape accentLine(sf::Vector2f(w, 3.f));
     accentLine.setFillColor(sf::Color(70, 130, 200));
     this->window->draw(accentLine);
 
-    // Centered card/panel
+    
     float cardWidth = 420.f;
     float cardHeight = 320.f;
     sf::RectangleShape card(sf::Vector2f(cardWidth, cardHeight));
@@ -1018,7 +1092,7 @@ void Manager::renderSplash()
     card.setOutlineColor(sf::Color(50, 50, 70));
     this->window->draw(card);
 
-    // Logo / Icon
+    
     sf::Vector2u logoSize = this->splashLogoTexture.getSize();
     if (logoSize.x > 0 && logoSize.y > 0)
     {
@@ -1028,7 +1102,7 @@ void Manager::renderSplash()
         this->window->draw(this->splashLogoSprite);
     }
 
-    // Title text
+    
     sf::Text titleText;
     titleText.setFont(*this->font);
     titleText.setString("realm-editor");
@@ -1040,10 +1114,10 @@ void Manager::renderSplash()
     titleText.setPosition(w / 2.f, h / 2.f - 25.f);
     this->window->draw(titleText);
 
-    // Version text
+    
     sf::Text versionText;
     versionText.setFont(*this->font);
-    versionText.setString("v1.0.0");
+    versionText.setString("build 12");
     versionText.setCharacterSize(16);
     versionText.setFillColor(sf::Color(130, 130, 170));
     sf::FloatRect verBounds = versionText.getLocalBounds();
@@ -1051,16 +1125,16 @@ void Manager::renderSplash()
     versionText.setPosition(w / 2.f, h / 2.f + 10.f);
     this->window->draw(versionText);
 
-    // Divider line
+    
     sf::RectangleShape divider(sf::Vector2f(200.f, 1.f));
     divider.setFillColor(sf::Color(60, 60, 85));
     divider.setPosition(w / 2.f - 100.f, h / 2.f + 40.f);
     this->window->draw(divider);
 
-    // Development credit
+    
     sf::Text creditText;
     creditText.setFont(*this->font);
-    creditText.setString("Developed by Mence");
+    creditText.setString("https://mence.dev");
     creditText.setCharacterSize(14);
     creditText.setFillColor(sf::Color(110, 110, 150));
     sf::FloatRect creditBounds = creditText.getLocalBounds();
@@ -1068,7 +1142,7 @@ void Manager::renderSplash()
     creditText.setPosition(w / 2.f, h / 2.f + 65.f);
     this->window->draw(creditText);
 
-    // Loading / progress hint
+    
     float elapsed = this->splashClock.getElapsedTime().asSeconds();
     float progress = std::min(elapsed / 2.5f, 1.f);
 
@@ -1082,13 +1156,13 @@ void Manager::renderSplash()
     loadingText.setPosition(w / 2.f, h / 2.f + 105.f);
     this->window->draw(loadingText);
 
-    // Progress bar background
+    
     sf::RectangleShape progressBg(sf::Vector2f(200.f, 4.f));
     progressBg.setFillColor(sf::Color(40, 40, 55));
     progressBg.setPosition(w / 2.f - 100.f, h / 2.f + 120.f);
     this->window->draw(progressBg);
 
-    // Progress bar fill
+    
     sf::RectangleShape progressFill(sf::Vector2f(200.f * progress, 4.f));
     progressFill.setFillColor(sf::Color(70, 130, 200));
     progressFill.setPosition(w / 2.f - 100.f, h / 2.f + 120.f);
