@@ -100,6 +100,7 @@ class Manager
 		bool hudLoaded;
 		bool closeSignal;
 		bool splashActive;
+		bool pendingExitAfterSave;
 		sf::Clock deltaClock;
 		sf::Clock splashClock;
 		std::string appName;

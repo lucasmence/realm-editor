@@ -75,21 +75,26 @@ bool Model::loadSprite(std::string filename, sf::Vector2f position)
 	if (!usedModel && this->animation == "stand")
 		for (auto& modelIndex : this->manager->list.viewElements)
 			if (modelIndex->elementType == this->elementType)
-				if (std::dynamic_pointer_cast<Model>(modelIndex)->filename == this->filename)
+			{
+				auto candidate = std::dynamic_pointer_cast<Model>(modelIndex);
+				if (candidate && candidate->filename == this->filename && candidate->animation == this->animation && candidate->origin == this->origin)
 				{
-					usedModel = std::dynamic_pointer_cast<Model>(modelIndex);
+					usedModel = candidate;
 					break;
 				}
+			}
 
-	if (usedModel)
+	if (usedModel && usedModel->sprite)
 	{
 		this->texture = usedModel->texture;
 		sf::IntRect textureRect = usedModel->sprite->getTextureRect();
 		
 		direction = sf::Vector2i(textureRect.left, textureRect.top);
 		dimension = sf::Vector2i(textureRect.width, textureRect.height);
-				
-		textureFound = true;
+		
+		
+		if (dimension.x > 0 && dimension.y > 0)
+			textureFound = true;
 	}
 
 	if (!textureFound)
@@ -97,18 +102,53 @@ bool Model::loadSprite(std::string filename, sf::Vector2f position)
 		std::string textureName = "";
 		json jsonFile = Json::loadFromFile(filename + ".json");
 		
+		bool animationFound = false;
 		for (int index = 0; index < jsonFile["animation"].size(); index++)
 		{
 			if (this->animation == "stand" || this->animation == jsonFile["animation"][index].value("name", ""))
 			{
 				direction = sf::Vector2i(jsonFile["animation"][index].value("sprite-direction-left", 0), jsonFile["animation"][index].value("sprite-direction-top", 0));
 				dimension = sf::Vector2i(jsonFile["animation"][index].value("sprite-direction-width", 0), jsonFile["animation"][index].value("sprite-direction-height", 0));
+				animationFound = true;
 				break;
 			}
 		}
 
-		textureName = jsonFile.value("texturename", "");
-		this->texture = this->manager->getTexture(this->manager->constant.gamePath + "/resources/sprites/" + textureName, filename);
+		
+		if (!animationFound && this->animation != "stand")
+		{
+			for (int index = 0; index < jsonFile["animation"].size(); index++)
+			{
+				if (jsonFile["animation"][index].value("name", "") == "stand")
+				{
+					direction = sf::Vector2i(jsonFile["animation"][index].value("sprite-direction-left", 0), jsonFile["animation"][index].value("sprite-direction-top", 0));
+					dimension = sf::Vector2i(jsonFile["animation"][index].value("sprite-direction-width", 0), jsonFile["animation"][index].value("sprite-direction-height", 0));
+					break;
+				}
+			}
+		}
+
+		
+		if (dimension.x <= 0 || dimension.y <= 0)
+		{
+			textureName = jsonFile.value("texturename", "");
+			this->texture = this->manager->getTexture(this->manager->constant.gamePath + "/resources/sprites/" + textureName, filename);
+			
+			
+			sf::Vector2u texSize = this->texture->texture.getSize();
+			if (texSize.x > 0 && texSize.y > 0)
+			{
+				dimension.x = texSize.x;
+				dimension.y = texSize.y;
+				direction.x = 0;
+				direction.y = 0;
+			}
+		}
+		else
+		{
+			textureName = jsonFile.value("texturename", "");
+			this->texture = this->manager->getTexture(this->manager->constant.gamePath + "/resources/sprites/" + textureName, filename);
+		}
 		jsonFile.clear();
 	}
 	

@@ -10,16 +10,26 @@ namespace Json
         std::replace(path.begin(), path.end(), '\\', '/');
     }
     
-    json loadFromFile(std::string filename)
+json loadFromFile(std::string filename)
+{
+    fixPath(filename);
+    std::ifstream fileStream(filename);
+
+    if (!fileStream.is_open())
+        return json();
+
+    json jsonFile;
+    try
     {
-        fixPath(filename);
-        std::ifstream fileStream(filename);
-
-        json jsonFile;
         fileStream >> jsonFile;
-
-        return jsonFile;
     }
+    catch (...)
+    {
+        return json();
+    }
+
+    return jsonFile;
+}
 
     std::string getString(std::string value)
     { 

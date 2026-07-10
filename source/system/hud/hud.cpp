@@ -30,6 +30,8 @@ Hud::Hud(Manager* manager)
 	this->matrixTriggered = false;
 	this->matrixPosSpawn = false;
 	this->wallActivated = false;
+	this->terrainFillActivated = false;
+	this->terrainFillTriggered = false;
 	this->itemSelect = false;
 	this->itemSelected = false;
 	this->itemSelectedMove = false;
@@ -39,6 +41,7 @@ Hud::Hud(Manager* manager)
 	this->formShapeSelected = "none";
 	this->hoverShapeSize = sf::Vector2f(0.f, 0.f);
 	this->mousePressPosition = sf::Vector2f(0.f, 0.f);
+	this->terrainFillStartPos = sf::Vector2f(0.f, 0.f);
 	this->mapTempTick = GameTick{ 0, 50000 };
 	this->weatherChance = 100;
 	this->weatherName = "";
@@ -55,6 +58,10 @@ Hud::Hud(Manager* manager)
 	this->redoStack.clear();
 	this->matrixSpawnInProgress = false;
 	this->showPreferencesWindow = false;
+	this->showAboutWindow = false;
+	this->showCommandPalette = false;
+	this->commandPaletteSelectedIndex = 0;
+	this->commandPaletteSearch[0] = '\0';
 
 	memset(imguiMapName, 0, sizeof(imguiMapName));
 	memset(imguiMapMusic, 0, sizeof(imguiMapMusic));
@@ -101,6 +108,8 @@ Hud::~Hud()
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeMapArea));
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeMatrix));
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeItemSelected));
+	if (this->shapeTerrainFill)
+		this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeTerrainFill));
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeMinimap));
 	this->itemModelSelected = nullptr;
 	this->unloadLists();
@@ -137,6 +146,7 @@ bool Hud::updateClick(sf::Vector2f cursor, bool rightButton)
 	this->selectedItemUpdate();
 	this->updateItemSelectedMove(cursor);
 	this->matrixActivate(cursor);
+	this->terrainFillActivate(cursor);
 	this->spawnClick(cursor);
 	this->selectItem(cursor);
 	return true;
@@ -161,6 +171,7 @@ bool Hud::updateMouseReleased(sf::Vector2f cursor)
 {
 	this->mousePressed = false;
 	this->matrixDeactivate(cursor);
+	this->terrainFillDeactivate(cursor);
 	return true;
 }
 
@@ -170,6 +181,8 @@ bool Hud::updateMousePressed(sf::Vector2f cursor)
 		return false;
 	if (this->spawnPress)
 		return this->spawnClick(cursor);
+	else if (this->terrainFillTriggered)
+		return this->updateShapeTerrainFill(cursor);
 	else if (this->matrixTriggered)
 		return this->updateShapeMatrix(cursor);
 	else
@@ -348,6 +361,160 @@ bool Hud::updateHoverShapeSize()
 	return true;
 }
 
+bool Hud::terrainFillActivate(sf::Vector2f cursor)
+{
+	if (this->terrainFillTriggered || !this->terrainFillActivated)
+		return false;
+	if (this->manager->palette->type != PaletteType::ptTerrain)
+		return false;
+	if (this->manager->palette->selectedItem == "")
+		return false;
+
+	this->terrainFillTriggered = true;
+	this->terrainFillStartPos = cursor;
+	this->shapeTerrainFill->setPosition(cursor);
+	std::static_pointer_cast<sf::RectangleShape>(this->shapeTerrainFill->shape)->setSize(sf::Vector2f(1.f, 1.f));
+	this->shapeTerrainFill->visible = true;
+	return true;
+}
+
+bool Hud::updateShapeTerrainFill(sf::Vector2f cursor)
+{
+	if (!this->terrainFillTriggered || !this->shapeTerrainFill->visible)
+		return false;
+
+	sf::Vector2f minPos(
+		std::min(this->terrainFillStartPos.x, cursor.x),
+		std::min(this->terrainFillStartPos.y, cursor.y));
+	sf::Vector2f maxPos(
+		std::max(this->terrainFillStartPos.x, cursor.x),
+		std::max(this->terrainFillStartPos.y, cursor.y));
+
+	this->shapeTerrainFill->setPosition(minPos);
+	std::static_pointer_cast<sf::RectangleShape>(this->shapeTerrainFill->shape)->setSize(maxPos - minPos);
+	return true;
+}
+
+bool Hud::terrainFillDeactivate(sf::Vector2f cursor)
+{
+	if (!this->terrainFillTriggered)
+		return false;
+	this->terrainFillTriggered = false;
+	this->shapeTerrainFill->visible = false;
+	this->terrainFillGenerate(cursor);
+	return true;
+}
+
+bool Hud::terrainFillGenerate(sf::Vector2f cursor)
+{
+	sf::Vector2f areaMin(
+		std::min(this->terrainFillStartPos.x, cursor.x),
+		std::min(this->terrainFillStartPos.y, cursor.y));
+	sf::Vector2f areaMax(
+		std::max(this->terrainFillStartPos.x, cursor.x),
+		std::max(this->terrainFillStartPos.y, cursor.y));
+
+	float tileW = this->hoverShapeSize.x * this->scale;
+	float tileH = this->hoverShapeSize.y * this->scale;
+
+	if (tileW <= 0.f || tileH <= 0.f)
+		return false;
+
+	std::string texture = this->manager->palette->selectedItem;
+	if (texture == "")
+		return false;
+
+	std::string paletteTypeField = this->manager->constant.gamePath + "/data/textures/terrain/";
+	std::string filename = paletteTypeField + texture;
+	std::list<MapObjectField> fields = this->getExtraEditValuesByType();
+	int priorityValue = this->priority + this->manager->map->getObjectPriority(MapObjectType::motTerrain);
+
+	int startX = (int)floor(areaMin.x / tileW);
+	int startY = (int)floor(areaMin.y / tileH);
+	int endX = (int)floor(areaMax.x / tileW);
+	int endY = (int)floor(areaMax.y / tileH);
+
+	this->matrixSpawnInProgress = true;
+
+	for (int x = startX; x <= endX; x++)
+	{
+		for (int y = startY; y <= endY; y++)
+		{
+			sf::Vector2f position(x * tileW, y * tileH);
+
+			
+			bool overlap = false;
+			for (auto& obj : this->manager->map->objects)
+			{
+				if (obj.type == MapObjectType::motTerrain && obj.model->sprite)
+				{
+					sf::FloatRect existingBounds = obj.model->sprite->getGlobalBounds();
+					if (std::abs(existingBounds.left - position.x) < tileW * 0.1f &&
+						std::abs(existingBounds.top - position.y) < tileH * 0.1f)
+					{
+						overlap = true;
+						break;
+					}
+				}
+			}
+
+			if (overlap)
+				continue;
+
+			
+			std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, position, filename, priorityValue, false, "", "");
+			model->autoPriority = this->manager->map->getObjectAutoPriority(MapObjectType::motTerrain);
+			model->sprite->setScale(this->scale, this->scale);
+			this->manager->addView(std::static_pointer_cast<ViewElement>(model));
+
+			MapObjectUnit newUnit{ MapObjectType::motTerrain, position, 0.f, model, fields };
+			this->manager->map->addObjectUnit(newUnit);
+			this->historySpawnBuffer.emplace_back(newUnit);
+
+			
+			if (model->texture->bitmask)
+			{
+				this->updateBitmask(newUnit);
+				std::vector<sf::Vector2f> neighborPositions = {
+					sf::Vector2f(position.x + tileW * 0.5f, position.y - tileH * 0.5f), 
+					sf::Vector2f(position.x - tileW * 0.5f, position.y + tileH * 0.5f), 
+					sf::Vector2f(position.x + tileW * 1.5f, position.y + tileH * 0.5f), 
+					sf::Vector2f(position.x + tileW * 0.5f, position.y + tileH * 1.5f)  
+				};
+				for (auto& nPos : neighborPositions)
+				{
+					for (auto& obj : this->manager->map->objects)
+					{
+						if (obj.type == MapObjectType::motTerrain && obj.model &&
+							obj.model->filename == model->filename &&
+							obj.model->sprite && obj.model->sprite->getGlobalBounds().contains(nPos))
+						{
+							this->updateBitmask(obj);
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	this->matrixSpawnInProgress = false;
+
+	if (this->historySpawnBuffer.size() > 0)
+	{
+		int totalItems = (int)this->historySpawnBuffer.size();
+		std::string desc = "Terrain fill (" + boost::lexical_cast<std::string>(totalItems) + " tile(s))";
+		this->recordHistory(HistoryActionType::hatSpawn, desc);
+		this->showMessage(desc, 2.f);
+	}
+	else
+	{
+		this->showMessage("No space to fill - area already occupied", 2.f);
+	}
+
+	return true;
+}
+
 bool Hud::toggleGridVisibility()
 {
 	this->gridVisible = !this->gridVisible;
@@ -487,8 +654,8 @@ bool Hud::selectItem(sf::Vector2f cursor)
 	this->getPaletteType(paletteType, objectSelected.type);
 	this->manager->palette->selectPalette(paletteType);
 
-	if (paletteType == PaletteType::ptPortal)
-		this->manager->palette->selectPaletteItem(sf::Vector2f(0.f, 0.f), objectSelected.model);
+	
+	this->manager->palette->selectPaletteItem(sf::Vector2f(0.f, 0.f), objectSelected.model);
 
 	this->itemSelected = true;
 	std::static_pointer_cast<sf::RectangleShape>(this->shapeItemSelected->shape)->setSize(sf::Vector2f(objectSelected.model->getGlobalBounds().width, objectSelected.model->getGlobalBounds().height));
@@ -581,7 +748,7 @@ bool Hud::matrixGenerate(sf::Vector2f cursor)
 
 	sf::Vector2f realSize(finalPosition.x - initialPosition.x, finalPosition.y - initialPosition.y);
 
-	// Start recording matrix spawns as one batch
+	
 	this->matrixSpawnInProgress = true;
 
 	if (this->wallActivated)
@@ -630,7 +797,7 @@ bool Hud::matrixGenerate(sf::Vector2f cursor)
 			this->spawnClick(position);
 		}
 	}
-	// Record all matrix spawns as a single history entry
+	
 	this->matrixSpawnInProgress = false;
 	if (this->historySpawnBuffer.size() > 0)
 	{
@@ -784,6 +951,8 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 bool Hud::spawnClick(sf::Vector2f cursor)
 {
 	if (this->matrixTriggered || this->itemSelectedMove)
+		return false;
+	if (this->terrainFillTriggered)
 		return false;
 	if (this->matrixPosSpawn) {
 		this->matrixPosSpawn = false;
@@ -965,7 +1134,7 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 					break;
 				}
 			}
-			// Record spawned items in history after the form shape block
+			
 			if (this->historySpawnBuffer.size() > 0 && !this->matrixSpawnInProgress)
 			{
 				std::string desc = "Spawned " + boost::lexical_cast<std::string>(this->historySpawnBuffer.size()) + " item(s)";
@@ -1222,6 +1391,11 @@ bool Hud::loadModels()
 			(this->manager->constant.minimapSize.top * 60.f)), "", 0, true);
 	this->shapeMinimap->loadShape(sf::Vector2f(1.f, 1.f), sf::Color(0, 0, 0, 255));
 	this->manager->addView(std::static_pointer_cast<ViewElement>(this->shapeMinimap));
+
+	this->shapeTerrainFill = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, 0.f), "", 1, false);
+	this->shapeTerrainFill->loadShape(sf::Vector2f(1.f, 1.f), sf::Color(0, 150, 255, 120));
+	this->manager->addView(std::static_pointer_cast<ViewElement>(this->shapeTerrainFill));
+	this->shapeTerrainFill->visible = false;
 	return true;
 }
 
@@ -1253,12 +1427,12 @@ bool Hud::recordHistory(HistoryActionType type, std::string description)
 
 	this->historySpawnBuffer.clear();
 
-	// New action clears redo stack
+	
 	this->redoStack.clear();
 
 	this->undoStack.emplace_back(entry);
 
-	// Limit undo stack size
+	
 	if ((int)this->undoStack.size() > historyMaxSize)
 		this->undoStack.erase(this->undoStack.begin());
 
@@ -1278,7 +1452,7 @@ bool Hud::undoAction()
 
 	if (entry.type == HistoryActionType::hatSpawn)
 	{
-		// Remove all spawned items
+		
 		for (auto& obj : entry.objects)
 		{
 			std::vector<MapObjectUnit> objectList = this->updateBitmaskRemove(obj);
@@ -1289,12 +1463,21 @@ bool Hud::undoAction()
 	}
 	else if (entry.type == HistoryActionType::hatDelete)
 	{
-		// Add all deleted items back
+		
 		for (auto& obj : entry.objects)
 		{
 			this->manager->addView(std::static_pointer_cast<ViewElement>(obj.model));
 			this->manager->map->addObjectUnit(obj);
 		}
+		
+		std::vector<MapObjectUnit> neighbors;
+		for (auto& obj : entry.objects)
+		{
+			this->updateBitmask(obj);
+			std::vector<MapObjectUnit> objNeighbors = this->updateBitmaskRemove(obj);
+			neighbors.insert(neighbors.end(), objNeighbors.begin(), objNeighbors.end());
+		}
+		this->updateBitmaskList(neighbors);
 		this->showMessage("Undo: " + entry.description, 2.f);
 	}
 
@@ -1315,17 +1498,26 @@ bool Hud::redoAction()
 
 	if (entry.type == HistoryActionType::hatSpawn)
 	{
-		// Re-add all spawned items
+		
 		for (auto& obj : entry.objects)
 		{
 			this->manager->addView(std::static_pointer_cast<ViewElement>(obj.model));
 			this->manager->map->addObjectUnit(obj);
 		}
+		
+		std::vector<MapObjectUnit> neighbors;
+		for (auto& obj : entry.objects)
+		{
+			this->updateBitmask(obj);
+			std::vector<MapObjectUnit> objNeighbors = this->updateBitmaskRemove(obj);
+			neighbors.insert(neighbors.end(), objNeighbors.begin(), objNeighbors.end());
+		}
+		this->updateBitmaskList(neighbors);
 		this->showMessage("Redo: " + entry.description, 2.f);
 	}
 	else if (entry.type == HistoryActionType::hatDelete)
 	{
-		// Remove all items that were re-added by undo
+		
 		for (auto& obj : entry.objects)
 		{
 			std::vector<MapObjectUnit> objectList = this->updateBitmaskRemove(obj);
@@ -1339,7 +1531,230 @@ bool Hud::redoAction()
 	return true;
 }
 
-	// IMGUI RENDERING
+	
+
+void Hud::buildCommandPalette()
+{
+	this->commandPaletteEntries.clear();
+
+	
+	this->commandPaletteEntries.push_back({ "New Map", "File", [this]() { this->manager->map->newMap(); } });
+	this->commandPaletteEntries.push_back({ "Open...", "File", [this]() { this->manager->map->loadMap(); } });
+	this->commandPaletteEntries.push_back({ "Save", "File", [this]() { this->manager->map->saveMap(); } });
+	this->commandPaletteEntries.push_back({ "Save As...", "File", [this]() { this->manager->map->saveMapAs(); } });
+	this->commandPaletteEntries.push_back({ "Reload Map", "File", [this]() { this->manager->map->reloadMap(); } });
+	this->commandPaletteEntries.push_back({ "Reload Config", "File", [this]() { this->manager->loadConstants(); } });
+	this->commandPaletteEntries.push_back({ "Create Trigger File", "File", [this]() { this->manager->map->createTriggerFile(); } });
+	this->commandPaletteEntries.push_back({ "Map Preferences...", "File", [this]() { this->manager->hud->showPreferencesWindow = true; } });
+	this->commandPaletteEntries.push_back({ "About", "File", [this]() { this->manager->hud->showAboutWindow = true; } });
+	this->commandPaletteEntries.push_back({ "Exit", "File", [this]() { this->manager->imguiTrigger(ImguiMiscData{ true, ImguiMiscType::imtExitConfirmation }); } });
+
+	
+	this->commandPaletteEntries.push_back({ "Grid: Decrease Size", "Tools", [this]() { this->changeGridSize(-1); } });
+	this->commandPaletteEntries.push_back({ "Grid: Increase Size", "Tools", [this]() { this->changeGridSize(1); } });
+	this->commandPaletteEntries.push_back({ "Grid: Toggle Visibility", "Tools", [this]() { this->toggleGridVisibility(); } });
+	this->commandPaletteEntries.push_back({ "Brush: Decrease Size", "Tools", [this]() { this->changeBrushSize(-1); } });
+	this->commandPaletteEntries.push_back({ "Brush: Increase Size", "Tools", [this]() { this->changeBrushSize(1); } });
+
+	
+	this->commandPaletteEntries.push_back({ "Clear Selection", "Tools", [this]() { this->manager->palette->clearPaletteItem(); } });
+	this->commandPaletteEntries.push_back({ "Erase Mode", "Tools", [this]() { this->manager->palette->erasePaletteItem(); } });
+	this->commandPaletteEntries.push_back({ "Select Item", "Tools", [this]() { this->manager->palette->clearPaletteItem(); this->itemSelect = true; } });
+	this->commandPaletteEntries.push_back({ "Delete Selected", "Tools", [this]() { this->deleteSelectedItem(); } });
+	this->commandPaletteEntries.push_back({ "Update Bounds", "Tools", [this]() { this->updateMapBounds(); } });
+
+	
+	this->commandPaletteEntries.push_back({ "Toggle: Spawn (P)", "Tools", [this]() { this->spawnPress = !this->spawnPress; } });
+	this->commandPaletteEntries.push_back({ "Toggle: Center (S)", "Tools", [this]() { this->centerShape = !this->centerShape; } });
+	this->commandPaletteEntries.push_back({ "Toggle: Matrix (M)", "Tools", [this]() { this->matrixActivated = !this->matrixActivated; } });
+	this->commandPaletteEntries.push_back({ "Toggle: Drag (~)", "Tools", [this]() { this->dragCursor = !this->dragCursor; } });
+	this->commandPaletteEntries.push_back({ "Toggle: Wall (W)", "Tools", [this]() { this->wallActivated = !this->wallActivated; } });
+	this->commandPaletteEntries.push_back({ "Toggle: Area (A)", "Tools", [this]() { this->shapeMapArea->visible = !this->shapeMapArea->visible; } });
+	this->commandPaletteEntries.push_back({ "Toggle: Grid Off (D)", "Tools", [this]() { this->gridSpawn = !this->gridSpawn; } });
+	this->commandPaletteEntries.push_back({ "Toggle: Fill (Q/T)", "Tools", [this]() { this->terrainFillActivated = !this->terrainFillActivated; } });
+	this->commandPaletteEntries.push_back({ "Toggle: Move (->)", "Tools", [this]() { this->itemSelectedMove = !this->itemSelectedMove; } });
+
+	
+	this->commandPaletteEntries.push_back({ "Form Shape: Square", "Tools", [this]() { this->formShapeClick("square"); } });
+	this->commandPaletteEntries.push_back({ "Form Shape: Circle", "Tools", [this]() { this->formShapeClick("circle"); } });
+	this->commandPaletteEntries.push_back({ "Form Shape: None", "Tools", [this]() { this->formShapeClick("none"); } });
+
+	
+	this->commandPaletteEntries.push_back({ "Undo", "Edit", [this]() { this->undoAction(); } });
+	this->commandPaletteEntries.push_back({ "Redo", "Edit", [this]() { this->redoAction(); } });
+
+	
+	this->commandPaletteEntries.push_back({ "Palette: Terrain", "Palette", [this]() { this->manager->palette->selectPalette(PaletteType::ptTerrain); } });
+	this->commandPaletteEntries.push_back({ "Palette: Prop", "Palette", [this]() { this->manager->palette->selectPalette(PaletteType::ptProp); } });
+	this->commandPaletteEntries.push_back({ "Palette: Environment", "Palette", [this]() { this->manager->palette->selectPalette(PaletteType::ptEnvironment); } });
+	this->commandPaletteEntries.push_back({ "Palette: Unit", "Palette", [this]() { this->manager->palette->selectPalette(PaletteType::ptUnit); } });
+	this->commandPaletteEntries.push_back({ "Palette: Merchant", "Palette", [this]() { this->manager->palette->selectPalette(PaletteType::ptMerchant); } });
+	this->commandPaletteEntries.push_back({ "Palette: Item", "Palette", [this]() { this->manager->palette->selectPalette(PaletteType::ptItem); } });
+	this->commandPaletteEntries.push_back({ "Palette: Portal", "Palette", [this]() { this->manager->palette->selectPalette(PaletteType::ptPortal); } });
+}
+
+void Hud::executeCommandPalette(int index)
+{
+	if (index >= 0 && index < (int)this->commandPaletteEntries.size())
+	{
+		this->commandPaletteEntries[index].action();
+		this->showCommandPalette = false;
+		this->commandPaletteSearch[0] = '\0';
+		this->commandPaletteSelectedIndex = 0;
+	}
+}
+
+void Hud::imguiRenderCommandPalette()
+{
+	if (!this->showCommandPalette)
+		return;
+
+	
+	if (this->commandPaletteEntries.empty())
+		this->buildCommandPalette();
+
+	ImGuiViewport* viewport = ImGui::GetMainViewport();
+	ImVec2 center = ImVec2(viewport->Pos.x + viewport->Size.x * 0.5f,
+						   viewport->Pos.y + viewport->Size.y * 0.5f);
+
+	ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+	ImGui::SetNextWindowSize(ImVec2(480, 360), ImGuiCond_Always);
+	ImGui::SetNextWindowBgAlpha(0.95f);
+
+	ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings;
+
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 12));
+
+	ImGui::Begin("##commandPalette", &this->showCommandPalette, flags);
+
+	
+	if (ImGui::IsWindowAppearing())
+		ImGui::SetKeyboardFocusHere();
+
+	
+	ImGui::PushItemWidth(-1);
+	ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.12f, 0.12f, 0.18f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
+
+	bool enterPressed = ImGui::InputTextWithHint("##cmdSearch", "Type a command...",
+		this->commandPaletteSearch, sizeof(this->commandPaletteSearch),
+		ImGuiInputTextFlags_EnterReturnsTrue);
+
+	ImGui::PopStyleColor(2);
+	ImGui::PopItemWidth();
+
+	
+	std::string searchStr = this->commandPaletteSearch;
+	for (auto& c : searchStr) c = (char)tolower(c);
+
+	this->commandPaletteFilteredIndices.clear();
+	int idx = 0;
+	for (auto& entry : this->commandPaletteEntries)
+	{
+		std::string entryStr = entry.name + " " + entry.category;
+		for (auto& c : entryStr) c = (char)tolower(c);
+
+		if (searchStr.empty() || entryStr.find(searchStr) != std::string::npos)
+			this->commandPaletteFilteredIndices.push_back(idx);
+		idx++;
+	}
+
+	
+	if (this->commandPaletteSelectedIndex >= (int)this->commandPaletteFilteredIndices.size())
+		this->commandPaletteSelectedIndex = (int)this->commandPaletteFilteredIndices.size() - 1;
+	if (this->commandPaletteSelectedIndex < 0 && !this->commandPaletteFilteredIndices.empty())
+		this->commandPaletteSelectedIndex = 0;
+
+	
+	if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
+	{
+		if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_UpArrow)))
+		{
+			this->commandPaletteSelectedIndex--;
+			if (this->commandPaletteSelectedIndex < 0)
+				this->commandPaletteSelectedIndex = (int)this->commandPaletteFilteredIndices.size() - 1;
+		}
+		if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_DownArrow)))
+		{
+			this->commandPaletteSelectedIndex++;
+			if (this->commandPaletteSelectedIndex >= (int)this->commandPaletteFilteredIndices.size())
+				this->commandPaletteSelectedIndex = 0;
+		}
+	}
+
+	
+	ImGui::Separator();
+	ImVec2 listSize = ImVec2(0, ImGui::GetContentRegionAvail().y);
+	if (ImGui::BeginChild("##cmdList", listSize, false))
+	{
+		if (this->commandPaletteFilteredIndices.empty())
+		{
+			ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "No matching commands");
+		}
+		else
+		{
+			std::string lastCategory = "";
+			for (int i = 0; i < (int)this->commandPaletteFilteredIndices.size(); i++)
+			{
+				int entryIdx = this->commandPaletteFilteredIndices[i];
+				auto& entry = this->commandPaletteEntries[entryIdx];
+
+				
+				if (entry.category != lastCategory)
+				{
+					lastCategory = entry.category;
+					ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.7f, 1.0f));
+					ImGui::Text("-- %s --", entry.category.c_str());
+					ImGui::PopStyleColor();
+				}
+
+				
+				bool isSelected = (i == this->commandPaletteSelectedIndex);
+				if (isSelected)
+					ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.2f, 0.4f, 0.7f, 0.6f));
+
+				ImGuiSelectableFlags selFlags = ImGuiSelectableFlags_AllowDoubleClick;
+				if (ImGui::Selectable(entry.name.c_str(), isSelected, selFlags))
+				{
+					this->executeCommandPalette(entryIdx);
+					break;
+				}
+
+				if (isSelected)
+					ImGui::PopStyleColor();
+
+				
+				if (isSelected && ImGui::IsWindowAppearing())
+					ImGui::SetScrollHereY();
+			}
+		}
+	}
+	ImGui::EndChild();
+
+	
+	if (enterPressed && !this->commandPaletteFilteredIndices.empty())
+	{
+		int entryIdx = this->commandPaletteFilteredIndices[this->commandPaletteSelectedIndex];
+		this->executeCommandPalette(entryIdx);
+	}
+
+	
+	if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
+	{
+		if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
+		{
+			this->showCommandPalette = false;
+			this->commandPaletteSearch[0] = '\0';
+			this->commandPaletteSelectedIndex = 0;
+		}
+	}
+
+	ImGui::End();
+	ImGui::PopStyleVar();
+}
+
+	
 
 bool Hud::imguiRender()
 {
@@ -1348,6 +1763,8 @@ bool Hud::imguiRender()
 	this->imguiRenderPalettePanel();
 	this->imguiRenderNotification();
 	this->imguiRenderPreferencesWindow();
+	this->imguiRenderAboutWindow();
+	this->imguiRenderCommandPalette();
 	return true;
 }
 
@@ -1355,33 +1772,19 @@ void Hud::imguiRenderMenuBar()
 {
 	if (ImGui::BeginMainMenuBar())
 	{
-		if (ImGui::BeginMenu("File"))
-		{
-			if (ImGui::MenuItem("New Map")) { this->manager->map->newMap(); }
-			if (ImGui::MenuItem("Open...", "Ctrl+O")) { this->manager->map->loadMap(); }
-			if (ImGui::MenuItem("Save", "Ctrl+S")) { this->manager->map->saveMap(); }
-			if (ImGui::MenuItem("Save As...")) { this->manager->map->saveMapAs(); }
-			ImGui::Separator();
-			if (ImGui::MenuItem("Reload Map")) { this->manager->map->reloadMap(); }
-			if (ImGui::MenuItem("Reload Config")) { this->manager->loadConstants(); }
-			if (ImGui::MenuItem("Create Trigger File")) { this->manager->map->createTriggerFile(); }
-			ImGui::Separator();
-			ImGui::Separator();
-			if (ImGui::MenuItem("Map Preferences...")) { this->showPreferencesWindow = true; }
-			if (ImGui::MenuItem("Help")) { this->help(); }
-			ImGui::EndMenu();
-		}
-
-		// Quick-access file operation buttons on the menu bar
-		ImGui::SameLine(); ImGui::Spacing(); ImGui::SameLine();
-		if (ImGui::Button("New")) { this->manager->map->newMap(); } ImGui::SameLine();
-		if (ImGui::Button("Open")) { this->manager->map->loadMap(); } ImGui::SameLine();
-		if (ImGui::Button("Save")) { this->manager->map->saveMap(); } ImGui::SameLine();
-		if (ImGui::Button("Save As")) { this->manager->map->saveMapAs(); } ImGui::SameLine();
-		if (ImGui::Button("Reload")) { this->manager->map->reloadMap(); } ImGui::SameLine();
-		if (ImGui::Button("Reload Cfg")) { this->manager->loadConstants(); } ImGui::SameLine();
-		if (ImGui::Button("Trigger")) { this->manager->map->createTriggerFile(); } ImGui::SameLine();
-		if (ImGui::Button("Help")) { this->help(); }
+		if (ImGui::Button("New Map")) { this->manager->map->newMap(); }
+		if (ImGui::Button("Open...")) { this->manager->map->loadMap(); }
+		if (ImGui::Button("Save")) { this->manager->map->saveMap(); }
+		if (ImGui::Button("Save As...")) { this->manager->map->saveMapAs(); }
+		ImGui::Separator();
+		if (ImGui::Button("Reload Map")) { this->manager->map->reloadMap(); }
+		if (ImGui::Button("Reload Config")) { this->manager->loadConstants(); }
+		if (ImGui::Button("Create Trigger File")) { this->manager->map->createTriggerFile(); }
+		ImGui::Separator();
+		if (ImGui::Button("Map Preferences...")) { this->showPreferencesWindow = true; }
+		if (ImGui::Button("About")) { this->showAboutWindow = true; }
+		ImGui::Separator();
+		if (ImGui::Button("Exit")) { this->manager->imguiTrigger(ImguiMiscData{ true, ImguiMiscType::imtExitConfirmation }); }
 
 		ImGui::EndMainMenuBar();
 	}
@@ -1390,15 +1793,16 @@ void Hud::imguiRenderMenuBar()
 void Hud::imguiRenderToolPanel()
 {
 	ImGui::SetNextWindowPos(ImVec2(0, ImGui::GetFrameHeight()), ImGuiCond_FirstUseEver);
-	ImGui::SetNextWindowSize(ImVec2(400, 0), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSize(ImVec2(1000, 420), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSizeConstraints(ImVec2(300, 300), ImVec2(FLT_MAX, FLT_MAX));
 	ImGui::SetNextWindowBgAlpha(0.85f);
 
-	ImGuiWindowFlags flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus;
+	ImGuiWindowFlags flags = ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus;
 
 	ImGui::Begin("Tools", NULL, flags);
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 4));
 
-	// Grid & Brush
+	
 	ImGui::Separator();
 	ImGui::Text("Grid:"); ImGui::SameLine();
 	if (ImGui::Button("<##grid")) { this->changeGridSize(-1); } ImGui::SameLine();
@@ -1412,15 +1816,16 @@ void Hud::imguiRenderToolPanel()
 	ImGui::TextUnformatted((boost::lexical_cast<std::string>(this->brushSizeList.at(this->brushSize)) + "x").c_str()); ImGui::SameLine();
 	if (ImGui::Button(">##brush")) { this->changeBrushSize(1); }
 
-	// Tool buttons
+	
 	ImGui::Separator();
 	auto renderToggleBtn = [&](const char* label, bool& state) {
-		if (state) {
+		bool wasActive = state;
+		if (wasActive) {
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.6f, 0.8f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.7f, 0.7f, 1.0f));
 		}
 		if (ImGui::Button(label)) { state = !state; }
-		if (state) ImGui::PopStyleColor(2);
+		if (wasActive) ImGui::PopStyleColor(2);
 	};
 
 	renderToggleBtn("C", this->itemSelect); ImGui::SameLine();
@@ -1449,28 +1854,39 @@ void Hud::imguiRenderToolPanel()
 	renderToggleBtn("->", this->itemSelectedMove);
 	ImGui::SameLine(); ImGui::Text("Move"); ImGui::SameLine(); ImGui::Spacing(); ImGui::SameLine();
 	if (ImGui::Button("B")) { this->updateMapBounds(); }
-	ImGui::SameLine(); ImGui::Text("Bounds");
+	ImGui::SameLine(); ImGui::Text("Bounds"); ImGui::SameLine(); ImGui::Spacing(); ImGui::SameLine();
+	renderToggleBtn("T", this->terrainFillActivated);
+	ImGui::SameLine(); ImGui::Text("Fill");
 
-	// Form shape
+	
 	ImGui::Separator();
 	ImGui::Text("Form:"); ImGui::SameLine();
-	if (this->formShapeSelected == "square") {
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.6f, 0.8f));
+	{
+		bool isSquare = (this->formShapeSelected == "square");
+		if (isSquare) {
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.6f, 0.8f));
+		}
+		if (ImGui::Button("Square")) { this->formShapeClick("square"); }
+		if (isSquare) ImGui::PopStyleColor();
 	}
-	if (ImGui::Button("Square")) { this->formShapeClick("square"); }
-	if (this->formShapeSelected == "square") ImGui::PopStyleColor();
 	ImGui::SameLine();
-	if (this->formShapeSelected == "circle") {
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.6f, 0.8f));
+	{
+		bool isCircle = (this->formShapeSelected == "circle");
+		if (isCircle) {
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.6f, 0.8f));
+		}
+		if (ImGui::Button("Circle")) { this->formShapeClick("circle"); }
+		if (isCircle) ImGui::PopStyleColor();
 	}
-	if (ImGui::Button("Circle")) { this->formShapeClick("circle"); }
-	if (this->formShapeSelected == "circle") ImGui::PopStyleColor();
 	ImGui::SameLine();
-	if (this->formShapeSelected == "none") {
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.6f, 0.8f));
+	{
+		bool isNone = (this->formShapeSelected == "none");
+		if (isNone) {
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.6f, 0.8f));
+		}
+		if (ImGui::Button("None")) { this->formShapeClick("none"); }
+		if (isNone) ImGui::PopStyleColor();
 	}
-	if (ImGui::Button("None")) { this->formShapeClick("none"); }
-	if (this->formShapeSelected == "none") ImGui::PopStyleColor();
 	ImGui::SameLine(0, 20);
 	ImGui::Text("Form Size:"); ImGui::SameLine();
 	ImGui::PushItemWidth(60);
@@ -1479,7 +1895,7 @@ void Hud::imguiRenderToolPanel()
 	if (this->formShapeSize > 255) this->formShapeSize = 255;
 	ImGui::PopItemWidth();
 
-	// Object properties
+	
 	ImGui::Separator();
 	ImGui::Text("Rotation:"); ImGui::SameLine();
 	ImGui::PushItemWidth(60);
@@ -1503,7 +1919,6 @@ void Hud::imguiRenderToolPanel()
 	}
 	ImGui::PopItemWidth();
 
-	// Extra fields
 	if (this->gettingExtraValues && this->extraFieldCaptions.size() > 0)
 	{
 		ImGui::Separator();
@@ -1671,46 +2086,81 @@ void Hud::imguiRenderPaletteItems()
 	{
 		bool isSelected = (item.filename == this->manager->palette->selectedItem);
 
-		// Highlight selected item with a colored border
+		
+		bool textureValid = false;
+		if (item.model->sprite)
+		{
+			const sf::Texture* texPtr = item.model->sprite->getTexture();
+			if (texPtr)
+			{
+				sf::Vector2u texSize = texPtr->getSize();
+				if (texSize.x > 0 && texSize.y > 0)
+				{
+					sf::IntRect texRect = item.model->sprite->getTextureRect();
+					
+					
+					
+					if (texRect.width > 0 && texRect.height > 0)
+						textureValid = true;						
+				}
+			}
+		}
+
+		
 		if (isSelected)
 		{
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.9f, 1.0f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.7f, 1.0f, 1.0f));
 		}
-
-		bool clicked = false;
-
-		if (item.model->sprite)
+		else if (item.model->sprite && !textureValid)
 		{
-			// Display sprite-based items as image buttons
-			clicked = ImGui::ImageButton(*item.model->sprite, ImVec2(64, 64));
+			
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.2f, 0.2f, 0.8f));
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.4f, 0.4f, 1.0f));
 		}
 		else if (item.model->shape)
 		{
-			// For portal/other items without sprites, show a colored button
+			
 			sf::Color shapeColor = item.model->shape->getFillColor();
-			ImVec4 col(shapeColor.r / 255.f, shapeColor.g / 255.f, shapeColor.b / 255.f, shapeColor.a / 255.f);
-			ImGui::PushStyleColor(ImGuiCol_Button, col);
-			clicked = ImGui::Button(item.filename.c_str(), ImVec2(64, 64));
-			ImGui::PopStyleColor();
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(shapeColor.r / 255.f, shapeColor.g / 255.f, shapeColor.b / 255.f, shapeColor.a / 255.f));
+		}
+
+		bool clicked = false;
+
+		if (textureValid)
+		{
+			
+			
+			
+			
+			
+			ImGui::PushID(itemIndex);
+			clicked = ImGui::ImageButton(*item.model->sprite, ImVec2(64, 64));
+			ImGui::PopID();
 		}
 		else
 		{
-			// Fallback: show as text button
+			
 			clicked = ImGui::Button(item.filename.c_str(), ImVec2(64, 64));
+			if (item.model->sprite && !textureValid && ImGui::IsItemHovered())
+				ImGui::SetTooltip("Texture could not be loaded: %s", item.model->filename.c_str());
 		}
 
-		if (isSelected)
+		
+		if (isSelected || (item.model->sprite && !textureValid))
 			ImGui::PopStyleColor(2);
+		else if (item.model->shape)
+			ImGui::PopStyleColor();
 
-		// Handle click to select this palette item
+		
 		if (clicked)
 		{
 			this->manager->palette->clearPaletteItem();
-			this->manager->palette->selectPaletteItem(itemIndex);
+			if (!this->manager->palette->selectPaletteItem(itemIndex))
+				this->showMessage("Failed to select item: " + item.filename, 3.f);
 		}
 
-		// Layout: itemsPerRow items per row
+		
 		if ((itemIndex + 1) % itemsPerRow != 0 && (itemIndex + 1) < (int)this->manager->palette->paletteItems.size())
 			ImGui::SameLine();
 
@@ -1734,14 +2184,14 @@ void Hud::imguiRenderPreferencesWindow()
 
 	ImGui::Begin("Map Preferences", &this->showPreferencesWindow, ImGuiWindowFlags_NoCollapse);
 
-	// Sync buffer values from map data
+	
 	strncpy(imguiMapName, this->manager->map->data.name.c_str(), sizeof(imguiMapName) - 1);
 	strncpy(imguiMapMusic, this->manager->map->data.music.c_str(), sizeof(imguiMapMusic) - 1);
 	strncpy(imguiMapVersion, this->manager->map->data.version.c_str(), sizeof(imguiMapVersion) - 1);
 	strncpy(imguiWeatherName, this->manager->map->data.weatherName.c_str(), sizeof(imguiWeatherName) - 1);
 	strncpy(imguiParticles, this->manager->map->data.particles.c_str(), sizeof(imguiParticles) - 1);
 
-	// -- Map Identity section --
+	
 	ImGui::Separator();
 	ImGui::Text("--- Map Identity ---");
 
@@ -1763,7 +2213,7 @@ void Hud::imguiRenderPreferencesWindow()
 		this->manager->map->data.music = imguiMapMusic;
 	ImGui::PopItemWidth();
 
-	// -- Map Dimensions section --
+	
 	ImGui::Separator();
 	ImGui::Text("--- Map Dimensions ---");
 
@@ -1782,7 +2232,7 @@ void Hud::imguiRenderPreferencesWindow()
 		this->manager->map->data.size.y = std::max(0, std::min(99999, mapSizeY));
 	ImGui::PopItemWidth();
 
-	// -- Weather section --
+	
 	ImGui::Separator();
 	ImGui::Text("--- Weather & Particles ---");
 
@@ -1805,6 +2255,99 @@ void Hud::imguiRenderPreferencesWindow()
 		this->manager->map->data.particles = imguiParticles;
 	ImGui::PopItemWidth();
 
+	ImGui::End();
+}
+
+void Hud::imguiRenderAboutWindow()
+{
+	if (!this->showAboutWindow)
+		return;
+
+	ImGuiViewport* viewport = ImGui::GetMainViewport();
+	ImVec2 center = ImVec2(viewport->Size.x * 0.5f, viewport->Size.y * 0.5f);
+	float cardWidth = 420.f;
+	float cardHeight = 340.f;
+
+	ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+	ImGui::SetNextWindowSize(ImVec2(cardWidth, cardHeight));
+	ImGui::SetNextWindowBgAlpha(1.0f);
+
+	ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse;
+
+	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(24 / 255.f, 24 / 255.f, 36 / 255.f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(50 / 255.f, 50 / 255.f, 70 / 255.f, 1.0f));
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+
+	ImGui::Begin("##about", &this->showAboutWindow, flags);
+
+	ImDrawList* drawList = ImGui::GetWindowDrawList();
+	ImVec2 winPos = ImGui::GetWindowPos();
+	ImVec2 winSize = ImGui::GetWindowSize();
+
+	
+	drawList->AddRectFilled(
+		ImVec2(winPos.x, winPos.y),
+		ImVec2(winPos.x + winSize.x, winPos.y + 3.f),
+		IM_COL32(70, 130, 200, 255));
+
+	
+	sf::Vector2u logoSize = this->manager->splashLogoTexture.getSize();
+	if (logoSize.x > 0 && logoSize.y > 0)
+	{
+		float logoMaxDim = 100.f;
+		float logoScale = logoMaxDim / std::max(logoSize.x, logoSize.y);
+		float logoW = logoSize.x * logoScale;
+		float logoH = logoSize.y * logoScale;
+		ImVec2 logoPos(winPos.x + winSize.x / 2.f - logoW / 2.f, winPos.y + 30.f);
+
+		this->manager->splashLogoSprite.setPosition(sf::Vector2f(logoPos.x, logoPos.y));
+		ImGui::SetCursorScreenPos(logoPos);
+		ImGui::Image(this->manager->splashLogoSprite, ImVec2(logoW, logoH));
+	}
+
+	
+	float titleW = ImGui::CalcTextSize("realm-editor").x;
+	ImGui::SetCursorPos(ImVec2((winSize.x - titleW) / 2.f, 140.f));
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(220 / 255.f, 220 / 255.f, 245 / 255.f, 1.0f));
+	ImGui::Text("realm-editor");
+	ImGui::PopStyleColor();
+
+	
+	float verW = ImGui::CalcTextSize("build 12").x;
+	ImGui::SetCursorPos(ImVec2((winSize.x - verW) / 2.f, 175.f));
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(130 / 255.f, 130 / 255.f, 170 / 255.f, 1.0f));
+	ImGui::Text("build 12");
+	ImGui::PopStyleColor();
+
+	
+	drawList->AddRectFilled(
+		ImVec2(winPos.x + winSize.x / 2.f - 100.f, winPos.y + 205.f),
+		ImVec2(winPos.x + winSize.x / 2.f + 100.f, winPos.y + 206.f),
+		IM_COL32(60, 60, 85, 255));
+
+	
+	float creditW = ImGui::CalcTextSize("https://mence.dev").x;
+	ImGui::SetCursorPos(ImVec2((winSize.x - creditW) / 2.f, 215.f));
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(110 / 255.f, 110 / 255.f, 150 / 255.f, 1.0f));
+	ImGui::Text("https://mence.dev");
+	ImGui::PopStyleColor();
+
+	
+	float descW = ImGui::CalcTextSize("A simplified 2D map editor built with SFML").x;
+	ImGui::SetCursorPos(ImVec2((winSize.x - descW) / 2.f, 245.f));
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(100 / 255.f, 100 / 255.f, 135 / 255.f, 1.0f));
+	ImGui::Text("A simplified 2D map editor built with SFML");
+	ImGui::PopStyleColor();
+
+	
+	ImGui::SetCursorPos(ImVec2(winSize.x / 2.f - 40.f, winSize.y - 50.f));
+	if (ImGui::Button("Close", ImVec2(80, 28)))
+		this->showAboutWindow = false;
+
+	ImGui::PopStyleVar(2);
+	ImGui::PopStyleColor(2);
 	ImGui::End();
 }
 
