@@ -64,14 +64,29 @@ if(WIN32)
     )
 else()
     find_package(Boost REQUIRED COMPONENTS filesystem system)
-    find_package(SFML 2.5 COMPONENTS graphics window system audio network REQUIRED)
     find_package(OpenGL REQUIRED)
+    find_package(PkgConfig REQUIRED)
 
-    target_link_libraries(${PROJECT_NAME} PRIVATE 
-        sfml-graphics sfml-window sfml-system sfml-audio sfml-network
-        Boost::filesystem
-        Boost::system
-        OpenGL::GL
-        pthread
-    )
+    # Some distros ship no SFML CMake config, only pkg-config files
+    # (the Grimsolf build uses the same approach).
+    pkg_check_modules(SFML IMPORTED_TARGET sfml-graphics sfml-window sfml-system sfml-audio sfml-network)
+
+    if(SFML_FOUND)
+        target_link_libraries(${PROJECT_NAME} PRIVATE
+            PkgConfig::SFML
+            Boost::filesystem
+            Boost::system
+            OpenGL::GL
+            pthread
+        )
+    else()
+        find_package(SFML 2.5 COMPONENTS graphics window system audio network REQUIRED)
+        target_link_libraries(${PROJECT_NAME} PRIVATE
+            sfml-graphics sfml-window sfml-system sfml-audio sfml-network
+            Boost::filesystem
+            Boost::system
+            OpenGL::GL
+            pthread
+        )
+    endif()
 endif()

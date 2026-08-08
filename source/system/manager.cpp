@@ -8,7 +8,7 @@
 #include "external/imgui/imgui.h"
 #include "external/imgui/imgui-SFML.h"
 
-Manager::Manager()
+Manager::Manager(bool noSplash, const std::string &gamePath)
 {
     this->unloadAll();
     this->loadConstants();
@@ -43,12 +43,26 @@ Manager::Manager()
     this->minimapVisible = false;
     this->canvasPosition = sf::Vector2f(0.f, -115.f);
     this->filePathData.active = false;
-    this->imguiMiscData.active = false;	this->closeSignal = false;
+    this->imguiMiscData.active = false;    this->closeSignal = false;
 	this->splashActive = false;
 	this->pendingExitAfterSave = false;
 
-    if (!this->loadConfigTxt())
+    if (gamePath != "")
+    {
+        // Launched by the game (Studio -> World Editor): open straight on the
+        // given game folder, skipping the "Select game folder" dialog.
+        this->constant.gamePath = gamePath;
+        this->constant.mapFolder = gamePath + "/data/maps/custom";
+        this->loadGamepathAfter();
+        this->saveConfigTxt();
+    }
+    else if (!this->loadConfigTxt())
         this->choosePath(PathType::ptGamepath, "Select", "Select game folder", true, false);
+
+    // When launched as an in-game tool the splash screen is skipped entirely
+    // (loadGamepathAfter may have enabled it because no temp map exists).
+    if (noSplash)
+        this->splashActive = false;
 }
 
 Manager::~Manager()
