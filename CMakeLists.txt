@@ -22,6 +22,9 @@ set(SOURCES
     "source/system/object/viewElement.cpp"
     "source/system/palette/palette.cpp"
     "source/system/text/label.cpp"
+    "source/system/trigger/triggerApp.cpp"
+    "source/system/trigger/triggerDefs.cpp"
+    "source/system/trigger/triggerEditor.cpp"
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES})
@@ -37,6 +40,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     "source/system/object"
     "source/system/palette"
     "source/system/text"
+    "source/system/trigger"
 )
 
 if(WIN32)

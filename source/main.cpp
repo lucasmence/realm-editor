@@ -1,7 +1,9 @@
 #include "system/manager.hpp"
+#include "system/trigger/triggerApp.hpp"
 #include <string>
 #include <iostream>
 #include <exception>
+#include <boost/filesystem.hpp>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -24,11 +26,14 @@ int main(int argc, char* argv[])
     try
     {
         // Command-line switches used when the editor is launched as an in-game
-        // tool by Grimsolf (Studio -> World Editor):
+        // tool by Grimsolf (Studio -> World Editor / Trigger Editor):
         //   --no-splash           skip the initial splash screen
         //   --game-path <path>    open the editor directly on that game folder
         //                         (skips the "Select game folder" dialog)
+        //   --trigger-editor      open exclusively the Trigger Editor in its
+        //                         own window (no map editor UI at all)
         bool noSplash = false;
+        bool triggerEditorMode = false;
         std::string gamePath = "";
 
         for (int i = 1; i < argc; ++i)
@@ -36,8 +41,23 @@ int main(int argc, char* argv[])
             std::string arg = argv[i];
             if (arg == "--no-splash")
                 noSplash = true;
+            else if (arg == "--trigger-editor")
+                triggerEditorMode = true;
             else if (arg == "--game-path" && i + 1 < argc)
                 gamePath = argv[++i];
+        }
+
+        if (triggerEditorMode)
+        {
+            // The Trigger Editor is a standalone tool: it needs the game
+            // folder to read the maps and language files. Grimsolf always
+            // passes --game-path; fall back to the current folder otherwise.
+            std::string path = gamePath;
+            if (path.empty())
+                path = boost::filesystem::current_path().string();
+
+            TriggerApp app(path);
+            return app.run();
         }
 
         std::shared_ptr<Manager> manager(new Manager(noSplash, gamePath));
