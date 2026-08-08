@@ -21,6 +21,9 @@ bool Texture::checkBitmasking()
 
 	json jsonFile = Json::loadFromFile(this->jsonPath + ".json");
 
+	if (!jsonFile.contains("animation"))
+		return false;
+
 	for (int index = 0; index < jsonFile["animation"].size(); index++)
 	{
 		std::string name = jsonFile["animation"][index].value("name", "");

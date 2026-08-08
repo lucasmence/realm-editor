@@ -103,19 +103,22 @@ bool Model::loadSprite(std::string filename, sf::Vector2f position)
 		json jsonFile = Json::loadFromFile(filename + ".json");
 		
 		bool animationFound = false;
-		for (int index = 0; index < jsonFile["animation"].size(); index++)
+		if (jsonFile.contains("animation"))
 		{
-			if (this->animation == "stand" || this->animation == jsonFile["animation"][index].value("name", ""))
+			for (int index = 0; index < jsonFile["animation"].size(); index++)
 			{
-				direction = sf::Vector2i(jsonFile["animation"][index].value("sprite-direction-left", 0), jsonFile["animation"][index].value("sprite-direction-top", 0));
-				dimension = sf::Vector2i(jsonFile["animation"][index].value("sprite-direction-width", 0), jsonFile["animation"][index].value("sprite-direction-height", 0));
-				animationFound = true;
-				break;
+				if (this->animation == "stand" || this->animation == jsonFile["animation"][index].value("name", ""))
+				{
+					direction = sf::Vector2i(jsonFile["animation"][index].value("sprite-direction-left", 0), jsonFile["animation"][index].value("sprite-direction-top", 0));
+					dimension = sf::Vector2i(jsonFile["animation"][index].value("sprite-direction-width", 0), jsonFile["animation"][index].value("sprite-direction-height", 0));
+					animationFound = true;
+					break;
+				}
 			}
 		}
 
 		
-		if (!animationFound && this->animation != "stand")
+		if (!animationFound && this->animation != "stand" && jsonFile.contains("animation"))
 		{
 			for (int index = 0; index < jsonFile["animation"].size(); index++)
 			{
@@ -131,7 +134,7 @@ bool Model::loadSprite(std::string filename, sf::Vector2f position)
 		
 		if (dimension.x <= 0 || dimension.y <= 0)
 		{
-			textureName = jsonFile.value("texturename", "");
+			textureName = jsonFile.is_object() ? jsonFile.value("texturename", "") : "";
 			this->texture = this->manager->getTexture(this->manager->constant.gamePath + "/resources/sprites/" + textureName, filename);
 			
 			
@@ -146,7 +149,7 @@ bool Model::loadSprite(std::string filename, sf::Vector2f position)
 		}
 		else
 		{
-			textureName = jsonFile.value("texturename", "");
+			textureName = jsonFile.is_object() ? jsonFile.value("texturename", "") : "";
 			this->texture = this->manager->getTexture(this->manager->constant.gamePath + "/resources/sprites/" + textureName, filename);
 		}
 		jsonFile.clear();
