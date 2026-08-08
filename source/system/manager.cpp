@@ -1,5 +1,6 @@
 #include <fstream>
 #include <sstream>
+#include <iostream>
 #include <type_traits>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
@@ -24,7 +25,11 @@ Manager::Manager(bool noSplash, const std::string &gamePath)
     this->font = std::shared_ptr<sf::Font>(new sf::Font);
     this->font->loadFromFile(this->constant.fontFilePath);
     this->icon.loadFromFile("realm-editor.png");
-    this->window->setIcon(this->icon.getSize().x, this->icon.getSize().y, this->icon.getPixelsPtr());
+    // Skip the icon when it failed to load (0x0 image): setting an empty icon
+    // is useless and can crash on some platforms (e.g. an X server refusing a
+    // 0x0 pixmap).
+    if (this->icon.getSize().x > 0 && this->icon.getSize().y > 0)
+        this->window->setIcon(this->icon.getSize().x, this->icon.getSize().y, this->icon.getPixelsPtr());
 
     
     this->splashLogoTexture.loadFromImage(this->icon);
@@ -782,8 +787,23 @@ std::shared_ptr<Texture> Manager::getTexture(std::string filename, std::string j
 
 bool Manager::loadConstants()
 {
-
     json file = Json::loadFromFile("data/options/realm-editor.json");
+
+    // data/options/realm-editor.json missing from the working directory (e.g.
+    // the editor was double-clicked from the wrong folder). Defaults keep the
+    // editor usable instead of throwing on operator[]/value() below, which
+    // previously made the process die right after opening.
+    if (file.is_null())
+    {
+        std::cerr << "realm-editor: data/options/realm-editor.json not found - run the editor from its own folder" << std::endl;
+        this->constant.fontFilePath = "font/osd_mono.ttf";
+        this->constant.gameVersion = "";
+        this->constant.gridSize = { 16, 32, 64, 128, 256 };
+        this->constant.brushSize = { 1, 4, 16, 32, 64, 128, 256 };
+        this->constant.minimapSize = sf::FloatRect(0.74f, 0.90f, 0.10f, 0.10f);
+        return true;
+    }
+
     this->constant.fontFilePath = file.value("font-file-path", "");
     this->constant.gameVersion = file.value("game-version", "");
 
@@ -815,6 +835,8 @@ bool Manager::unloadAll()
 std::list<FileEntry> Manager::returnFiles(std::string pathname)
 {
     boost::filesystem::path path = pathname;
+    if (!boost::filesystem::is_directory(path))
+        return { FileEntry{ "...", pathname, true } };
     boost::filesystem::directory_iterator iterator{ path };
     boost::filesystem::path parentPath(pathname);
 
@@ -1001,7 +1023,10 @@ bool Manager::loadConfigTxt()
     this->constant.gamePath = localGamepath;
     this->constant.mapFolder = localMapFolder;
 
-    if (this->constant.gamePath != "")
+    // config.txt can hold paths from another machine/OS (e.g. Linux paths on
+    // Windows). Only trust it when the folder actually exists; otherwise fall
+    // through to the "Select game folder" dialog instead of crashing.
+    if (this->constant.gamePath != "" && boost::filesystem::exists(this->constant.gamePath))
         this->loadGamepathAfter();
 
     return this->hudLoaded;
@@ -1036,6 +1061,12 @@ std::list<std::string> Manager::loadFileFromDirectory(std::string directory, std
         base += "\\";
 
     std::list<std::string> listFiles = {};
+
+    // The folder may not exist (wrong game path, stale config.txt from another
+    // OS) or may be a regular file. Iterating it would throw filesystem_error
+    // and kill the editor, so bail out with an empty list instead.
+    if (!boost::filesystem::is_directory(path))
+        return {};
 
     for (auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(path), {}))
         if (boost::filesystem::is_directory(entry))
