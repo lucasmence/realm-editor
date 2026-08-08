@@ -110,7 +110,7 @@ class Manager
 		ImguiMiscData imguiMiscData;
 		ImguiDialogBoxData imguiDialogBoxData;
 
-		Manager();
+		Manager(bool noSplash = false, const std::string &gamePath = "");
 		~Manager();
 		bool unloadAll();
 
