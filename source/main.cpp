@@ -1,4 +1,5 @@
 #include "system/manager.hpp"
+#include "system/spriteFusion/spriteFusionApp.hpp"
 #include "system/trigger/triggerApp.hpp"
 #include <string>
 #include <iostream>
@@ -32,8 +33,11 @@ int main(int argc, char* argv[])
         //                         (skips the "Select game folder" dialog)
         //   --trigger-editor      open exclusively the Trigger Editor in its
         //                         own window (no map editor UI at all)
+        //   --sprite-fusion       open exclusively the Sprite Fusion tool in
+        //                         its own window (no map editor UI at all)
         bool noSplash = false;
         bool triggerEditorMode = false;
+        bool spriteFusionMode = false;
         std::string gamePath = "";
 
         for (int i = 1; i < argc; ++i)
@@ -43,6 +47,8 @@ int main(int argc, char* argv[])
                 noSplash = true;
             else if (arg == "--trigger-editor")
                 triggerEditorMode = true;
+            else if (arg == "--sprite-fusion")
+                spriteFusionMode = true;
             else if (arg == "--game-path" && i + 1 < argc)
                 gamePath = argv[++i];
         }
@@ -57,6 +63,18 @@ int main(int argc, char* argv[])
                 path = boost::filesystem::current_path().string();
 
             TriggerApp app(path);
+            return app.run();
+        }
+
+        if (spriteFusionMode)
+        {
+            // The Sprite Fusion tool is also standalone: it needs the game
+            // folder to read resources/sprites and the language files.
+            std::string path = gamePath;
+            if (path.empty())
+                path = boost::filesystem::current_path().string();
+
+            SpriteFusionApp app(path);
             return app.run();
         }
 
