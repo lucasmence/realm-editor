@@ -21,6 +21,8 @@ set(SOURCES
     "source/system/model/texture.cpp"
     "source/system/object/viewElement.cpp"
     "source/system/palette/palette.cpp"
+    "source/system/spriteFusion/spriteFusion.cpp"
+    "source/system/spriteFusion/spriteFusionApp.cpp"
     "source/system/text/label.cpp"
     "source/system/trigger/triggerApp.cpp"
     "source/system/trigger/triggerDefs.cpp"
@@ -39,6 +41,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     "source/system/model"
     "source/system/object"
     "source/system/palette"
+    "source/system/spriteFusion"
     "source/system/text"
     "source/system/trigger"
 )
