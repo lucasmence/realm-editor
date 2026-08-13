@@ -21,23 +21,15 @@ It is currently compatible with the following projects:
 
 ## Compilation
 
-The use of **[CMAKE](https://cmake.org/)** is recommended for both Linux and Windows versions; there is also a Visual Studio version available in this repository, provided you move the already compiled libraries to the libs folder inside the project.
+The use of **[CMAKE](https://cmake.org/)** is recommended for both Linux and Windows versions.
 
 ## Requirements
 
 The **[SFML 2.5.1 ×64](https://www.sfml-dev.org/download/sfml/2.5.1/)** and **[BOOST 1.7.4](https://www.boost.org/releases/1.74.0/)** versions are required to properly compile the project. 
 
-
-
 ## Roadmap
 
-With the recurring development of my next projects, I have some plans for Realm-Editor that I will be implementing over time:
-
-- Total HUD conversion to **[IMGUI](https://github.com/SFML/imgui-sfml)**;
-- Add preferences configuration;
-- Use of **[Autotiling/Bitmasking](https://code.tutsplus.com/how-to-use-tile-bitmasking-to-auto-tile-your-level-layouts--cms-25673t)**;
-- Trigger editor, to facilitate the use of syntaxes.
-- Integration of the editor within the games themselves.
+The project has its current roadmap completed.
 
 ## License
 - Licensed under [CC0 1.0](https://creativecommons.org/public-domain/cc0/)
