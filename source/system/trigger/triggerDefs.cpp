@@ -59,7 +59,8 @@ const std::vector<TriggerTypeDef> GUI_EVENT_DEFS =
     })),
     T("item-dropped", "When an item is dropped", PT({})),
     T("item-picked", "When an item is picked up", PT({})),
-    T("player-joined", "When a player joins the game", PT({}))
+    T("player-joined", "When a player joins the game", PT({})),
+    T("start-cutscene", "Start a cutscene (cinematic sequence rendered in menu mode)", PT({}))
 };
 
 // ===========================================================================
@@ -567,7 +568,29 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
     T("dialog-mark", "Show/hide a dialog mark over a unit", PT({
         P("unitName", -1, "Unit name", "string", true),
         P("strings", 0, "Mark effect path", "string", false)
-    }))
+    })),
+    T("cutscene-music", "Cutscene: play background music", PT({
+        P("strings", 0, "Music name (empty stops music)", "string", true)
+    })),
+    T("cutscene-source", "Cutscene: show a centered background image", PT({
+        P("strings", 0, "Texture path (data/textures)", "string", true)
+    })),
+    T("cutscene-fadein", "Cutscene: fade the image in", PT({
+        P("floatValue", -1, "Duration (seconds)", "float", true)
+    })),
+    T("cutscene-fadecolor", "Cutscene: set the fade color (RRRGGGBBB)", PT({
+        P("strings", 0, "Fade color", "string", true)
+    })),
+    T("cutscene-dialog", "Cutscene: show a dialog (CUTSCENES group)", PT({
+        P("strings", 0, "Dialog key", "string", true)
+    })),
+    T("cutscene-wait", "Cutscene: wait for a duration", PT({
+        P("floatValue", -1, "Seconds", "float", true)
+    })),
+    T("cutscene-fadeout", "Cutscene: fade the image and dialog out", PT({
+        P("floatValue", -1, "Duration (seconds)", "float", true)
+    })),
+    T("cutscene-eof", "Cutscene: end and return to the previous mode", PT({}))
 };
 
 // ---------------------------------------------------------------------------
