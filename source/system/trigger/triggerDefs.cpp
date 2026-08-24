@@ -429,6 +429,7 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
         P("integers", 0, "Style", "int", true)
     })),
     T("break-map-fog", "Remove fog of war", PT({})),
+    T("reveal-all-map-fog", "Reveal entire map in fog of war", PT({})),
     T("music-change", "Change the background music", PT({
         P("strings", 0, "Music name", "string", true)
     })),
@@ -590,7 +591,12 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
     T("cutscene-fadeout", "Cutscene: fade the image and dialog out", PT({
         P("floatValue", -1, "Duration (seconds)", "float", true)
     })),
-    T("cutscene-eof", "Cutscene: end and return to the previous mode", PT({}))
+    T("cutscene-eof", "Cutscene: end and return to the previous mode", PT({})),
+    T("daytime-pause", "Pause the day/night cycle", PT({})),
+    T("daytime-unpause", "Resume the day/night cycle", PT({})),
+    T("daytime-set", "Set the daytime hour (0-24)", PT({
+        P("floatValue", -1, "Hour (0.0 - 23.99)", "float", true)
+    }))
 };
 
 // ---------------------------------------------------------------------------
