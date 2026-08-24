@@ -866,7 +866,7 @@ std::list<FileEntry> Manager::returnFiles(std::string pathname)
 bool Manager::choosePath(PathType type, std::string confirmButtonName, std::string dialogCaption, bool getFolder, bool cancelButtonVisible)
 {
     if (this->hudLoaded) this->palette->clearPaletteItem();
-    this->filePathData = FilePathData{ type, confirmButtonName, dialogCaption, "", "", FileEntry{"", "", false}, getFolder, true, this->returnFiles(this->constant.mapFolder != "" ? this->constant.mapFolder : boost::filesystem::current_path().string()), cancelButtonVisible, false};
+    this->filePathData = FilePathData{ type, confirmButtonName, dialogCaption, "", "", FileEntry{"", "", false}, getFolder, true, this->returnFiles(this->constant.mapFolder != "" ? this->constant.mapFolder : boost::filesystem::current_path().string()), cancelButtonVisible, false, {0}};
     return true;
 }
 
@@ -925,10 +925,9 @@ bool Manager::updatePathImgui()
 
         if (this->filePathData.type == PathType::ptSaveMap)
         {
-            static char buffer[256] = "";
-            if (ImGui::InputText("##edit", buffer, IM_ARRAYSIZE(buffer)))
+            if (ImGui::InputText("##edit", this->filePathData.inputBuffer, IM_ARRAYSIZE(this->filePathData.inputBuffer)))
             {
-                this->filePathData.file = buffer;
+                this->filePathData.file = this->filePathData.inputBuffer;
             }
         }
         ImVec2 size = ImGui::GetWindowSize();
@@ -944,6 +943,11 @@ bool Manager::updatePathImgui()
         if (ImGui::Button(this->filePathData.confirmButtonName.data(), ImVec2(btnWidth, btnHeight)))
         { 
             this->filePathData.path = this->filePathData.currentEntry.path;
+            if (this->filePathData.path == "" && this->filePathData.type == PathType::ptSaveMap && !this->filePathData.filePath.empty())
+            {
+                std::string dotDotPath = this->filePathData.filePath.front().path;
+                this->filePathData.path = boost::filesystem::path(dotDotPath).parent_path().string();
+            }
             if (this->filePathData.path != "")
             {
                 if (this->filePathData.type == PathType::ptSaveMap)
