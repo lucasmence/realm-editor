@@ -60,6 +60,13 @@ Hud::Hud(Manager* manager)
 	this->showPreferencesWindow = false;
 	this->showAboutWindow = false;
 	this->showCommandPalette = false;
+	this->showTerrain = true;
+	this->showProp = true;
+	this->showEnvironment = true;
+	this->showUnit = true;
+	this->showMerchant = true;
+	this->showPortal = true;
+	this->showItem = true;
 	this->commandPaletteSelectedIndex = 0;
 	this->commandPaletteSearch[0] = '\0';
 
@@ -113,6 +120,63 @@ Hud::~Hud()
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeMinimap));
 	this->itemModelSelected = nullptr;
 	this->unloadLists();
+}
+
+bool Hud::isLayerVisible(PaletteType type)
+{
+	switch (type)
+	{
+		case PaletteType::ptTerrain: return this->showTerrain;
+		case PaletteType::ptProp: return this->showProp;
+		case PaletteType::ptEnvironment: return this->showEnvironment;
+		case PaletteType::ptUnit: return this->showUnit;
+		case PaletteType::ptMerchant: return this->showMerchant;
+		case PaletteType::ptPortal: return this->showPortal;
+		case PaletteType::ptItem: return this->showItem;
+	}
+	return true;
+}
+
+bool Hud::isLayerVisibleByObjectType(MapObjectType type)
+{
+	switch (type)
+	{
+		case MapObjectType::motTerrain: return this->showTerrain;
+		case MapObjectType::motProp: return this->showProp;
+		case MapObjectType::motEnvironment: return this->showEnvironment;
+		case MapObjectType::motUnit: return this->showUnit;
+		case MapObjectType::motMerchant: return this->showMerchant;
+		case MapObjectType::motPortal: return this->showPortal;
+		case MapObjectType::motItem: return this->showItem;
+	}
+	return true;
+}
+
+bool Hud::toggleLayerVisibility(PaletteType type)
+{
+	switch (type)
+	{
+		case PaletteType::ptTerrain: this->showTerrain = !this->showTerrain; break;
+		case PaletteType::ptProp: this->showProp = !this->showProp; break;
+		case PaletteType::ptEnvironment: this->showEnvironment = !this->showEnvironment; break;
+		case PaletteType::ptUnit: this->showUnit = !this->showUnit; break;
+		case PaletteType::ptMerchant: this->showMerchant = !this->showMerchant; break;
+		case PaletteType::ptPortal: this->showPortal = !this->showPortal; break;
+		case PaletteType::ptItem: this->showItem = !this->showItem; break;
+	}
+	this->applyLayerVisibility();
+	return true;
+}
+
+bool Hud::applyLayerVisibility()
+{
+	for (auto& object : this->manager->map->objects)
+	{
+		bool visible = this->isLayerVisibleByObjectType(object.type);
+		if (object.model)
+			object.model->visible = visible;
+	}
+	return true;
 }
 
 bool Hud::update(sf::Vector2f cursor)
@@ -367,6 +431,8 @@ bool Hud::terrainFillActivate(sf::Vector2f cursor)
 		return false;
 	if (this->manager->palette->type != PaletteType::ptTerrain)
 		return false;
+	if (!this->showTerrain)
+		return false;
 	if (this->manager->palette->selectedItem == "")
 		return false;
 
@@ -446,7 +512,7 @@ bool Hud::terrainFillGenerate(sf::Vector2f cursor)
 			bool overlap = false;
 			for (auto& obj : this->manager->map->objects)
 			{
-				if (obj.type == MapObjectType::motTerrain && obj.model->sprite)
+				if (obj.type == MapObjectType::motTerrain && obj.model->sprite && obj.model->visible)
 				{
 					sf::FloatRect existingBounds = obj.model->sprite->getGlobalBounds();
 					if (std::abs(existingBounds.left - position.x) < tileW * 0.1f &&
@@ -641,7 +707,7 @@ bool Hud::selectItem(sf::Vector2f cursor)
 
 	MapObjectUnit objectSelected{ MapObjectType::motTerrain , sf::Vector2f(0.f, 0.f), 0.f, nullptr, {} };
 	for (auto& object : this->manager->map->objects)
-		if (object.model->getGlobalBounds().contains(cursor)) {
+		if (object.model->getGlobalBounds().contains(cursor) && this->isLayerVisibleByObjectType(object.type)) {
 			if (objectSelected.model != nullptr && objectSelected.model->priority < object.model->priority)
 				continue;
 			objectSelected = object;
@@ -1090,7 +1156,7 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 
 			if (this->mousePressed && this->spawnPress)
 				for (auto& object : this->manager->map->objects)
-					if (object.type == objectType && object.model->sprite->getGlobalBounds().contains(hoverCenter) &&
+					if (object.type == objectType && object.model->visible && object.model->sprite->getGlobalBounds().contains(hoverCenter) &&
 						"textures/" + object.model->texture->filename == paletteTypeField + "/" + texture)
 						return false;
 
@@ -1150,7 +1216,7 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 				return false;
 			MapObjectUnit objectSelected{ MapObjectType::motTerrain , sf::Vector2f(0.f, 0.f), 0.f, nullptr, {} };
 			for (auto& object : this->manager->map->objects)
-				if (object.model->getGlobalBounds().contains(cursor)) {
+				if (object.model->getGlobalBounds().contains(cursor) && this->isLayerVisibleByObjectType(object.type)) {
 					if (objectSelected.model != nullptr && objectSelected.model->priority < object.model->priority)
 						continue;
 					objectSelected = object;
@@ -1780,11 +1846,26 @@ void Hud::imguiRenderMenuBar()
 		if (ImGui::Button("Reload Map")) { this->manager->map->reloadMap(); }
 		if (ImGui::Button("Reload Config")) { this->manager->loadConstants(); }
 		if (ImGui::Button("Create Trigger File")) { this->manager->map->createTriggerFile(); }
+		if (ImGui::BeginMenu("View"))
+		{
+			if (ImGui::MenuItem("Grid", nullptr, this->gridVisible)) { this->toggleGridVisibility(); }
+			ImGui::Separator();
+			if (ImGui::MenuItem("Terrain", nullptr, this->showTerrain)) { this->toggleLayerVisibility(PaletteType::ptTerrain); }
+			if (ImGui::MenuItem("Props", nullptr, this->showProp)) { this->toggleLayerVisibility(PaletteType::ptProp); }
+			if (ImGui::MenuItem("Environments", nullptr, this->showEnvironment)) { this->toggleLayerVisibility(PaletteType::ptEnvironment); }
+			if (ImGui::MenuItem("Units", nullptr, this->showUnit)) { this->toggleLayerVisibility(PaletteType::ptUnit); }
+			if (ImGui::MenuItem("Merchants", nullptr, this->showMerchant)) { this->toggleLayerVisibility(PaletteType::ptMerchant); }
+			if (ImGui::MenuItem("Portals", nullptr, this->showPortal)) { this->toggleLayerVisibility(PaletteType::ptPortal); }
+			if (ImGui::MenuItem("Items", nullptr, this->showItem)) { this->toggleLayerVisibility(PaletteType::ptItem); }
+			ImGui::Separator();
+			if (ImGui::MenuItem("Map Area", nullptr, this->shapeMapArea->visible)) { this->shapeMapArea->visible = !this->shapeMapArea->visible; }
+			ImGui::EndMenu();
+		}
 		ImGui::Separator();
-		if (ImGui::Button("Map Preferences...")) { this->showPreferencesWindow = true; }
-		if (ImGui::Button("About")) { this->showAboutWindow = true; }
+		if (ImGui::MenuItem("Map Preferences...")) { this->showPreferencesWindow = true; }
+		if (ImGui::MenuItem("About")) { this->showAboutWindow = true; }
 		ImGui::Separator();
-		if (ImGui::Button("Exit")) { this->manager->imguiTrigger(ImguiMiscData{ true, ImguiMiscType::imtExitConfirmation }); }
+		if (ImGui::MenuItem("Exit")) { this->manager->imguiTrigger(ImguiMiscData{ true, ImguiMiscType::imtExitConfirmation }); }
 
 		ImGui::EndMainMenuBar();
 	}

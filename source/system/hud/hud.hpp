@@ -196,6 +196,20 @@ class Hud
 		
 		bool showAboutWindow;
 
+		// Layer visibility toggles
+		bool showTerrain;
+		bool showProp;
+		bool showEnvironment;
+		bool showUnit;
+		bool showMerchant;
+		bool showPortal;
+		bool showItem;
+
+		bool isLayerVisible(PaletteType type);
+		bool isLayerVisibleByObjectType(MapObjectType type);
+		bool toggleLayerVisibility(PaletteType type);
+		bool applyLayerVisibility();
+
 		
 		std::string notificationText;
 		float notificationTimer;
