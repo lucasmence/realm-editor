@@ -1831,6 +1831,7 @@ bool Hud::imguiRender()
 	this->imguiRenderPreferencesWindow();
 	this->imguiRenderAboutWindow();
 	this->imguiRenderCommandPalette();
+	this->imguiRenderTerrainLayers();
 	return true;
 }
 
@@ -1859,6 +1860,8 @@ void Hud::imguiRenderMenuBar()
 			if (ImGui::MenuItem("Items", nullptr, this->showItem)) { this->toggleLayerVisibility(PaletteType::ptItem); }
 			ImGui::Separator();
 			if (ImGui::MenuItem("Map Area", nullptr, this->shapeMapArea->visible)) { this->shapeMapArea->visible = !this->shapeMapArea->visible; }
+			ImGui::Separator();
+			if (ImGui::MenuItem("Terrain Layers...")) { this->showTerrainLayers = true; this->manager->map->updateTerrainLayers(); }
 			ImGui::EndMenu();
 		}
 		ImGui::Separator();
@@ -1869,6 +1872,110 @@ void Hud::imguiRenderMenuBar()
 
 		ImGui::EndMainMenuBar();
 	}
+}
+
+void Hud::imguiRenderTerrainLayers()
+{
+	if (!this->showTerrainLayers)
+		return;
+
+	ImGui::SetNextWindowSize(ImVec2(400, 420), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowBgAlpha(0.9f);
+
+	if (!ImGui::Begin("Terrain Layers", &this->showTerrainLayers))
+	{
+		ImGui::End();
+		return;
+	}
+
+	this->manager->map->updateTerrainLayers();
+
+	ImGui::TextWrapped("The layer at the top is drawn in front of (on top of) the ones below. Use the arrows or drag a row to change which terrain comes first.");
+	ImGui::Separator();
+
+	std::list<std::string>& layers = this->manager->map->data.terrainLayers;
+
+	if (layers.empty())
+	{
+		ImGui::TextWrapped("No terrain spawned in the map yet. Paint some terrain to see it here.");
+		ImGui::End();
+		return;
+	}
+
+	if (ImGui::Button("Refresh")) { this->manager->map->updateTerrainLayers(); }
+	ImGui::SameLine();
+	ImGui::TextDisabled("%d layer(s)", (int)layers.size());
+	ImGui::Separator();
+
+	ImGui::BeginChild("##terrainLayersList", ImVec2(0, 0), true);
+
+	int moveFrom = -1, moveTo = -1;
+	int index = 0;
+	for (auto it = layers.begin(); it != layers.end(); ++it, ++index)
+	{
+		const std::string& name = *it;
+
+		ImGui::PushID(index);
+
+		ImGui::TextDisabled("%d", index + 1);
+		ImGui::SameLine();
+
+		if (index > 0 && ImGui::Button("^"))
+		{
+			moveFrom = index;
+			moveTo = index - 1;
+		}
+		ImGui::SameLine();
+
+		if (index < (int)layers.size() - 1 && ImGui::Button("v"))
+		{
+			moveFrom = index;
+			moveTo = index + 1;
+		}
+		ImGui::SameLine();
+
+		std::string label = name + (index == 0 ? "  (front)" : (index == (int)layers.size() - 1 ? "  (back)" : ""));
+		ImGui::Selectable(label.c_str(), false);
+
+		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
+		{
+			ImGui::SetDragDropPayload("TERRAIN_LAYER", &index, sizeof(int));
+			ImGui::Text("Move %s", name.c_str());
+			ImGui::EndDragDropSource();
+		}
+
+		if (ImGui::BeginDragDropTarget())
+		{
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("TERRAIN_LAYER"))
+			{
+				int fromIndex = *(const int*)payload->Data;
+				if (fromIndex != index)
+				{
+					moveFrom = fromIndex;
+					moveTo = index;
+				}
+			}
+			ImGui::EndDragDropTarget();
+		}
+
+		ImGui::PopID();
+	}
+
+	ImGui::EndChild();
+
+	if (moveFrom >= 0 && moveTo >= 0 && moveFrom != moveTo)
+	{
+		std::vector<std::string> order(layers.begin(), layers.end());
+		std::string moving = order.at(moveFrom);
+		order.erase(order.begin() + moveFrom);
+		order.insert(order.begin() + moveTo, moving);
+		layers.assign(order.begin(), order.end());
+
+		this->manager->map->applyTerrainLayers();
+		this->showMessage("Terrain layers updated!");
+	}
+
+	ImGui::End();
 }
 
 void Hud::imguiRenderToolPanel()

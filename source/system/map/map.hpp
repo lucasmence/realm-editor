@@ -72,6 +72,8 @@ struct MapData
 	float weatherChance = 0.f;
 	sf::Vector2i size = sf::Vector2i(3000, 3000);
 	MapObjectUnit textureBackground = MapObjectUnit{ MapObjectType::motTerrain, sf::Vector2f(-200.f, -200.f), 0.f, nullptr, {} };
+
+	std::list<std::string> terrainLayers;
 };
 
 class Map
@@ -98,6 +100,9 @@ class Map
 		int getObjectAutoPriority(MapObjectType type);
 		std::vector<std::string> getSubFieldsExceptionsList();
 
+		std::string getTextureName(std::shared_ptr<Model> model);
+		bool updateTerrainLayers();
+		bool applyTerrainLayers();
 		bool renderMap();
 		bool renderObject(json& localfile, MapObjectUnit& object);
 		bool renderObjectField(json& localfile, MapObjectField& field);

@@ -189,12 +189,14 @@ class Hud
 		void imguiRenderPreferencesWindow();
 		void imguiRenderAboutWindow();
 		void imguiRenderCommandPalette();
+		void imguiRenderTerrainLayers();
 
 		
 		bool showPreferencesWindow;
 
 		
 		bool showAboutWindow;
+		bool showTerrainLayers;
 
 		// Layer visibility toggles
 		bool showTerrain;
