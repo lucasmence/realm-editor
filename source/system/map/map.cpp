@@ -171,7 +171,14 @@ std::string Map::getTextureFromUnit(json line, MapObjectType type)
 
 			json subFile = Json::loadFromFile(this->manager->constant.gamePath + "/data/" + subFilename + ".json");
 
-			std::string texture = Json::getString(this->manager->constant.gamePath + "/data/textures/" + subFile["models"][0].value("value", ""));
+			// The merchant file can be missing or have no "models" entry (content
+			// deleted after the map was saved). subFile is then an empty json and
+			// indexing ["models"][0] would throw and crash the editor while opening
+			// the map, so resolve to "" and let the caller skip the object.
+			std::string texture = "";
+			if (subFile.is_object() && subFile.contains("models")
+				&& subFile["models"].is_array() && subFile["models"].size() > 0)
+				texture = Json::getString(this->manager->constant.gamePath + "/data/textures/" + subFile["models"][0].value("value", ""));
 			subFile.clear();
 
 			return texture;
@@ -378,9 +385,10 @@ bool Map::applyTerrainLayers()
 	return true;
 }
 
-bool Map::renderMap()
+bool Map::renderMap(bool showNotification)
 {
-	this->manager->hud->showMessage("Rendering map...");
+	if (showNotification)
+		this->manager->hud->showMessage("Rendering map...");
 
 	this->file["map-size-x"] = this->data.size.x;
 	this->file["map-size-y"] = this->data.size.y;
@@ -541,7 +549,7 @@ bool Map::saveMapAfter()
 
 bool Map::saveMapTemp()
 {
-	this->renderMap();
+	this->renderMap(false);
 	
 	boost::filesystem::path mainPath = this->manager->constant.gamePath + "/temp";
 	std::string filePath = Json::convertPathToString(mainPath) + "/temp.json";
@@ -549,7 +557,8 @@ bool Map::saveMapTemp()
 	std::ofstream fileStream(filePath);
 	fileStream << this->file;
 
-	this->manager->hud->showMessage("Snapshot saved successfully!");
+	if (this->manager->hud->autoSaveMessageEnabled)
+		this->manager->hud->showMessage("Snapshot saved successfully!");
 
 	return true;
 }
@@ -573,7 +582,7 @@ bool Map::loadMapTemp()
 	if (boost::filesystem::exists(filePath))
 	{
 		this->filename = filePath;
-		this->loadMap(this->filename);
+		this->loadMapAfter();
 		this->filename = "";
 		this->manager->setTitle("map recovered");
 	}
@@ -771,8 +780,12 @@ bool Map::loadMap(std::string file)
 	else
 	{
 		this->filename = file;
-		this->loadMapAfter();
-	}	
+		if (this->loadMapAfter())
+		{
+			this->manager->constant.mapFolder = boost::filesystem::path(file).parent_path().string();
+			this->manager->addRecentFile(file);
+		}
+	}
 
 	return true;
 }

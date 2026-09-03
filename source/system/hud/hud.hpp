@@ -21,12 +21,6 @@ struct CommandPaletteEntry
     std::function<void()> action;
 };
 
-struct GameTick
-{
-	int tickValue;
-	int tickMax;
-};
-
 enum class EditType {etString, etInteger, etBoolean};
 
 struct ImguiEditValue
@@ -85,7 +79,9 @@ class Hud
 		std::string mapMusic;
 		std::string mapVersion;
 		std::string bgTexture;
-		GameTick mapTempTick;
+		float autoSaveTimer;
+		float autoSaveIntervalSeconds;
+		bool autoSaveMessageEnabled;
 		std::vector<int> gridSizeList;
 		std::vector<int> brushSizeList;
 
@@ -187,12 +183,14 @@ class Hud
 		void imguiRenderPaletteItems();
 		void imguiRenderPaletteSelector();
 		void imguiRenderPreferencesWindow();
+		void imguiRenderOptionsWindow();
 		void imguiRenderAboutWindow();
 		void imguiRenderCommandPalette();
 		void imguiRenderTerrainLayers();
 
 		
 		bool showPreferencesWindow;
+		bool showOptionsWindow;
 
 		
 		bool showAboutWindow;

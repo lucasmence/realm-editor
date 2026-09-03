@@ -1,6 +1,7 @@
 #include <cstring>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
 #include <math.h>
 #include "hud.hpp"
 #include "../manager.hpp"
@@ -42,7 +43,9 @@ Hud::Hud(Manager* manager)
 	this->hoverShapeSize = sf::Vector2f(0.f, 0.f);
 	this->mousePressPosition = sf::Vector2f(0.f, 0.f);
 	this->terrainFillStartPos = sf::Vector2f(0.f, 0.f);
-	this->mapTempTick = GameTick{ 0, 50000 };
+	this->autoSaveTimer = 0.f;
+	this->autoSaveIntervalSeconds = 900.f; // 15 minutes
+	this->autoSaveMessageEnabled = true;
 	this->weatherChance = 100;
 	this->weatherName = "";
 	this->particles = "none";
@@ -58,6 +61,7 @@ Hud::Hud(Manager* manager)
 	this->redoStack.clear();
 	this->matrixSpawnInProgress = false;
 	this->showPreferencesWindow = false;
+	this->showOptionsWindow = false;
 	this->showAboutWindow = false;
 	this->showCommandPalette = false;
 	this->showTerrain = true;
@@ -192,11 +196,14 @@ bool Hud::update(sf::Vector2f cursor)
 
 bool Hud::updateMapTemp()
 {
-	this->mapTempTick.tickValue += 1;
-	if (this->mapTempTick.tickMax <= this->mapTempTick.tickValue)
+	if (this->autoSaveIntervalSeconds <= 0.f)
+		return false;
+
+	this->autoSaveTimer += ImGui::GetIO().DeltaTime;
+	if (this->autoSaveTimer >= this->autoSaveIntervalSeconds)
 	{
 		this->manager->map->saveMapTemp();
-		this->mapTempTick.tickValue = 0;
+		this->autoSaveTimer = 0.f;
 		return true;
 	}
 	return false;
@@ -1612,6 +1619,7 @@ void Hud::buildCommandPalette()
 	this->commandPaletteEntries.push_back({ "Reload Config", "File", [this]() { this->manager->loadConstants(); } });
 	this->commandPaletteEntries.push_back({ "Create Trigger File", "File", [this]() { this->manager->map->createTriggerFile(); } });
 	this->commandPaletteEntries.push_back({ "Map Preferences...", "File", [this]() { this->manager->hud->showPreferencesWindow = true; } });
+	this->commandPaletteEntries.push_back({ "Options...", "File", [this]() { this->manager->hud->showOptionsWindow = true; } });
 	this->commandPaletteEntries.push_back({ "About", "File", [this]() { this->manager->hud->showAboutWindow = true; } });
 	this->commandPaletteEntries.push_back({ "Exit", "File", [this]() { this->manager->imguiTrigger(ImguiMiscData{ true, ImguiMiscType::imtExitConfirmation }); } });
 
@@ -1829,6 +1837,7 @@ bool Hud::imguiRender()
 	this->imguiRenderPalettePanel();
 	this->imguiRenderNotification();
 	this->imguiRenderPreferencesWindow();
+	this->imguiRenderOptionsWindow();
 	this->imguiRenderAboutWindow();
 	this->imguiRenderCommandPalette();
 	this->imguiRenderTerrainLayers();
@@ -1843,6 +1852,36 @@ void Hud::imguiRenderMenuBar()
 		if (ImGui::Button("Open...")) { this->manager->map->loadMap(); }
 		if (ImGui::Button("Save")) { this->manager->map->saveMap(); }
 		if (ImGui::Button("Save As...")) { this->manager->map->saveMapAs(); }
+		if (ImGui::BeginMenu("Recent Files"))
+		{
+			if (this->manager->recentFiles.empty())
+				ImGui::MenuItem("(none)", nullptr, false, false);
+			// Loading the map re-adds it to recentFiles (Manager::addRecentFile),
+			// which erases/re-inserts list nodes while we are iterating below and
+			// invalidates recentIt (crashed on Windows). Remember the click here
+			// and open the map only after the loop has finished.
+			std::string openRequest = "";
+			for (auto recentIt = this->manager->recentFiles.begin(); recentIt != this->manager->recentFiles.end(); )
+			{
+				std::string recentPath = *recentIt;
+				if (!boost::filesystem::is_regular_file(recentPath))
+				{
+					recentIt = this->manager->recentFiles.erase(recentIt);
+					this->manager->saveConfigTxt();
+					continue;
+				}
+
+				if (ImGui::MenuItem(recentPath.c_str()))
+					openRequest = recentPath;
+				++recentIt;
+			}
+			if (openRequest != "")
+			{
+				this->manager->welcomeActive = false;
+				this->manager->map->loadMap(openRequest);
+			}
+			ImGui::EndMenu();
+		}
 		ImGui::Separator();
 		if (ImGui::Button("Reload Map")) { this->manager->map->reloadMap(); }
 		if (ImGui::Button("Reload Config")) { this->manager->loadConstants(); }
@@ -1866,6 +1905,7 @@ void Hud::imguiRenderMenuBar()
 		}
 		ImGui::Separator();
 		if (ImGui::MenuItem("Map Preferences...")) { this->showPreferencesWindow = true; }
+		if (ImGui::MenuItem("Options...")) { this->showOptionsWindow = true; }
 		if (ImGui::MenuItem("About")) { this->showAboutWindow = true; }
 		ImGui::Separator();
 		if (ImGui::MenuItem("Exit")) { this->manager->imguiTrigger(ImguiMiscData{ true, ImguiMiscType::imtExitConfirmation }); }
@@ -1985,7 +2025,7 @@ void Hud::imguiRenderToolPanel()
 	ImGui::SetNextWindowSizeConstraints(ImVec2(300, 300), ImVec2(FLT_MAX, FLT_MAX));
 	ImGui::SetNextWindowBgAlpha(0.85f);
 
-	ImGuiWindowFlags flags = ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus;
+	ImGuiWindowFlags flags = ImGuiWindowFlags_NoBringToFrontOnFocus;
 
 	ImGui::Begin("Tools", NULL, flags);
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 4));
@@ -2442,6 +2482,64 @@ void Hud::imguiRenderPreferencesWindow()
 	if (ImGui::InputText("##prefParticles", imguiParticles, sizeof(imguiParticles)))
 		this->manager->map->data.particles = imguiParticles;
 	ImGui::PopItemWidth();
+
+	ImGui::End();
+}
+
+void Hud::imguiRenderOptionsWindow()
+{
+	if (!this->showOptionsWindow)
+		return;
+
+	ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowPos(
+		ImVec2(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f),
+		ImGuiCond_FirstUseEver,
+		ImVec2(0.5f, 0.5f)
+	);
+
+	ImGui::Begin("Options", &this->showOptionsWindow, ImGuiWindowFlags_NoCollapse);
+
+	ImGui::Separator();
+	ImGui::Text("--- Auto Save ---");
+
+	ImGui::Text("Auto save every (minutes)");
+	ImGui::PushItemWidth(120);
+	int minutes = (int)(this->autoSaveIntervalSeconds / 60.f);
+	if (ImGui::InputInt("##optAutoSaveMinutes", &minutes, 0, 0))
+	{
+		if (minutes < 0) minutes = 0;
+		if (minutes > 600) minutes = 600;
+		this->autoSaveIntervalSeconds = (float)minutes * 60.f;
+		this->autoSaveTimer = 0.f;
+		this->manager->saveConfigTxt();
+	}
+	ImGui::PopItemWidth();
+	ImGui::SameLine();
+	ImGui::TextDisabled("(0 disables auto save)");
+
+	ImGui::Text("Show notification when auto saving");
+	if (ImGui::Checkbox("##optAutoSaveMessage", &this->autoSaveMessageEnabled))
+	{
+		if (!this->autoSaveMessageEnabled)
+		{
+			this->notificationText.clear();
+			this->notificationTimer = 0.f;
+		}
+		this->manager->saveConfigTxt();
+	}
+
+	ImGui::Separator();
+	ImGui::Text("--- Maps Folder ---");
+
+	std::string folderDisplay = this->manager->constant.mapFolder.empty()
+		? "(not set - defaults to <game>/data/maps/custom)"
+		: this->manager->constant.mapFolder;
+	ImGui::TextWrapped("%s", folderDisplay.c_str());
+	if (ImGui::Button("Change..."))
+		this->manager->choosePath(PathType::ptMapFolder, "Set", "Set maps folder", true);
+	ImGui::SameLine();
+	ImGui::TextDisabled("Initial folder of the Open/Save map dialogs.");
 
 	ImGui::End();
 }
