@@ -51,14 +51,25 @@ Manager::Manager(bool noSplash, const std::string &gamePath)
     this->imguiMiscData.active = false;    this->closeSignal = false;
 	this->splashActive = false;
 	this->pendingExitAfterSave = false;
+	this->welcomeActive = false;
 
     if (gamePath != "")
     {
         // Launched by the game (Studio -> World Editor): open straight on the
         // given game folder, skipping the "Select game folder" dialog.
         this->constant.gamePath = gamePath;
-        this->constant.mapFolder = gamePath + "/data/maps/custom";
+        // Keep the maps folder configured in config.txt (last folder used or
+        // picked in Options); only fall back to data/maps/custom when no valid
+        // folder is saved, so the Open/Save dialogs don't always restart in
+        // /custom.
+        std::string savedMapFolder = this->loadConfigMapFolder();
+        if (!savedMapFolder.empty() && boost::filesystem::is_directory(savedMapFolder))
+            this->constant.mapFolder = savedMapFolder;
+        else
+            this->constant.mapFolder = gamePath + "/data/maps/custom";
         this->loadGamepathAfter();
+        this->applyAutoSaveConfigFromFile();
+        this->applyRecentFilesFromConfig();
         this->saveConfigTxt();
     }
     else if (!this->loadConfigTxt())
@@ -174,6 +185,8 @@ bool Manager::imguiUpdate()
     if (this->hudLoaded)
         this->hud->imguiRender();
     
+    this->imguiRenderWelcome();
+
     if (this->imguiUpdateDialogBox())
         return true;
 
@@ -337,29 +350,47 @@ bool Manager::imguiUpdatePath()
 {
     if (this->filePathData.path != "" && !this->filePathData.active)
     {
-        if (this->hudLoaded) 
-            this->map->filename = this->filePathData.path;
-
-        boost::filesystem::path mapFolder(this->filePathData.currentEntry.path);
-        this->constant.mapFolder = mapFolder.parent_path().string();
+        std::string selectedPath = this->filePathData.path;
         this->filePathData.path = "";
 
         switch (this->filePathData.type)
         {
             case (PathType::ptLoadMap):
             {
-                this->map->loadMapAfter();
+                if (this->hudLoaded)
+                    this->map->filename = selectedPath;
+                if (this->map->loadMapAfter())
+                {
+                    this->constant.mapFolder = boost::filesystem::path(selectedPath).parent_path().string();
+                    this->addRecentFile(selectedPath);
+                }
+                this->welcomeActive = false;
                 break;
             }
             case (PathType::ptSaveMap):
             {
+                if (this->hudLoaded)
+                    this->map->filename = selectedPath;
+                boost::filesystem::path selectedFolder(this->filePathData.currentEntry.path);
+                this->constant.mapFolder = this->filePathData.currentEntry.isFolder
+                    ? selectedFolder.string()
+                    : selectedFolder.parent_path().string();
                 this->map->saveMapAfter();
                 break;
             }
             case (PathType::ptGamepath):
             {
                 this->constant.gamePath = this->filePathData.currentEntry.path;
+                this->constant.mapFolder = this->constant.gamePath + "/data/maps/custom";
                 this->loadGamepathAfter();
+                this->applyAutoSaveConfigFromFile();
+                this->applyRecentFilesFromConfig();
+                break;
+            }
+            case (PathType::ptMapFolder):
+            {
+                if (this->filePathData.currentEntry.isFolder)
+                    this->constant.mapFolder = this->filePathData.currentEntry.path;
                 break;
             }
         }
@@ -392,6 +423,9 @@ bool Manager::loadGamepathAfter()
     this->splashActive = !tempMapExists;
     if (this->splashActive)
         this->splashClock.restart();
+
+    // Startup hub: the closable Welcome window listing the most recent maps.
+    this->welcomeActive = true;
 
     return true;
 }
@@ -866,7 +900,20 @@ std::list<FileEntry> Manager::returnFiles(std::string pathname)
 bool Manager::choosePath(PathType type, std::string confirmButtonName, std::string dialogCaption, bool getFolder, bool cancelButtonVisible)
 {
     if (this->hudLoaded) this->palette->clearPaletteItem();
-    this->filePathData = FilePathData{ type, confirmButtonName, dialogCaption, "", "", FileEntry{"", "", false}, getFolder, true, this->returnFiles(this->constant.mapFolder != "" ? this->constant.mapFolder : boost::filesystem::current_path().string()), cancelButtonVisible, false, {0}};
+    std::string initialPath;
+    if (type == PathType::ptGamepath)
+        initialPath = boost::filesystem::current_path().string();
+    else
+        initialPath = this->constant.mapFolder;
+
+    if (initialPath.empty() || !boost::filesystem::is_directory(initialPath))
+    {
+        initialPath = this->constant.gamePath.empty()
+            ? boost::filesystem::current_path().string()
+            : this->constant.gamePath + "/data/maps/custom";
+    }
+
+    this->filePathData = FilePathData{ type, confirmButtonName, dialogCaption, "", "", FileEntry{"", "", false}, getFolder, true, this->returnFiles(initialPath), cancelButtonVisible, false, {0}};
     return true;
 }
 
@@ -898,7 +945,8 @@ bool Manager::updatePathImgui()
                 {
                     if (entry.isFolder) {
                         this->filePathData.filePath = returnFiles(entry.path);
-                        this->filePathData.currentEntry = { "", "", false };
+                        if (this->filePathData.type != PathType::ptMapFolder)
+                            this->filePathData.currentEntry = { "", "", false };
                         if (this->filePathData.type == PathType::ptSaveMap)
                         {
                             this->filePathData.path = entry.path;
@@ -1015,7 +1063,7 @@ bool Manager::updatePathImgui()
 
 bool Manager::loadConfigTxt()
 {
-    std::fstream file("config.txt", std::ios::in | std::ios::out | std::ios::app);
+    std::ifstream file("config.txt");
 
     if (!file.is_open()) return false;
 
@@ -1024,14 +1072,39 @@ bool Manager::loadConfigTxt()
     std::getline(file, localGamepath);
     std::getline(file, localMapFolder);
 
+    boost::algorithm::trim(localGamepath);
+    boost::algorithm::trim(localMapFolder);
+
     this->constant.gamePath = localGamepath;
     this->constant.mapFolder = localMapFolder;
+
+    // Lines after the 4 fixed settings (gamePath, mapFolder, autoSaveSeconds,
+    // autoSaveMessage) are the recently opened map files (newest first).
+    std::string skipAutoSaveSeconds, skipAutoSaveMessage;
+    std::getline(file, skipAutoSaveSeconds);
+    std::getline(file, skipAutoSaveMessage);
+
+    this->recentFiles.clear();
+    std::string recentLine;
+    while (std::getline(file, recentLine) && (int)this->recentFiles.size() < 5)
+    {
+        boost::algorithm::trim(recentLine);
+        if (!recentLine.empty() && boost::filesystem::is_regular_file(recentLine)
+            && std::find(this->recentFiles.begin(), this->recentFiles.end(), recentLine) == this->recentFiles.end())
+            this->recentFiles.push_back(recentLine);
+    }
 
     // config.txt can hold paths from another machine/OS (e.g. Linux paths on
     // Windows). Only trust it when the folder actually exists; otherwise fall
     // through to the "Select game folder" dialog instead of crashing.
-    if (this->constant.gamePath != "" && boost::filesystem::exists(this->constant.gamePath))
+    if (this->constant.gamePath != "" && boost::filesystem::is_directory(this->constant.gamePath))
+    {
+        if (this->constant.mapFolder.empty() || !boost::filesystem::is_directory(this->constant.mapFolder))
+            this->constant.mapFolder = this->constant.gamePath + "/data/maps/custom";
+
         this->loadGamepathAfter();
+        this->applyAutoSaveConfigFromFile();
+    }
 
     return this->hudLoaded;
 }
@@ -1040,13 +1113,110 @@ bool Manager::saveConfigTxt()
 {
     if (!this->hudLoaded) return false;
 
-    std::fstream file("config.txt", std::ios::in | std::ios::out | std::ios::trunc);
+    std::ofstream file("config.txt", std::ios::trunc);
+    if (!file.is_open()) return false;
 
-    file.clear();
     file << this->constant.gamePath;
     file << "\n" << this->constant.mapFolder;
+    file << "\n" << (this->hud ? (int)this->hud->autoSaveIntervalSeconds : 900);
+    file << "\n" << (this->hud && this->hud->autoSaveMessageEnabled ? 1 : 0);
+    for (auto& recent : this->recentFiles)
+        file << "\n" << recent;
 
     file.close();
+    return !file.fail();
+}
+
+bool Manager::loadAutoSaveConfig(int& seconds, bool& message)
+{
+    // Lines 3 and 4 of config.txt hold the auto save interval (seconds) and
+    // whether the auto save notification is enabled. They are optional: older
+    // configs (or configs written by other machines) may not have them.
+    std::ifstream file("config.txt");
+
+    if (!file.is_open()) return false;
+
+    std::string line1, line2, secondsLine, messageLine;
+
+    std::getline(file, line1);
+    std::getline(file, line2);
+    std::getline(file, secondsLine);
+    std::getline(file, messageLine);
+
+    boost::algorithm::trim(secondsLine);
+    boost::algorithm::trim(messageLine);
+
+    try { if (!secondsLine.empty()) seconds = boost::lexical_cast<int>(secondsLine); } catch (...) {}
+    if (messageLine == "0") message = false;
+
+    return true;
+}
+
+bool Manager::applyAutoSaveConfigFromFile()
+{
+    if (!this->hud) return false;
+
+    int seconds = 900;
+    bool message = true;
+
+    this->loadAutoSaveConfig(seconds, message);
+
+    if (seconds < 0) seconds = 0;
+    this->hud->autoSaveIntervalSeconds = (float)seconds;
+    this->hud->autoSaveMessageEnabled = message;
+    this->hud->autoSaveTimer = 0.f;
+    return true;
+}
+
+std::string Manager::loadConfigMapFolder()
+{
+    // Line 2 of config.txt holds the last maps folder used (or the one picked
+    // in Options). Returns "" when the file is missing or in an older format.
+    std::ifstream file("config.txt");
+    if (!file.is_open()) return "";
+
+    std::string line1, line2;
+    std::getline(file, line1);
+    std::getline(file, line2);
+    boost::algorithm::trim(line2);
+    return line2;
+}
+
+bool Manager::applyRecentFilesFromConfig()
+{
+    // Lines 5+ of config.txt are the recently opened map files (newest first).
+    this->recentFiles.clear();
+
+    std::ifstream file("config.txt");
+    if (!file.is_open()) return false;
+
+    std::string line;
+    int index = 0;
+    while (std::getline(file, line) && (int)this->recentFiles.size() < 5)
+    {
+        index++;
+        if (index <= 4) continue; // gamePath, mapFolder, autoSaveSeconds, autoSaveMessage
+        boost::algorithm::trim(line);
+        if (!line.empty())
+            if (boost::filesystem::is_regular_file(line)
+                && std::find(this->recentFiles.begin(), this->recentFiles.end(), line) == this->recentFiles.end())
+                this->recentFiles.push_back(line);
+    }
+
+    return true;
+}
+
+bool Manager::addRecentFile(std::string path)
+{
+    boost::algorithm::trim(path);
+    if (path == "" || !boost::filesystem::is_regular_file(path)) return false;
+
+    this->recentFiles.remove(path);
+    this->recentFiles.push_front(path);
+    while ((int)this->recentFiles.size() > 5)
+        this->recentFiles.pop_back();
+
+    this->saveConfigTxt();
     return true;
 }
 
@@ -1216,4 +1386,143 @@ void Manager::renderSplash()
     progressFill.setFillColor(sf::Color(70, 130, 200));
     progressFill.setPosition(w / 2.f - 100.f, h / 2.f + 120.f);
     this->window->draw(progressFill);
+}
+
+bool Manager::imguiRenderWelcome()
+{
+    if (!this->welcomeActive || !this->hudLoaded)
+        return false;
+
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImVec2 center = ImVec2(viewport->Size.x * 0.5f, viewport->Size.y * 0.5f);
+
+    ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(500.f, 440.f), ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.96f);
+
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse;
+
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(24.f / 255.f, 24.f / 255.f, 36.f / 255.f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(50.f / 255.f, 50.f / 255.f, 70.f / 255.f, 1.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+
+    ImGui::Begin("##welcome", &this->welcomeActive, flags);
+
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    ImVec2 winPos = ImGui::GetWindowPos();
+    ImVec2 winSize = ImGui::GetWindowSize();
+
+    // Accent bar on top, like the splash / about screens.
+    drawList->AddRectFilled(
+        ImVec2(winPos.x, winPos.y),
+        ImVec2(winPos.x + winSize.x, winPos.y + 3.f),
+        IM_COL32(70, 130, 200, 255));
+
+    // Close (X) button in the top-right corner.
+    ImGui::SetCursorPos(ImVec2(winSize.x - 40.f, 10.f));
+    if (ImGui::Button("X", ImVec2(28.f, 24.f)))
+        this->welcomeActive = false;
+
+    float titleW = ImGui::CalcTextSize("realm-editor").x;
+    ImGui::SetCursorPos(ImVec2((winSize.x - titleW) / 2.f, 26.f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(220.f / 255.f, 220.f / 255.f, 245.f / 255.f, 1.0f));
+    ImGui::Text("realm-editor");
+    ImGui::PopStyleColor();
+
+    float verW = ImGui::CalcTextSize("build 12").x;
+    ImGui::SetCursorPos(ImVec2((winSize.x - verW) / 2.f, 52.f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(130.f / 255.f, 130.f / 255.f, 170.f / 255.f, 1.0f));
+    ImGui::Text("build 12");
+    ImGui::PopStyleColor();
+
+    ImGui::SetCursorPosY(88.f);
+    ImGui::Separator();
+
+    ImGui::SetCursorPosY(100.f);
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(150.f / 255.f, 150.f / 255.f, 185.f / 255.f, 1.0f));
+    ImGui::TextWrapped("Welcome back! Open one of your recent maps or start a new one.");
+    ImGui::PopStyleColor();
+
+    // List of the most recently opened maps (newest first, up to 5). The load
+    // is deferred until after the loop because Map::loadMap -> addRecentFile
+    // mutates recentFiles while it is being iterated.
+    std::string openRequest = "";
+
+    ImGui::SetCursorPosY(128.f);
+    if (ImGui::BeginChild("##welcomeRecentList", ImVec2(0.f, -74.f), true))
+    {
+        if (this->recentFiles.empty())
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(90.f / 255.f, 90.f / 255.f, 130.f / 255.f, 1.0f));
+            ImGui::TextWrapped("No recent maps yet. Use \"Open...\" to load a map file from the game folder.");
+            ImGui::PopStyleColor();
+        }
+        else
+        {
+            for (auto recentIt = this->recentFiles.begin(); recentIt != this->recentFiles.end(); )
+            {
+                std::string recentPath = *recentIt;
+                if (!boost::filesystem::is_regular_file(recentPath))
+                {
+                    recentIt = this->recentFiles.erase(recentIt);
+                    this->saveConfigTxt();
+                    continue;
+                }
+
+                std::string fileName = boost::filesystem::path(recentPath).filename().string();
+                if (fileName.empty())
+                    fileName = recentPath;
+
+                ImGui::PushID(recentPath.c_str());
+                if (ImGui::Selectable(fileName.c_str(), false, ImGuiSelectableFlags_AllowDoubleClick))
+                    openRequest = recentPath;
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip("%s", recentPath.c_str());
+                ImGui::PopID();
+
+                ImGui::Spacing();
+                ++recentIt;
+            }
+        }
+    }
+    ImGui::EndChild();
+
+    // Bottom action buttons.
+    ImGui::SetCursorPos(ImVec2(12.f, winSize.y - 48.f));
+    if (ImGui::Button("New Map", ImVec2(110.f, 30.f)))
+    {
+        this->welcomeActive = false;
+        this->map->newMap();
+    }
+
+    ImGui::SameLine();
+    if (ImGui::Button("Open...", ImVec2(110.f, 30.f)))
+    {
+        this->welcomeActive = false;
+        this->map->loadMap();
+    }
+
+    ImGui::SameLine();
+    if (ImGui::Button("Close", ImVec2(110.f, 30.f)))
+        this->welcomeActive = false;
+
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor(2);
+    ImGui::End();
+
+    // TEMP DEBUG HOOK: auto-open first recent file to exercise the click path
+    if (std::getenv("REALM_AUTO_OPEN_RECENT") && !this->recentFiles.empty() && openRequest == "")
+        openRequest = *this->recentFiles.begin();
+
+    // Load the selected map only now that recentFiles is no longer locked by
+    // the loop above (opening it re-adds the file to the recent list).
+    if (openRequest != "")
+    {
+        this->welcomeActive = false;
+        this->map->loadMap(openRequest);
+    }
+
+    return true;
 }

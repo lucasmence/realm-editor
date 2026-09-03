@@ -103,7 +103,7 @@ class Map
 		std::string getTextureName(std::shared_ptr<Model> model);
 		bool updateTerrainLayers();
 		bool applyTerrainLayers();
-		bool renderMap();
+		bool renderMap(bool showNotification = true);
 		bool renderObject(json& localfile, MapObjectUnit& object);
 		bool renderObjectField(json& localfile, MapObjectField& field);
 		bool saveMap();

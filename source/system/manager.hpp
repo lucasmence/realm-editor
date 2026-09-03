@@ -16,7 +16,7 @@
 #ifndef MANAGER_HPP
 #define MANAGER_HPP
 
-enum class PathType { ptLoadMap, ptSaveMap, ptGamepath };
+enum class PathType { ptLoadMap, ptSaveMap, ptGamepath, ptMapFolder };
 enum class ImguiMiscType { imtReloadConfirmation, imtExitConfirmation };
 
 struct ManagerConstant
@@ -102,6 +102,7 @@ class Manager
 		bool closeSignal;
 		bool splashActive;
 		bool pendingExitAfterSave;
+		bool welcomeActive;
 		sf::Clock deltaClock;
 		sf::Clock splashClock;
 		std::string appName;
@@ -110,6 +111,7 @@ class Manager
 		FilePathData filePathData;
 		ImguiMiscData imguiMiscData;
 		ImguiDialogBoxData imguiDialogBoxData;
+		std::list<std::string> recentFiles;
 
 		Manager(bool noSplash = false, const std::string &gamePath = "");
 		~Manager();
@@ -138,6 +140,11 @@ class Manager
 		bool loadGamepathAfter();
 		bool loadConfigTxt();
 		bool saveConfigTxt();
+		bool loadAutoSaveConfig(int& seconds, bool& message);
+		bool applyAutoSaveConfigFromFile();
+		std::string loadConfigMapFolder();
+		bool applyRecentFilesFromConfig();
+		bool addRecentFile(std::string path);
 
 		bool choosePath(PathType type, std::string confirmButtonName, std::string dialogCaption, bool getFolder = false, bool cancelButtonVisible = true);
 		std::list<FileEntry> returnFiles(std::string pathname);
@@ -146,6 +153,7 @@ class Manager
 		bool imguiUpdateDialogBox();
 		bool imguiUpdatePath();
 		bool imguiTrigger(ImguiMiscData data);
+		bool imguiRenderWelcome();
 
 		std::list<std::string> loadFileLists(std::string directory, std::string subDirectory = "");
 		std::list<std::string> loadFileFromDirectory(std::string directory, std::string base = "", std::string subDirectory = "");
