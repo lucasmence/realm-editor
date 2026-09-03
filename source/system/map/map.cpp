@@ -1,5 +1,6 @@
 #include <regex>
 #include <typeinfo>
+#include <algorithm>
 #include <boost/lexical_cast.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/dll.hpp>
@@ -264,6 +265,119 @@ std::string Map::getRelativePath(std::string path, std::string target)
 	return (start != std::string::npos) ? path.substr(start) : "";
 }
 
+std::string Map::getTextureName(std::shared_ptr<Model> model)
+{
+	if (!model)
+		return "";
+
+	return this->getRelativePath(std::regex_replace(model->filename, std::regex(this->manager->constant.gamePath + "/data/textures/"), ""), "textures");
+}
+
+bool Map::updateTerrainLayers()
+{
+	std::vector<std::pair<std::string, int>> spawned;
+	for (auto& object : this->objects)
+		if (object.type == MapObjectType::motTerrain && object.model)
+		{
+			std::string texture = this->getTextureName(object.model);
+			if (texture == "")
+				continue;
+
+			bool found = false;
+			for (auto& entry : spawned)
+				if (entry.first == texture)
+				{
+					entry.second = std::max(entry.second, object.model->autoPriority);
+					found = true;
+					break;
+				}
+
+			if (!found)
+				spawned.emplace_back(texture, object.model->autoPriority);
+		}
+
+	std::list<std::string> newList;
+	for (auto& existing : this->data.terrainLayers)
+		for (auto& entry : spawned)
+			if (entry.first == existing)
+			{
+				newList.emplace_back(existing);
+				break;
+			}
+
+	std::vector<std::pair<std::string, int>> remaining;
+	for (auto& entry : spawned)
+	{
+		bool already = false;
+		for (auto& existing : newList)
+			if (existing == entry.first)
+			{
+				already = true;
+				break;
+			}
+		if (!already)
+			remaining.emplace_back(entry);
+	}
+
+	std::sort(remaining.begin(), remaining.end(), [](const std::pair<std::string, int>& a, const std::pair<std::string, int>& b)
+	{
+		return a.second > b.second;
+	});
+
+	for (auto it = remaining.rbegin(); it != remaining.rend(); ++it)
+		newList.emplace_front(it->first);
+
+	if (newList == this->data.terrainLayers)
+		return false;
+
+	this->data.terrainLayers = newList;
+	this->applyTerrainLayers();
+	return true;
+}
+
+bool Map::applyTerrainLayers()
+{
+	int layerCount = (int)this->data.terrainLayers.size();
+	if (layerCount == 0)
+		return false;
+
+	std::vector<std::pair<std::string, int>> layerMap;
+	int index = 0;
+	for (auto& layer : this->data.terrainLayers)
+	{
+		layerMap.emplace_back(layer, index);
+		index++;
+	}
+
+	for (auto& object : this->objects)
+		if (object.type == MapObjectType::motTerrain && object.model)
+		{
+			std::string texture = this->getTextureName(object.model);
+			if (texture == "")
+				continue;
+
+			int layerIndex = -1;
+			for (auto& entry : layerMap)
+				if (entry.first == texture)
+				{
+					layerIndex = entry.second;
+					break;
+				}
+
+			if (layerIndex < 0)
+				continue;
+
+			object.model->priority = this->getObjectPriority(MapObjectType::motTerrain);
+			object.model->autoPriority = layerCount - layerIndex;
+
+			this->manager->removeView(std::static_pointer_cast<ViewElement>(object.model));
+			this->manager->addViewElement(std::static_pointer_cast<ViewElement>(object.model));
+		}
+
+	this->dirty = true;
+	return true;
+}
+
 bool Map::renderMap()
 {
 	this->manager->hud->showMessage("Rendering map...");
@@ -293,10 +407,18 @@ bool Map::renderMap()
 		this->renderObject(this->file["terrain-default"], this->data.textureBackground);
 	}		
 
+	this->file["terrain-layers"].clear();
+	int layerIndex = 0;
+	for (auto& layer : this->data.terrainLayers)
+	{
+		this->file["terrain-layers"][layerIndex]["value"] = layer;
+		layerIndex++;
+	}
+
 	for (auto& object : this->objects)
 	{
 		std::string fieldName = "", fieldCaption = "texture";
-		std::string filename = this->getRelativePath(std::regex_replace(object.model->filename, std::regex(this->manager->constant.gamePath + "/data/textures/"), ""), "textures");
+		std::string filename = this->getTextureName(object.model);
 
 		switch (object.type)
 		{
@@ -622,6 +744,14 @@ bool Map::loadMapAfter()
 		}
 	}
 
+	this->data.terrainLayers.clear();
+	if (!this->file["terrain-layers"].is_null())
+		for (int layerIndex = 0; layerIndex < this->file["terrain-layers"].size(); layerIndex++)
+			this->data.terrainLayers.emplace_back(this->file["terrain-layers"][layerIndex].value("value", ""));
+
+	if (this->data.terrainLayers.size() > 0)
+		this->applyTerrainLayers();
+
 	this->dirty = false;
 	this->manager->setTitle(this->filename);
 
@@ -666,6 +796,7 @@ bool Map::newMap()
 	this->data.weatherName = "";
 	this->data.particles = "none";
 	this->data.weatherChance = 100.f;
+	this->data.terrainLayers.clear();
 	this->file["trigger"].clear();
 
 	this->updateMapInfo();
