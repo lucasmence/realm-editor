@@ -764,6 +764,10 @@ bool Map::loadMapAfter()
 	this->dirty = false;
 	this->manager->setTitle(this->filename);
 
+	// Loaded maps always come locked (read-only) so the map can be inspected
+	// without the risk of changing anything by accident.
+	this->manager->hud->setLocked(true);
+
 	this->manager->hud->showMessage("Map loaded successfully!");
 
 	return true;
@@ -813,6 +817,9 @@ bool Map::newMap()
 	this->file["trigger"].clear();
 
 	this->updateMapInfo();
+
+	// A brand new map starts unlocked so it can be edited right away.
+	this->manager->hud->setLocked(false);
 
 	this->manager->setTitle("New");
 	this->manager->resetView();
