@@ -72,6 +72,7 @@ class Hud
 		bool dragCursor;
 		bool gridVisible;
 		bool removeBgVisible;
+		bool locked;
 		std::string weatherName;
 		int weatherChance;
 		std::string particles;
@@ -119,6 +120,8 @@ class Hud
 		bool updateHoverGeneral();
 		bool updateShapeMatrix(sf::Vector2f cursor);
 		bool updateMapBounds();
+		bool setLocked(bool value);
+		bool toggleLock();
 		bool toggleGridVisibility();
 		bool removeBackground();
 		bool formShapeClick(const std::string& shapeName);

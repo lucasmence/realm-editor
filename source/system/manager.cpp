@@ -568,6 +568,34 @@ bool Manager::eventKey(sf::Event& event)
     if (this->hud->getCheckEditing())
         return false;
 
+    // While the map is locked only navigation/zoom/view keys and the lock
+    // toggle (K) work: every editing hotkey is ignored.
+    if (this->hud->locked)
+    {
+        switch (event.key.code)
+        {
+            case sf::Keyboard::K:
+            case sf::Keyboard::Left:
+            case sf::Keyboard::Right:
+            case sf::Keyboard::Up:
+            case sf::Keyboard::Down:
+            case sf::Keyboard::Space:
+            case sf::Keyboard::Add:
+            case sf::Keyboard::Subtract:
+            case sf::Keyboard::G:
+            case sf::Keyboard::A:
+            case sf::Keyboard::C:
+            case sf::Keyboard::L:
+            case sf::Keyboard::Tilde:
+            case sf::Keyboard::Return:
+            case sf::Keyboard::Escape:
+                break;
+            default:
+                this->hud->showMessage("Map is locked - editing disabled (press K to unlock)", 2.f);
+                return true;
+        }
+    }
+
     switch (event.key.code)
     {
         case (sf::Keyboard::Left):
@@ -699,6 +727,12 @@ bool Manager::eventKey(sf::Event& event)
         case (sf::Keyboard::L):
         {
             this->calculateMapEdges();
+            break;
+        }
+        case (sf::Keyboard::K):
+        {
+            // Toggle the map lock (read-only mode). See Hud::setLocked.
+            this->hud->toggleLock();
             break;
         }
         case (sf::Keyboard::Return):

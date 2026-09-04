@@ -38,6 +38,7 @@ Hud::Hud(Manager* manager)
 	this->itemSelectedMove = false;
 	this->dragCursor = false;
 	this->removeBgVisible = false;
+	this->locked = false;
 	this->gettingExtraValues = false;
 	this->formShapeSelected = "none";
 	this->hoverShapeSize = sf::Vector2f(0.f, 0.f);
@@ -124,6 +125,54 @@ Hud::~Hud()
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeMinimap));
 	this->itemModelSelected = nullptr;
 	this->unloadLists();
+}
+
+// Locks (or unlocks) the current map. While locked the map is read-only: no
+// element can be added, altered or removed and map data fields (name, music,
+// size...) cannot change. Turning the lock on cancels any editing mode that
+// was in progress so nothing stays armed for a later click.
+bool Hud::setLocked(bool value)
+{
+	this->locked = value;
+
+	if (this->locked)
+	{
+		this->spawnPress = false;
+		this->matrixActivated = false;
+		this->matrixTriggered = false;
+		this->matrixPosSpawn = false;
+		this->wallActivated = false;
+		this->terrainFillActivated = false;
+		this->terrainFillTriggered = false;
+		this->itemSelect = false;
+		this->itemSelected = false;
+		this->itemSelectedMove = false;
+		this->itemModelSelected = nullptr;
+
+		if (this->shapeMatrix)
+			this->shapeMatrix->visible = false;
+		if (this->shapeTerrainFill)
+			this->shapeTerrainFill->visible = false;
+		if (this->shapeItemSelected)
+			this->shapeItemSelected->visible = false;
+		if (this->manager->palette)
+			this->manager->palette->clearPaletteItem();
+	}
+
+	return true;
+}
+
+bool Hud::toggleLock()
+{
+	bool nowLocked = !this->locked;
+	this->setLocked(nowLocked);
+
+	if (nowLocked)
+		this->showMessage("Map locked - editing disabled (press K to unlock)", 2.5f);
+	else
+		this->showMessage("Map unlocked - editing enabled (press K to lock)", 2.5f);
+
+	return this->locked;
 }
 
 bool Hud::isLayerVisible(PaletteType type)
@@ -214,6 +263,15 @@ bool Hud::updateClick(sf::Vector2f cursor, bool rightButton)
 	this->mousePressPosition = cursor;
 	this->mousePressed = true;
 	this->mouseRightButton = rightButton;
+
+	// Locked maps are read-only: remember the press so camera panning with
+	// the drag tool keeps working, but ignore every editing action below.
+	if (this->locked)
+	{
+		this->shapeHover->visible = false;
+		return true;
+	}
+
 	this->selectedItemUpdate();
 	this->updateItemSelectedMove(cursor);
 	this->matrixActivate(cursor);
@@ -225,6 +283,8 @@ bool Hud::updateClick(sf::Vector2f cursor, bool rightButton)
 
 bool Hud::updateItemSelectedMove(sf::Vector2f cursor)
 {
+	if (this->locked)
+		return false;
 	if (!this->itemSelected || !this->itemSelectedMove || !this->checkMapClick(cursor))
 		return false;
 
@@ -250,7 +310,9 @@ bool Hud::updateMousePressed(sf::Vector2f cursor)
 {
 	if (!this->mousePressed)
 		return false;
-	if (this->spawnPress)
+	// While locked only the drag (camera pan) tool may run: everything else
+	// is handled by the lock checks inside each action below.
+	if (!this->locked && this->spawnPress)
 		return this->spawnClick(cursor);
 	else if (this->terrainFillTriggered)
 		return this->updateShapeTerrainFill(cursor);
@@ -263,6 +325,12 @@ bool Hud::updateMousePressed(sf::Vector2f cursor)
 
 bool Hud::updateCursor(sf::Vector2f cursor)
 {
+	// Never show the painting/preview cursor on a locked (read-only) map.
+	if (this->locked)
+	{
+		this->shapeHover->visible = false;
+		return false;
+	}
 	if (this->manager->palette->selectedItem == "")
 		return false;
 
@@ -303,6 +371,10 @@ bool Hud::updateDragCursor(sf::Vector2f cursor)
 bool Hud::zoomMap(int value)
 {
 	this->zoom += 0.05f * value;
+	if (this->zoom < 0.1f)
+		this->zoom = 0.1f;
+	if (this->zoom > 10.f)
+		this->zoom = 10.f;
 	this->manager->canvas->zoom(this->zoom);
 	return true;
 }
@@ -325,36 +397,50 @@ bool Hud::setEditValue(std::string editName, std::string value)
 	else if (editName == "edtPriority")
 		this->priority = atoi(value.c_str());
 	else if (editName == "edtMapSizeX")
-		this->manager->map->data.size.x = atoi(value.c_str());
+	{
+		// While locked the map is read-only: keep the field mirror updated but
+		// never write the value into the map data.
+		if (!this->locked)
+			this->manager->map->data.size.x = atoi(value.c_str());
+	}
 	else if (editName == "edtMapSizeY")
-		this->manager->map->data.size.y = atoi(value.c_str());
+	{
+		if (!this->locked)
+			this->manager->map->data.size.y = atoi(value.c_str());
+	}
 	else if (editName == "edtMapName") {
 		this->mapName = value;
-		this->manager->map->data.name = value;
+		if (!this->locked)
+			this->manager->map->data.name = value;
 		strncpy(imguiMapName, value.c_str(), sizeof(imguiMapName) - 1);
 	}
 	else if (editName == "edtMapMusic") {
 		this->mapMusic = value;
-		this->manager->map->data.music = value;
+		if (!this->locked)
+			this->manager->map->data.music = value;
 		strncpy(imguiMapMusic, value.c_str(), sizeof(imguiMapMusic) - 1);
 	}
 	else if (editName == "edtMapVersion") {
 		this->mapVersion = value;
-		this->manager->map->data.version = value;
+		if (!this->locked)
+			this->manager->map->data.version = value;
 		strncpy(imguiMapVersion, value.c_str(), sizeof(imguiMapVersion) - 1);
 	}
 	else if (editName == "edtWeatherChance") {
 		this->weatherChance = atoi(value.c_str());
-		this->manager->map->data.weatherChance = this->weatherChance;
+		if (!this->locked)
+			this->manager->map->data.weatherChance = this->weatherChance;
 	}
 	else if (editName == "edtWeatherName") {
 		this->weatherName = value;
-		this->manager->map->data.weatherName = value;
+		if (!this->locked)
+			this->manager->map->data.weatherName = value;
 		strncpy(imguiWeatherName, value.c_str(), sizeof(imguiWeatherName) - 1);
 	}
 	else if (editName == "edtParticles") {
 		this->particles = value;
-		this->manager->map->data.particles = value;
+		if (!this->locked)
+			this->manager->map->data.particles = value;
 		strncpy(imguiParticles, value.c_str(), sizeof(imguiParticles) - 1);
 	}
 	else {
@@ -434,7 +520,7 @@ bool Hud::updateHoverShapeSize()
 
 bool Hud::terrainFillActivate(sf::Vector2f cursor)
 {
-	if (this->terrainFillTriggered || !this->terrainFillActivated)
+	if (this->locked || this->terrainFillTriggered || !this->terrainFillActivated)
 		return false;
 	if (this->manager->palette->type != PaletteType::ptTerrain)
 		return false;
@@ -480,6 +566,8 @@ bool Hud::terrainFillDeactivate(sf::Vector2f cursor)
 
 bool Hud::terrainFillGenerate(sf::Vector2f cursor)
 {
+	if (this->locked)
+		return false;
 	sf::Vector2f areaMin(
 		std::min(this->terrainFillStartPos.x, cursor.x),
 		std::min(this->terrainFillStartPos.y, cursor.y));
@@ -598,6 +686,11 @@ bool Hud::toggleGridVisibility()
 
 bool Hud::updateMapBounds()
 {
+	if (this->locked)
+	{
+		this->showMessage("Map is locked - editing disabled (press K to unlock)", 2.f);
+		return false;
+	}
 	sf::Vector2f positionLowerest(-1.f, -1.f);
 	sf::Vector2f positionExtra(0.f, 0.f);
 	for (auto& object : this->manager->map->objects)
@@ -657,6 +750,11 @@ bool Hud::formShapeClick(const std::string& shapeName)
 
 bool Hud::removeBackground()
 {
+	if (this->locked)
+	{
+		this->showMessage("Map is locked - editing disabled (press K to unlock)", 2.f);
+		return false;
+	}
 	this->manager->map->data.textureBackground.model = nullptr;
 	this->removeBgVisible = false;
 	this->bgTexture = "";
@@ -674,6 +772,8 @@ bool Hud::checkMapClick(sf::Vector2f cursor)
 
 bool Hud::selectedItemUpdate()
 {
+	if (this->locked)
+		return false;
 	if (!this->itemSelected)
 		return false;
 	std::list<MapObjectField> fields = this->getExtraEditValuesByType();
@@ -687,6 +787,11 @@ bool Hud::selectedItemUpdate()
 
 bool Hud::deleteSelectedItem()
 {
+	if (this->locked)
+	{
+		this->showMessage("Map is locked - editing disabled (press K to unlock)", 2.f);
+		return false;
+	}
 	if (!this->itemModelSelected)
 		return false;
 	MapObjectUnit objectSelected{ MapObjectType::motTerrain , sf::Vector2f(0.f, 0.f), 0.f, nullptr, {} };
@@ -780,7 +885,7 @@ bool Hud::showMessage(std::string text, float time)
 
 bool Hud::matrixActivate(sf::Vector2f cursor)
 {
-	if (this->matrixTriggered || this->spawnPress || !this->matrixActivated || (this->manager->palette->status != PaletteStatus::psInsert && !this->wallActivated))
+	if (this->locked || this->matrixTriggered || this->spawnPress || !this->matrixActivated || (this->manager->palette->status != PaletteStatus::psInsert && !this->wallActivated))
 		return false;
 	this->matrixTriggered = true;
 	this->shapeMatrix->setPosition(cursor);
@@ -801,6 +906,8 @@ bool Hud::matrixDeactivate(sf::Vector2f cursor)
 
 bool Hud::matrixGenerate(sf::Vector2f cursor)
 {
+	if (this->locked)
+		return false;
 	sf::Vector2f initialPosition(cursor.x - this->shapeMatrix->shape->getPosition().x, cursor.y - this->shapeMatrix->shape->getPosition().y);
 	sf::Vector2f finalPosition(0.f, 0.f);
 
@@ -1023,6 +1130,8 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 
 bool Hud::spawnClick(sf::Vector2f cursor)
 {
+	if (this->locked)
+		return false;
 	if (this->matrixTriggered || this->itemSelectedMove)
 		return false;
 	if (this->terrainFillTriggered)
@@ -1514,6 +1623,11 @@ bool Hud::recordHistory(HistoryActionType type, std::string description)
 
 bool Hud::undoAction()
 {
+	if (this->locked)
+	{
+		this->showMessage("Map is locked - editing disabled (press K to unlock)", 2.f);
+		return false;
+	}
 	if (this->undoStack.empty())
 		return false;
 
@@ -1560,6 +1674,11 @@ bool Hud::undoAction()
 
 bool Hud::redoAction()
 {
+	if (this->locked)
+	{
+		this->showMessage("Map is locked - editing disabled (press K to unlock)", 2.f);
+		return false;
+	}
 	if (this->redoStack.empty())
 		return false;
 
@@ -1928,8 +2047,11 @@ void Hud::imguiRenderTerrainLayers()
 		return;
 	}
 
-	this->manager->map->updateTerrainLayers();
+	if (!this->locked)
+		this->manager->map->updateTerrainLayers();
 
+	if (this->locked)
+		ImGui::TextColored(ImVec4(1.f, 0.55f, 0.45f, 1.f), "Map is locked - layer order is read only (press K to unlock)");
 	ImGui::TextWrapped("The layer at the top is drawn in front of (on top of) the ones below. Use the arrows or drag a row to change which terrain comes first.");
 	ImGui::Separator();
 
@@ -1942,6 +2064,7 @@ void Hud::imguiRenderTerrainLayers()
 		return;
 	}
 
+	ImGui::BeginDisabled(this->locked);
 	if (ImGui::Button("Refresh")) { this->manager->map->updateTerrainLayers(); }
 	ImGui::SameLine();
 	ImGui::TextDisabled("%d layer(s)", (int)layers.size());
@@ -2003,7 +2126,7 @@ void Hud::imguiRenderTerrainLayers()
 
 	ImGui::EndChild();
 
-	if (moveFrom >= 0 && moveTo >= 0 && moveFrom != moveTo)
+	if (!this->locked && moveFrom >= 0 && moveTo >= 0 && moveFrom != moveTo)
 	{
 		std::vector<std::string> order(layers.begin(), layers.end());
 		std::string moving = order.at(moveFrom);
@@ -2014,6 +2137,7 @@ void Hud::imguiRenderTerrainLayers()
 		this->manager->map->applyTerrainLayers();
 		this->showMessage("Terrain layers updated!");
 	}
+	ImGui::EndDisabled();
 
 	ImGui::End();
 }
@@ -2029,6 +2153,21 @@ void Hud::imguiRenderToolPanel()
 
 	ImGui::Begin("Tools", NULL, flags);
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 4));
+
+	// Lock toggle: while locked the map is read-only. Hotkey: K.
+	if (this->locked)
+	{
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.65f, 0.2f, 0.15f, 0.9f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8f, 0.3f, 0.2f, 1.0f));
+	}
+	if (ImGui::Button(this->locked ? "UNLOCK [K]" : "LOCK [K]", ImVec2(120, 0)))
+		this->toggleLock();
+	if (this->locked) ImGui::PopStyleColor(2);
+	ImGui::SameLine();
+	if (this->locked)
+		ImGui::TextColored(ImVec4(1.f, 0.55f, 0.45f, 1.f), "Locked - map is read only");
+	else
+		ImGui::TextColored(ImVec4(0.45f, 0.9f, 0.5f, 1.f), "Unlocked - editing enabled");
 
 	
 	ImGui::Separator();
@@ -2046,6 +2185,16 @@ void Hud::imguiRenderToolPanel()
 
 	
 	ImGui::Separator();
+	ImGui::Text("Zoom:"); ImGui::SameLine();
+	if (ImGui::Button("[-]")) { this->zoomMap(1); }
+	ImGui::SameLine();
+	ImGui::TextUnformatted((boost::lexical_cast<std::string>((int)(this->zoom * 100)) + "%").c_str()); ImGui::SameLine();
+	if (ImGui::Button("[+]")) { this->zoomMap(-1); } ImGui::SameLine();
+	ImGui::Spacing(); ImGui::SameLine();
+	if (ImGui::Button("Reset")) { this->zoomMapReset(); }
+
+	
+	ImGui::Separator();
 	auto renderToggleBtn = [&](const char* label, bool& state) {
 		bool wasActive = state;
 		if (wasActive) {
@@ -2056,27 +2205,35 @@ void Hud::imguiRenderToolPanel()
 		if (wasActive) ImGui::PopStyleColor(2);
 	};
 
+	// Editing tools are disabled while the map is locked; navigation/view
+	// toggles (Grid, Drag, Area) stay available.
+	ImGui::BeginDisabled(this->locked);
 	renderToggleBtn("C", this->itemSelect); ImGui::SameLine();
 	ImGui::Text("Clear"); ImGui::SameLine(); ImGui::Spacing(); ImGui::SameLine();
 	if (ImGui::Button("[E]")) { this->manager->palette->erasePaletteItem(); }
 	ImGui::SameLine(); ImGui::Text("Erase"); ImGui::SameLine(); ImGui::Spacing(); ImGui::SameLine();
+	ImGui::EndDisabled();
 	renderToggleBtn("G", this->gridVisible);
 	ImGui::SameLine(); ImGui::Text("Grid"); ImGui::SameLine(); ImGui::Spacing(); ImGui::SameLine();
+	ImGui::BeginDisabled(this->locked);
 	renderToggleBtn("P", this->spawnPress);
 	ImGui::SameLine(); ImGui::Text("Spawn"); ImGui::SameLine(); ImGui::Spacing(); ImGui::SameLine();
 	renderToggleBtn("S", this->centerShape);
 	ImGui::SameLine(); ImGui::Text("Center"); ImGui::SameLine(); ImGui::Spacing(); ImGui::SameLine();
 	renderToggleBtn("M", this->matrixActivated);
 	ImGui::SameLine(); ImGui::Text("Matrix"); ImGui::SameLine(); ImGui::Spacing(); ImGui::SameLine();
+	ImGui::EndDisabled();
 	renderToggleBtn("^", this->dragCursor);
 	ImGui::SameLine(); ImGui::Text("Drag"); ImGui::SameLine(); ImGui::Spacing(); ImGui::SameLine();
+	ImGui::BeginDisabled(this->locked);
 	renderToggleBtn("W", this->wallActivated);
 	ImGui::SameLine(); ImGui::Text("Wall"); ImGui::SameLine(); ImGui::Spacing(); ImGui::SameLine();
+	ImGui::EndDisabled();
 	renderToggleBtn("A", this->shapeMapArea->visible);
 	ImGui::SameLine(); ImGui::Text("Area"); ImGui::SameLine(); ImGui::Spacing(); ImGui::SameLine();
+	ImGui::BeginDisabled(this->locked);
 	renderToggleBtn("D", this->gridSpawn);
 	ImGui::SameLine(); ImGui::Text("Grid Off"); ImGui::SameLine(); ImGui::Spacing(); ImGui::SameLine();
-
 	if (ImGui::Button("[I]")) { this->manager->palette->clearPaletteItem(); this->itemSelect = true; }
 	ImGui::SameLine(); ImGui::Text("Select"); ImGui::SameLine(); ImGui::Spacing(); ImGui::SameLine();
 	renderToggleBtn("->", this->itemSelectedMove);
@@ -2085,7 +2242,11 @@ void Hud::imguiRenderToolPanel()
 	ImGui::SameLine(); ImGui::Text("Bounds"); ImGui::SameLine(); ImGui::Spacing(); ImGui::SameLine();
 	renderToggleBtn("T", this->terrainFillActivated);
 	ImGui::SameLine(); ImGui::Text("Fill");
+	ImGui::EndDisabled();
 
+	// Form / rotation / scale / priority settings only matter when painting;
+	// keep them out of the way while the map is locked.
+	ImGui::BeginDisabled(this->locked);
 	
 	ImGui::Separator();
 	ImGui::Text("Form:"); ImGui::SameLine();
@@ -2187,6 +2348,7 @@ void Hud::imguiRenderToolPanel()
 			}
 		}
 	}
+	ImGui::EndDisabled();
 
 	ImGui::PopStyleVar();
 	ImGui::End();
@@ -2205,15 +2367,20 @@ void Hud::imguiRenderPalettePanel()
 	sf::Vector2f mousePos = this->manager->getMousePosition();
 	ImGui::Text("(%d, %d)", (int)mousePos.x, (int)mousePos.y);
 
-	switch (this->manager->palette->status)
-	{
-		case PaletteStatus::psInsert:
-			ImGui::TextColored(ImVec4(0,1,0,1), "INSERTING"); break;
-		case PaletteStatus::psDelete:
-			ImGui::TextColored(ImVec4(1,0,0,1), "DELETING"); break;
-		default:
-			ImGui::Text(this->itemSelect ? "SELECT" : "- - -");
-	}
+	// Locked maps are read-only: surface the state prominently here so the
+	// palette never looks like painting is possible.
+	if (this->locked)
+		ImGui::TextColored(ImVec4(1.f, 0.45f, 0.35f, 1.f), "MAP LOCKED - READ ONLY (press K to unlock)");
+	else
+		switch (this->manager->palette->status)
+		{
+			case PaletteStatus::psInsert:
+				ImGui::TextColored(ImVec4(0,1,0,1), "INSERTING"); break;
+			case PaletteStatus::psDelete:
+				ImGui::TextColored(ImVec4(1,0,0,1), "DELETING"); break;
+			default:
+				ImGui::Text(this->itemSelect ? "SELECT" : "- - -");
+		}
 
 	ImGui::Separator();
 	ImGui::Text("Palette Types:");
@@ -2235,7 +2402,9 @@ void Hud::imguiRenderPalettePanel()
 	ImGui::Separator();
 	if (this->removeBgVisible) {
 		ImGui::Text("BG: %s", this->bgTexture.c_str());
+		ImGui::BeginDisabled(this->locked);
 		if (ImGui::Button("Remove BG")) { this->removeBackground(); }
+		ImGui::EndDisabled();
 	}
 
 	ImGui::Separator();
@@ -2419,6 +2588,11 @@ void Hud::imguiRenderPreferencesWindow()
 	strncpy(imguiWeatherName, this->manager->map->data.weatherName.c_str(), sizeof(imguiWeatherName) - 1);
 	strncpy(imguiParticles, this->manager->map->data.particles.c_str(), sizeof(imguiParticles) - 1);
 
+	// Map data (identity, dimensions, weather) is read-only while locked.
+	if (this->locked)
+		ImGui::TextColored(ImVec4(1.f, 0.55f, 0.45f, 1.f), "Map is locked - properties are read only (press K to unlock)");
+	ImGui::BeginDisabled(this->locked);
+
 	
 	ImGui::Separator();
 	ImGui::Text("--- Map Identity ---");
@@ -2482,6 +2656,7 @@ void Hud::imguiRenderPreferencesWindow()
 	if (ImGui::InputText("##prefParticles", imguiParticles, sizeof(imguiParticles)))
 		this->manager->map->data.particles = imguiParticles;
 	ImGui::PopItemWidth();
+	ImGui::EndDisabled();
 
 	ImGui::End();
 }
