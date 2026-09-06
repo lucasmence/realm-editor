@@ -469,35 +469,35 @@ bool Palette::selectPaletteItem(int index)
     {
         std::string& filename = item.filename;
         if (filename == "spawner")
-            this->manager->hud->updateExtraEditsValue({ "Default", "index" }, { EditType::etInteger, EditType::etInteger }, { "1", "0" }, { 1, 32 }, {"default", "index"});
+            this->manager->hud->updateExtraEditsValue({ "Default", "index" }, { EditType::etInteger, EditType::etString }, { "1", "" }, { 1, 255 }, {"default", "index"});
         else if (filename == "level")
             this->manager->hud->updateExtraEditsValue({ "Group", "Index", "Target Index", "Width", "Height", "Map"}, 
-                                                      { EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etString },
-                                                      { "1", "1", "1", "100", "100", "" }, { 99, 99, 99, 999, 999, 255 }, {"group", "index", "target-index", "width", "height", "map"});
+                                                      { EditType::etInteger, EditType::etString, EditType::etString, EditType::etInteger, EditType::etInteger, EditType::etString },
+                                                      { "1", "1", "1", "100", "100", "" }, { 99, 255, 255, 999, 999, 255 }, {"group", "index", "target-index", "width", "height", "map"});
         else if (filename == "generator")
             this->manager->hud->updateExtraEditsValue({"Alliance", "Index", "Target X", "Target Y", "Cooldown", "Unit type" },
-                { EditType::etString, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etString },
-                { "enemy", "1", "0", "0", "5", "" }, {12, 99, 99999, 99999, 9999, 255}, {"alliance", "index", "target-x", "target-y", "cooldown", "unit-type"});
+                { EditType::etString, EditType::etString, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etString },
+                { "enemy", "1", "0", "0", "5", "" }, {12, 255, 99999, 99999, 9999, 255}, {"alliance", "index", "target-x", "target-y", "cooldown", "unit-type"});
         else if (filename == "wall")
             this->manager->hud->updateExtraEditsValue({ "Width", "Height", "Index" },
-                { EditType::etInteger, EditType::etInteger, EditType::etInteger },
-                { "64", "64", "0"}, {99999, 99999, 99}, {"width", "height", "index"});
+                { EditType::etInteger, EditType::etInteger, EditType::etString },
+                { "64", "64", "0"}, {99999, 99999, 255}, {"width", "height", "index"});
         else if (filename == "region")
             this->manager->hud->updateExtraEditsValue({ "Width", "Height", "Index" },
-                { EditType::etInteger, EditType::etInteger, EditType::etInteger },
-                { "64", "64", "0" }, { 99999, 99999, 99 }, { "width", "height", "index" });
+                { EditType::etInteger, EditType::etInteger, EditType::etString },
+                { "64", "64", "0" }, { 99999, 99999, 255 }, { "width", "height", "index" });
         else if (filename == "teleporter")
             this->manager->hud->updateExtraEditsValue({ "Width", "Height", "Index", "Target Index" },
-                { EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger },
-                { "64", "64", "0", "1" }, { 99999, 99999, 99, 99 }, { "width", "height", "index", "target-index" });
+                { EditType::etInteger, EditType::etInteger, EditType::etString, EditType::etString },
+                { "64", "64", "0", "1" }, { 99999, 99999, 255, 255 }, { "width", "height", "index", "target-index" });
         else if (filename == "slider")
             this->manager->hud->updateExtraEditsValue({ "Width", "Height", "Index", "Speed X", "Speed Y", "Invert X", "Invert Y" },
-                { EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etBoolean, EditType::etBoolean },
-                { "64", "64", "0", "0", "0", "false", "false" }, { 99999, 99999, 99, 9999, 9999, 5, 5 }, { "width", "height", "index", "speed-x", "speed-y", "invert-x", "invert-y" });
+                { EditType::etInteger, EditType::etInteger, EditType::etString, EditType::etInteger, EditType::etInteger, EditType::etBoolean, EditType::etBoolean },
+                { "64", "64", "0", "0", "0", "false", "false" }, { 99999, 99999, 255, 9999, 9999, 5, 5 }, { "width", "height", "index", "speed-x", "speed-y", "invert-x", "invert-y" });
         else if (filename == "crusher")
             this->manager->hud->updateExtraEditsValue({ "Width", "Height", "Index", "Damage" },
-                { EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etInteger },
-                { "64", "64", "0", "0" }, { 99999, 99999, 99, 9999 }, { "width", "height", "index", "damage" });
+                { EditType::etInteger, EditType::etInteger, EditType::etString, EditType::etInteger },
+                { "64", "64", "0", "0" }, { 99999, 99999, 255, 9999 }, { "width", "height", "index", "damage" });
         else if (filename == "connector")
             this->manager->hud->updateExtraEditsValue({ "Width", "Height", "Direction" },
                 { EditType::etInteger, EditType::etInteger, EditType::etInteger },
@@ -512,8 +512,8 @@ bool Palette::selectPaletteItem(int index)
                 { "64", "64"}, { 99999, 99999}, { "width", "height"});
         else if (filename == "waygate")
             this->manager->hud->updateExtraEditsValue({ "Width", "Height", "Index" },
-                { EditType::etInteger, EditType::etInteger, EditType::etInteger },
-                { "64", "64", "0" }, { 99999, 99999, 99 }, { "width", "height", "index" });
+                { EditType::etInteger, EditType::etInteger, EditType::etString },
+                { "64", "64", "0" }, { 99999, 99999, 255 }, { "width", "height", "index" });
     }
 
     this->manager->hud->itemSelected = false;
