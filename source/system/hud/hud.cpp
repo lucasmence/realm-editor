@@ -1471,7 +1471,7 @@ std::shared_ptr<Model> Hud::spawnItem(sf::Vector2f tilesetPosition, std::string 
 		for (auto& bitmaskPosition : bitmaskPositionList)
 		{
 			for (auto& object : this->manager->map->objects)
-				if (object.type == MapObjectType::motTerrain && object.model && object.model->filename == filename && object.model->sprite->getGlobalBounds().contains(bitmaskPosition))
+				if (object.type == objectType && object.model && object.model->filename == filename && object.model->sprite->getGlobalBounds().contains(bitmaskPosition))
 				{
 					bitmapObjects.emplace_back(object);
 					bitmaskSum += index;
@@ -1489,7 +1489,7 @@ std::shared_ptr<Model> Hud::spawnItem(sf::Vector2f tilesetPosition, std::string 
 
 bool Hud::updateBitmask(MapObjectUnit object)
 {
-	if (object.type != MapObjectType::motTerrain)
+	if (object.type != MapObjectType::motTerrain && object.type != MapObjectType::motProp && object.type != MapObjectType::motEnvironment)
 		return false;
 	std::vector<sf::Vector2f> bitmaskPositionList = {
 		sf::Vector2f(object.model->sprite->getGlobalBounds().left + (object.model->sprite->getGlobalBounds().width * 0.5f), object.model->sprite->getGlobalBounds().top - (object.model->sprite->getGlobalBounds().height * 0.5f)),
@@ -1500,7 +1500,7 @@ bool Hud::updateBitmask(MapObjectUnit object)
 	for (auto& bitmaskPosition : bitmaskPositionList)
 	{
 		for (auto& subObject : this->manager->map->objects)
-			if (subObject.type == MapObjectType::motTerrain && subObject.model && subObject.model->filename == object.model->filename && subObject.model->sprite->getGlobalBounds().contains(bitmaskPosition))
+			if (subObject.type == object.type && subObject.model && subObject.model->filename == object.model->filename && subObject.model->sprite->getGlobalBounds().contains(bitmaskPosition))
 			{
 				bitmaskSum += index;
 				break;
@@ -1521,7 +1521,7 @@ bool Hud::updateBitmaskList(std::vector<MapObjectUnit> list)
 
 std::vector<MapObjectUnit> Hud::updateBitmaskRemove(MapObjectUnit object)
 {
-	if (object.type != MapObjectType::motTerrain || !object.model->texture->bitmask)
+	if ((object.type != MapObjectType::motTerrain && object.type != MapObjectType::motProp && object.type != MapObjectType::motEnvironment) || !object.model->texture->bitmask)
 		return {};
 	std::vector<sf::Vector2f> bitmaskPositionList = {
 		sf::Vector2f(object.model->sprite->getGlobalBounds().left + (object.model->sprite->getGlobalBounds().width * 0.5f), object.model->sprite->getGlobalBounds().top - (object.model->sprite->getGlobalBounds().height * 0.5f)),
@@ -1531,7 +1531,7 @@ std::vector<MapObjectUnit> Hud::updateBitmaskRemove(MapObjectUnit object)
 	std::vector<MapObjectUnit> bitmapObjects = {};
 	for (auto& bitmaskPosition : bitmaskPositionList)
 		for (auto& subObject : this->manager->map->objects)
-			if (subObject.type == MapObjectType::motTerrain && subObject.model && object.model->filename == subObject.model->filename && subObject.model->sprite->getGlobalBounds().contains(bitmaskPosition))
+			if (subObject.type == object.type && subObject.model && object.model->filename == subObject.model->filename && subObject.model->sprite->getGlobalBounds().contains(bitmaskPosition))
 			{
 				bitmapObjects.emplace_back(subObject);
 				break;
