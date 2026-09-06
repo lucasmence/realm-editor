@@ -105,6 +105,11 @@ class Manager
 		bool welcomeActive;
 		sf::Clock deltaClock;
 		sf::Clock splashClock;
+		// Double click detection on the map (opens the properties popup).
+		sf::Clock clickClock;
+		sf::Time doubleClickPreviousTime;
+		sf::Vector2i doubleClickPreviousPosition;
+		bool doubleClickArmed;
 		std::string appName;
 		sf::FloatRect minimapViewArea;
 		std::vector<MapEdge> mapEdges;
@@ -144,6 +149,7 @@ class Manager
 		bool applyAutoSaveConfigFromFile();
 		std::string loadConfigMapFolder();
 		bool applyRecentFilesFromConfig();
+		bool applyPropertiesEditWindowConfigFromFile();
 		bool addRecentFile(std::string path);
 
 		bool choosePath(PathType type, std::string confirmButtonName, std::string dialogCaption, bool getFolder = false, bool cancelButtonVisible = true);

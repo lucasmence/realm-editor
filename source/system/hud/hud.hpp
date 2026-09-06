@@ -132,7 +132,13 @@ class Hud
 		bool selectItem(sf::Vector2f cursor);
 		bool deleteSelectedItem();
 		bool selectedItemUpdate();
+		bool loadSelectedItemProperties();
+		bool openPropertiesEditWindow();
+		bool isPropertiesEditOpen();
+		bool selectItemDoubleClick(sf::Vector2f cursor);
+		bool updateSelectedPortalShape();
 		bool checkMapClick(sf::Vector2f cursor);
+		bool isMouseOverImgui();
 		bool updateDragCursor(sf::Vector2f cursor);
 		bool zoomMap(int value);
 		bool zoomMapReset();
@@ -179,6 +185,7 @@ class Hud
 		bool imguiRender();
 		void imguiRenderMenuBar();
 		void imguiRenderToolPanel();
+		void imguiRenderPropertiesEditWindow();
 		void imguiRenderPalettePanel();
 		void imguiRenderPropertiesPanel();
 		void imguiRenderEditsPanel();
@@ -194,6 +201,15 @@ class Hud
 		
 		bool showPreferencesWindow;
 		bool showOptionsWindow;
+		bool showPropertiesEditWindow;
+
+		// Last used size/position of the properties edit popup, restored on the
+		// next session from config.txt.
+		bool propertiesEditWindowConfigSet;
+		int propertiesEditWindowPosX;
+		int propertiesEditWindowPosY;
+		int propertiesEditWindowSizeX;
+		int propertiesEditWindowSizeY;
 
 		
 		bool showAboutWindow;
@@ -228,12 +244,25 @@ class Hud
 
 	private:
 		
+		// Properties edit popup state: while the popup is open the fields above
+		// can be changed freely, but if it closes without pressing OK the edits
+		// are discarded by reloading the values from the selected object.
+		bool propertiesEditDirty;
+		void renderPropertyEditFields(bool readOnly);
+		void savePropertiesEditWindowConfig();
+
 		bool gettingExtraValues;
 		std::vector<std::string> extraFieldCaptions;
 		std::vector<EditType> extraFieldTypes;
 		std::vector<int> extraFieldMaxValues;
 		std::vector<std::string> extraFieldOrigins;
 		std::string formShapeSelected;
+
+		// Screen rectangles (in ImGui coordinates) of the panels that float
+		// over the map, recorded when they render. Used to keep map actions
+		// from running underneath them even while a map drag is in progress.
+		sf::FloatRect toolsPanelRect;
+		sf::FloatRect palettePanelRect;
 };
 
 #endif
