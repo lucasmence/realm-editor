@@ -25,6 +25,8 @@ Hud::Hud(Manager* manager)
 	this->gridVisible = true;
 	this->spawnPress = false;
 	this->mousePressed = false;
+	this->toolsPanelRect = sf::FloatRect(0.f, 0.f, 0.f, 0.f);
+	this->palettePanelRect = sf::FloatRect(0.f, 0.f, 0.f, 0.f);
 	this->centerShape = false;
 	this->mouseRightButton = false;
 	this->matrixActivated = false;
@@ -65,6 +67,13 @@ Hud::Hud(Manager* manager)
 	this->showOptionsWindow = false;
 	this->showAboutWindow = false;
 	this->showCommandPalette = false;
+	this->showPropertiesEditWindow = false;
+	this->propertiesEditDirty = false;
+	this->propertiesEditWindowConfigSet = false;
+	this->propertiesEditWindowPosX = 0;
+	this->propertiesEditWindowPosY = 0;
+	this->propertiesEditWindowSizeX = 0;
+	this->propertiesEditWindowSizeY = 0;
 	this->showTerrain = true;
 	this->showProp = true;
 	this->showEnvironment = true;
@@ -301,6 +310,16 @@ bool Hud::updateItemSelectedMove(sf::Vector2f cursor)
 bool Hud::updateMouseReleased(sf::Vector2f cursor)
 {
 	this->mousePressed = false;
+	// Released over an ImGui window: cancel the in-progress matrix / terrain
+	// fill drag without generating anything behind the panel.
+	if (this->isMouseOverImgui())
+	{
+		this->matrixTriggered = false;
+		this->shapeMatrix->visible = false;
+		this->terrainFillTriggered = false;
+		this->shapeTerrainFill->visible = false;
+		return true;
+	}
 	this->matrixDeactivate(cursor);
 	this->terrainFillDeactivate(cursor);
 	return true;
@@ -310,13 +329,18 @@ bool Hud::updateMousePressed(sf::Vector2f cursor)
 {
 	if (!this->mousePressed)
 		return false;
+	// The cursor is over an ImGui window (panel/menu bar): cancel the editing
+	// actions (painting, matrix, terrain fill) so nothing is placed behind the
+	// panel. The drag (camera pan) tool is a view action and keeps working
+	// across the whole window.
+	const bool overImgui = this->isMouseOverImgui();
 	// While locked only the drag (camera pan) tool may run: everything else
 	// is handled by the lock checks inside each action below.
-	if (!this->locked && this->spawnPress)
+	if (!this->locked && this->spawnPress && !overImgui)
 		return this->spawnClick(cursor);
-	else if (this->terrainFillTriggered)
+	else if (this->terrainFillTriggered && !overImgui)
 		return this->updateShapeTerrainFill(cursor);
-	else if (this->matrixTriggered)
+	else if (this->matrixTriggered && !overImgui)
 		return this->updateShapeMatrix(cursor);
 	else
 		this->updateDragCursor(cursor);
@@ -333,6 +357,14 @@ bool Hud::updateCursor(sf::Vector2f cursor)
 	}
 	if (this->manager->palette->selectedItem == "")
 		return false;
+
+	// Cursor is over an ImGui window (panel/menu bar), not the map: hide the
+	// placement ghost so nothing can be spawned behind the panel.
+	if (this->isMouseOverImgui())
+	{
+		this->shapeHover->visible = false;
+		return false;
+	}
 
 	for (auto& model : this->models)
 		if (model->shape)
@@ -770,6 +802,28 @@ bool Hud::checkMapClick(sf::Vector2f cursor)
 	return true;
 }
 
+bool Hud::isMouseOverImgui()
+{
+	// True while the cursor is over any ImGui window (menu bar, Tools/Palette
+	// panels, popups). These calls happen between frames (event handling and
+	// map update both run before the ImGui frame), so the result reflects the
+	// previous frame's layout - fine, because the panels are static while the
+	// map is being edited. Used to keep clicks on the UI from reaching the map.
+	if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow))
+		return true;
+
+	// While the app owns a mouse drag (a click that started on the map), ImGui
+	// clears window hover, so also hit-test the persistent panels directly
+	// against their rectangles from the last rendered frame. This keeps a held
+	// drag (paint/matrix/terrain fill) from acting on the map under the panels.
+	const ImVec2 mouse = ImGui::GetIO().MousePos;
+	if (this->toolsPanelRect.width > 0.f && this->toolsPanelRect.height > 0.f && this->toolsPanelRect.contains(mouse.x, mouse.y))
+		return true;
+	if (this->palettePanelRect.width > 0.f && this->palettePanelRect.height > 0.f && this->palettePanelRect.contains(mouse.x, mouse.y))
+		return true;
+	return false;
+}
+
 bool Hud::selectedItemUpdate()
 {
 	if (this->locked)
@@ -840,24 +894,7 @@ bool Hud::selectItem(sf::Vector2f cursor)
 	this->shapeItemSelected->setPosition(objectSelected.model->getPosition());
 	this->itemModelSelected = objectSelected.model;
 
-	for (auto& field : objectSelected.fields)
-	{
-		std::string value = "";
-		if (field.valueString.active)
-			value = field.valueString.value;
-		else if (field.valueInt.active)
-			value = boost::lexical_cast<std::string>(field.valueInt.value);
-		else if (field.valueFloat.active)
-			value = boost::lexical_cast<std::string>(field.valueFloat.value);
-		else if (field.valueBool.active)
-			value = field.valueBool.value ? "true" : "false";
-
-		for (int index = 0; index < 7; index++)
-			if ((int)this->extraFieldOrigins.size() > index && this->extraFieldOrigins[index] == field.field) {
-				strncpy(imguiExtraFields[index], value.c_str(), sizeof(imguiExtraFields[index]) - 1);
-				break;
-			}
-	}
+	this->loadSelectedItemProperties();
 	return false;
 }
 
@@ -1953,6 +1990,7 @@ bool Hud::imguiRender()
 {
 	this->imguiRenderMenuBar();
 	this->imguiRenderToolPanel();
+	this->imguiRenderPropertiesEditWindow();
 	this->imguiRenderPalettePanel();
 	this->imguiRenderNotification();
 	this->imguiRenderPreferencesWindow();
@@ -2152,6 +2190,7 @@ void Hud::imguiRenderToolPanel()
 	ImGuiWindowFlags flags = ImGuiWindowFlags_NoBringToFrontOnFocus;
 
 	ImGui::Begin("Tools", NULL, flags);
+	this->toolsPanelRect = sf::FloatRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 4));
 
 	// Lock toggle: while locked the map is read-only. Hotkey: K.
@@ -2312,46 +2351,370 @@ void Hud::imguiRenderToolPanel()
 	{
 		ImGui::Separator();
 		ImGui::Text("Properties:");
-		for (int index = 0; index < (int)this->extraFieldCaptions.size() && index < 7; index++)
+
+		// With an object selected this section shows that object's properties;
+		// editing then happens through the popup opened by "Edit", where the
+		// values are only written back when OK is pressed (rows below are shown
+		// read-only so nothing changes by accident). Without a selection the
+		// same fields are the defaults used for the next painted item.
+		bool editingSelectedObject = (this->itemSelected && this->itemModelSelected != nullptr);
+		if (editingSelectedObject)
 		{
-			ImGui::Text("%s:", this->extraFieldCaptions[index].c_str()); ImGui::SameLine();
-			switch (this->extraFieldTypes[index])
-			{
-				case EditType::etString:
-					ImGui::PushItemWidth(120);
-					ImGui::InputText(("##ef" + boost::lexical_cast<std::string>(index)).c_str(), imguiExtraFields[index], sizeof(imguiExtraFields[index]));
-					ImGui::PopItemWidth();
-					break;
-				case EditType::etInteger:
-				{
-					int val = atoi(imguiExtraFields[index]);
-					ImGui::PushItemWidth(80);
-					if (ImGui::InputInt(("##ef" + boost::lexical_cast<std::string>(index)).c_str(), &val, 0, 0))
-					{
-						if (this->extraFieldMaxValues[index] > 0 && val > this->extraFieldMaxValues[index])
-							val = this->extraFieldMaxValues[index];
-						if (val < 0) val = 0;
-						strncpy(imguiExtraFields[index], boost::lexical_cast<std::string>(val).c_str(), sizeof(imguiExtraFields[index]) - 1);
-					}
-					ImGui::PopItemWidth();
-					break;
-				}
-				case EditType::etBoolean:
-				{
-					bool val = (std::string(imguiExtraFields[index]) == "true");
-					if (ImGui::Checkbox(("##ef" + boost::lexical_cast<std::string>(index)).c_str(), &val))
-						strncpy(imguiExtraFields[index], val ? "true" : "false", sizeof(imguiExtraFields[index]) - 1);
-					ImGui::SameLine();
-					ImGui::TextUnformatted(val ? "true" : "false");
-					break;
-				}
-			}
+			ImGui::SameLine();
+			if (ImGui::Button("Edit...", ImVec2(80, 0)))
+				this->openPropertiesEditWindow();
+			ImGui::SameLine();
+			ImGui::TextDisabled("(selected object)");
 		}
+
+		this->renderPropertyEditFields(editingSelectedObject);
 	}
 	ImGui::EndDisabled();
 
 	ImGui::PopStyleVar();
 	ImGui::End();
+}
+
+void Hud::renderPropertyEditFields(bool readOnly)
+{
+	for (int index = 0; index < (int)this->extraFieldCaptions.size() && index < 7; index++)
+	{
+		ImGui::Text("%s:", this->extraFieldCaptions[index].c_str()); ImGui::SameLine();
+		std::string fieldId = "##ef" + boost::lexical_cast<std::string>(index);
+		switch (this->extraFieldTypes[index])
+		{
+			case EditType::etString:
+			{
+				ImGui::PushItemWidth(120);
+				if (readOnly)
+					ImGui::TextWrapped("%s", imguiExtraFields[index]);
+				else
+					ImGui::InputText(fieldId.c_str(), imguiExtraFields[index], sizeof(imguiExtraFields[index]));
+				ImGui::PopItemWidth();
+				break;
+			}
+			case EditType::etInteger:
+			{
+				int val = atoi(imguiExtraFields[index]);
+				ImGui::PushItemWidth(80);
+				if (readOnly)
+					ImGui::Text("%d", val);
+				else if (ImGui::InputInt(fieldId.c_str(), &val, 0, 0))
+				{
+					if (this->extraFieldMaxValues[index] > 0 && val > this->extraFieldMaxValues[index])
+						val = this->extraFieldMaxValues[index];
+					if (val < 0) val = 0;
+					strncpy(imguiExtraFields[index], boost::lexical_cast<std::string>(val).c_str(), sizeof(imguiExtraFields[index]) - 1);
+				}
+				ImGui::PopItemWidth();
+				break;
+			}
+			case EditType::etBoolean:
+			{
+				bool val = (std::string(imguiExtraFields[index]) == "true");
+				if (readOnly)
+				{
+					ImGui::TextUnformatted(val ? "true" : "false");
+				}
+				else
+				{
+					if (ImGui::Checkbox(fieldId.c_str(), &val))
+						strncpy(imguiExtraFields[index], val ? "true" : "false", sizeof(imguiExtraFields[index]) - 1);
+					ImGui::SameLine();
+					ImGui::TextUnformatted(val ? "true" : "false");
+				}
+				break;
+			}
+		}
+	}
+}
+
+// Persists the last used size/position of the properties edit popup into
+// config.txt so it can be restored on the next session.
+void Hud::savePropertiesEditWindowConfig()
+{
+	if (this->propertiesEditWindowConfigSet && this->manager)
+		this->manager->saveConfigTxt();
+}
+
+// Reloads the shared property field buffers with the values stored on the
+// currently selected object (by field name). Used when an object is picked so
+// the panel mirrors its properties, and when the edit popup is discarded.
+bool Hud::loadSelectedItemProperties()
+{
+	if (!this->itemModelSelected)
+		return false;
+
+	for (auto& object : this->manager->map->objects)
+		if (object.model == this->itemModelSelected)
+		{
+			for (auto& field : object.fields)
+			{
+				std::string value = "";
+				if (field.valueString.active)
+					value = field.valueString.value;
+				else if (field.valueInt.active)
+					value = boost::lexical_cast<std::string>(field.valueInt.value);
+				else if (field.valueFloat.active)
+					value = boost::lexical_cast<std::string>(field.valueFloat.value);
+				else if (field.valueBool.active)
+					value = field.valueBool.value ? "true" : "false";
+
+				for (int index = 0; index < 7; index++)
+					if ((int)this->extraFieldOrigins.size() > index && this->extraFieldOrigins[index] == field.field)
+					{
+						strncpy(imguiExtraFields[index], value.c_str(), sizeof(imguiExtraFields[index]) - 1);
+						break;
+					}
+			}
+			return true;
+		}
+	return false;
+}
+
+bool Hud::isPropertiesEditOpen()
+{
+	return this->showPropertiesEditWindow;
+}
+
+// Opens the modal popup that edits the properties of the object currently
+// selected. The popup works on the same field buffers shown by the panel, and
+// changes are only written to the object when OK is pressed.
+bool Hud::openPropertiesEditWindow()
+{
+	if (this->locked || !this->itemSelected || !this->itemModelSelected)
+		return false;
+	if (this->extraFieldCaptions.empty())
+		return false;
+
+	this->loadSelectedItemProperties();
+	this->propertiesEditDirty = true;
+	this->showPropertiesEditWindow = true;
+	return true;
+}
+
+// Picks the object under the cursor (like the select tool, but working even
+// when the select tool is not armed) and opens the properties popup for it.
+// Returns true when the click picked an object and should be consumed so it
+// is not treated as an ordinary map click (e.g. spawning a duplicate).
+bool Hud::selectItemDoubleClick(sf::Vector2f cursor)
+{
+	if (this->locked)
+		return false;
+	if (!this->checkMapClick(cursor))
+		return false;
+
+	MapObjectUnit objectSelected{ MapObjectType::motTerrain , sf::Vector2f(0.f, 0.f), 0.f, nullptr, {} };
+	for (auto& object : this->manager->map->objects)
+		if (object.model->getGlobalBounds().contains(cursor) && this->isLayerVisibleByObjectType(object.type)) {
+			if (objectSelected.model != nullptr && objectSelected.model->priority < object.model->priority)
+				continue;
+			objectSelected = object;
+		}
+
+	if (!objectSelected.model)
+		return false;
+
+	// Mirror a normal select click so the palette and the property fields
+	// line up with the picked object.
+	PaletteType paletteType = PaletteType::ptTerrain;
+	this->getPaletteType(paletteType, objectSelected.type);
+	this->manager->palette->selectPalette(paletteType);
+	this->manager->palette->selectPaletteItem(sf::Vector2f(0.f, 0.f), objectSelected.model);
+
+	this->itemSelected = true;
+	std::static_pointer_cast<sf::RectangleShape>(this->shapeItemSelected->shape)->setSize(sf::Vector2f(objectSelected.model->getGlobalBounds().width, objectSelected.model->getGlobalBounds().height));
+	this->shapeItemSelected->setPosition(objectSelected.model->getPosition());
+	this->itemModelSelected = objectSelected.model;
+
+	this->loadSelectedItemProperties();
+	this->openPropertiesEditWindow();
+	return true;
+}
+
+// After the width/height of a portal were edited through the properties
+// popup, resize its visual rectangle so the change shows immediately (the
+// same sizing used when the portal is spawned or loaded from a map file).
+bool Hud::updateSelectedPortalShape()
+{
+	if (!this->itemModelSelected)
+		return false;
+
+	for (auto& object : this->manager->map->objects)
+		if (object.model == this->itemModelSelected)
+		{
+			if (object.type != MapObjectType::motPortal || !object.model->shape)
+				return false;
+
+			// Maps store dimensions as plain numbers, which load back as floats;
+			// freshly spawned portals keep them as ints - accept both (and a
+			// string, for safety) so the resize works either way.
+			int width = 0, height = 0;
+			for (auto& field : object.fields)
+			{
+				float value = 0.f;
+				if (field.valueInt.active)
+					value = (float)field.valueInt.value;
+				else if (field.valueFloat.active)
+					value = field.valueFloat.value;
+				else if (field.valueString.active)
+					value = (float)atof(field.valueString.value.c_str());
+
+				if (field.field == "width")
+					width = (int)value;
+				else if (field.field == "height")
+					height = (int)value;
+			}
+
+			std::shared_ptr<sf::RectangleShape> rectangle = std::dynamic_pointer_cast<sf::RectangleShape>(object.model->shape);
+			if (!rectangle || width <= 0 || height <= 0)
+				return false;
+
+			rectangle->setSize(sf::Vector2f((float)width, (float)height));
+
+			// Refresh the selection outline around the resized rectangle.
+			std::static_pointer_cast<sf::RectangleShape>(this->shapeItemSelected->shape)->setSize(sf::Vector2f(object.model->getGlobalBounds().width, object.model->getGlobalBounds().height));
+			this->shapeItemSelected->setPosition(object.model->getPosition());
+			return true;
+		}
+	return false;
+}
+
+void Hud::imguiRenderPropertiesEditWindow()
+{
+	if (!this->showPropertiesEditWindow)
+		return;
+
+	// Selection lost while the popup was open: close it and drop the edits.
+	if (!this->itemSelected || !this->itemModelSelected)
+	{
+		this->showPropertiesEditWindow = false;
+		this->propertiesEditDirty = false;
+		this->savePropertiesEditWindowConfig();
+		return;
+	}
+
+	// Invisible host window: popup ids are scoped to the window they are
+	// opened from, so the popup must always be opened from the same context.
+	ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+	ImGui::SetNextWindowSize(ImVec2(1.f, 1.f), ImGuiCond_Always);
+	ImGui::SetNextWindowBgAlpha(0.f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
+	ImGui::Begin("##propertiesEditHost", NULL,
+		ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings |
+		ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoInputs);
+	ImGui::PopStyleVar();
+
+	ImGui::OpenPopup("Edit Properties");
+
+	// Resizable popup: keep a minimum size so the property fields stay usable.
+	ImGui::SetNextWindowSizeConstraints(ImVec2(380.f, 240.f), ImVec2(FLT_MAX, FLT_MAX));
+
+	// Restore the last used size/position (persisted in config.txt) whenever
+	// the popup appears. NoSavedSettings keeps imgui.ini from interfering.
+	if (this->propertiesEditWindowConfigSet)
+	{
+		const ImVec2 display = ImGui::GetIO().DisplaySize;
+		const float posX = (float)this->propertiesEditWindowPosX;
+		const float posY = (float)this->propertiesEditWindowPosY;
+		const float sizeX = (float)this->propertiesEditWindowSizeX;
+		const float sizeY = (float)this->propertiesEditWindowSizeY;
+		// Skip the restore if the saved spot would put the popup entirely off
+		// the current display (e.g. the window got smaller since it was saved),
+		// so the modal can never open unreachable; it will be centered instead.
+		if (posX < display.x && posY < display.y && posX + sizeX > 0.f && posY + sizeY > 0.f)
+		{
+			ImGui::SetNextWindowPos(ImVec2(posX, posY), ImGuiCond_Appearing);
+			ImGui::SetNextWindowSize(ImVec2(sizeX, sizeY), ImGuiCond_Appearing);
+		}
+	}
+
+	if (ImGui::BeginPopupModal("Edit Properties", &this->showPropertiesEditWindow, ImGuiWindowFlags_NoSavedSettings))
+	{
+		// Track the current size/position so it can be persisted on close.
+		this->propertiesEditWindowPosX = (int)ImGui::GetWindowPos().x;
+		this->propertiesEditWindowPosY = (int)ImGui::GetWindowPos().y;
+		this->propertiesEditWindowSizeX = (int)ImGui::GetWindowSize().x;
+		this->propertiesEditWindowSizeY = (int)ImGui::GetWindowSize().y;
+		this->propertiesEditWindowConfigSet = true;
+
+		std::string typeName = "Object";
+		std::string itemName = "";
+		for (auto& object : this->manager->map->objects)
+			if (object.model == this->itemModelSelected)
+			{
+				switch (object.type)
+				{
+					case MapObjectType::motTerrain: typeName = "Terrain"; break;
+					case MapObjectType::motProp: typeName = "Prop"; break;
+					case MapObjectType::motEnvironment: typeName = "Environment"; break;
+					case MapObjectType::motUnit: typeName = "Unit"; break;
+					case MapObjectType::motMerchant: typeName = "Merchant"; break;
+					case MapObjectType::motPortal: typeName = "Portal"; break;
+					case MapObjectType::motItem: typeName = "Item"; break;
+				}
+				if (!object.model->origin.empty())
+					itemName = object.model->origin;
+				if (!object.model->filename.empty())
+				{
+					std::string filename = object.model->filename;
+					size_t slash = filename.find_last_of("/\\");
+					if (slash != std::string::npos)
+						filename = filename.substr(slash + 1);
+					size_t dot = filename.find_last_of('.');
+					if (dot != std::string::npos)
+						filename = filename.substr(0, dot);
+					if (!filename.empty())
+						itemName = itemName.empty() ? filename : itemName + " - " + filename;
+				}
+				break;
+			}
+
+		ImGui::TextColored(ImVec4(0.2f, 0.6f, 1.f, 1.f), "Edit %s properties", typeName.c_str());
+		if (!itemName.empty())
+			ImGui::TextDisabled("%s", itemName.c_str());
+		ImGui::Separator();
+
+		this->renderPropertyEditFields(false);
+
+		ImGui::Separator();
+		bool saved = false;
+		if (ImGui::Button("OK", ImVec2(90, 0)))
+		{
+			saved = this->selectedItemUpdate();
+			this->showPropertiesEditWindow = false;
+			if (saved)
+			{
+				this->propertiesEditDirty = false;
+				this->updateSelectedPortalShape();
+				this->showMessage("Properties saved", 1.5f);
+			}
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Cancel", ImVec2(90, 0)))
+		{
+			this->showPropertiesEditWindow = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
+
+	ImGui::End();
+
+	// The popup closed this frame (OK, Cancel or the X button): persist the
+	// last used size/position so it is restored on the next session.
+	if (!this->showPropertiesEditWindow)
+		this->savePropertiesEditWindowConfig();
+
+	// The popup closed without pressing OK (Cancel or the X button): discard
+	// the edits made in the popup by reloading the values from the object.
+	if (!this->showPropertiesEditWindow && this->propertiesEditDirty)
+	{
+		this->propertiesEditDirty = false;
+		this->loadSelectedItemProperties();
+	}
 }
 
 void Hud::imguiRenderPalettePanel()
@@ -2363,6 +2726,7 @@ void Hud::imguiRenderPalettePanel()
 	ImGuiWindowFlags flags = ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus;
 
 	ImGui::Begin("Palette", NULL, flags);
+	this->palettePanelRect = sf::FloatRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
 
 	sf::Vector2f mousePos = this->manager->getMousePosition();
 	ImGui::Text("(%d, %d)", (int)mousePos.x, (int)mousePos.y);

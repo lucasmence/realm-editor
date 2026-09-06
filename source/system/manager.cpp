@@ -52,6 +52,9 @@ Manager::Manager(bool noSplash, const std::string &gamePath)
 	this->splashActive = false;
 	this->pendingExitAfterSave = false;
 	this->welcomeActive = false;
+	this->doubleClickArmed = false;
+	this->doubleClickPreviousTime = sf::Time::Zero;
+	this->doubleClickPreviousPosition = sf::Vector2i(0, 0);
 
     if (gamePath != "")
     {
@@ -70,6 +73,7 @@ Manager::Manager(bool noSplash, const std::string &gamePath)
         this->loadGamepathAfter();
         this->applyAutoSaveConfigFromFile();
         this->applyRecentFilesFromConfig();
+        this->applyPropertiesEditWindowConfigFromFile();
         this->saveConfigTxt();
     }
     else if (!this->loadConfigTxt())
@@ -88,6 +92,11 @@ Manager::~Manager()
 
 void Manager::systemClose()
 {
+    // Persist the last used properties edit popup size/position even when the
+    // app is quit while the popup is still open.
+    if (this->hud && this->hud->propertiesEditWindowConfigSet)
+        this->saveConfigTxt();
+
     this->hudLoaded = false;
     this->unloadAll();
     this->window->close();
@@ -553,11 +562,52 @@ bool Manager::eventClick(sf::Event& event)
 {
     
     
-    if (ImGui::IsAnyItemHovered())
+    // A mouse press over any ImGui window (menu bar, Tools/Palette panels,
+    // popups...) belongs to the UI and must never reach the map: otherwise an
+    // armed palette item could be spawned behind the panel. Hovering empty
+    // window space is not an "item", so IsAnyItemHovered() alone is not enough.
+    // WantCaptureMouse additionally covers presses while any popup/modal is
+    // open (confirm dialogs, file browser) or while an ImGui drag is active.
+    if (ImGui::IsAnyItemHovered() || ImGui::GetIO().WantCaptureMouse || this->hud->isMouseOverImgui())
         return true;
+
+    // While the properties edit popup is open the map must not react to the
+    // mouse - clicks and typing belong to the popup until it is closed.
+    if (this->hud->isPropertiesEditOpen())
+        return true;
+
+    // Two quick left clicks on the same spot count as a double click, which
+    // opens the properties popup of the object under the cursor.
+    bool doubleClick = false;
+    if (event.mouseButton.button == sf::Mouse::Left)
+    {
+        sf::Time clickTime = this->clickClock.getElapsedTime();
+        sf::Vector2i clickPosition(event.mouseButton.x, event.mouseButton.y);
+
+        doubleClick = this->doubleClickArmed &&
+            (clickTime - this->doubleClickPreviousTime).asMilliseconds() <= 350 &&
+            clickPosition.x - this->doubleClickPreviousPosition.x >= -6 &&
+            clickPosition.x - this->doubleClickPreviousPosition.x <= 6 &&
+            clickPosition.y - this->doubleClickPreviousPosition.y >= -6 &&
+            clickPosition.y - this->doubleClickPreviousPosition.y <= 6;
+
+        if (doubleClick)
+            this->doubleClickArmed = false; // a third press starts a new pair
+        else
+        {
+            this->doubleClickArmed = true;
+            this->doubleClickPreviousTime = clickTime;
+            this->doubleClickPreviousPosition = clickPosition;
+        }
+    }
 
     sf::Vector2f cursor = this->getMousePosition();
     
+    // Picking an object consumes the second click: treating it as an ordinary
+    // map click would, for instance, spawn a duplicate of the object.
+    if (doubleClick && this->hud->selectItemDoubleClick(cursor))
+        return true;
+
     this->hud->updateClick(cursor, sf::Mouse::isButtonPressed(sf::Mouse::Right));
 
     return true;
@@ -567,6 +617,10 @@ bool Manager::eventKey(sf::Event& event)
 {
     if (this->hud->getCheckEditing())
         return false;
+
+    // While the properties edit popup is open no editor hotkey should run.
+    if (this->hud->isPropertiesEditOpen())
+        return true;
 
     // While the map is locked only navigation/zoom/view keys and the lock
     // toggle (K) work: every editing hotkey is ignored.
@@ -1138,6 +1192,7 @@ bool Manager::loadConfigTxt()
 
         this->loadGamepathAfter();
         this->applyAutoSaveConfigFromFile();
+        this->applyPropertiesEditWindowConfigFromFile();
     }
 
     return this->hudLoaded;
@@ -1156,6 +1211,14 @@ bool Manager::saveConfigTxt()
     file << "\n" << (this->hud && this->hud->autoSaveMessageEnabled ? 1 : 0);
     for (auto& recent : this->recentFiles)
         file << "\n" << recent;
+
+    // Optional line holding the last size/position of the properties edit
+    // popup so it can be restored on the next session.
+    if (this->hud && this->hud->propertiesEditWindowConfigSet)
+        file << "\npropertiesEditWindow=" << this->hud->propertiesEditWindowPosX << ","
+            << this->hud->propertiesEditWindowPosY << ","
+            << this->hud->propertiesEditWindowSizeX << ","
+            << this->hud->propertiesEditWindowSizeY;
 
     file.close();
     return !file.fail();
@@ -1214,6 +1277,52 @@ std::string Manager::loadConfigMapFolder()
     std::getline(file, line2);
     boost::algorithm::trim(line2);
     return line2;
+}
+
+bool Manager::applyPropertiesEditWindowConfigFromFile()
+{
+    if (!this->hud) return false;
+
+    // Optional "propertiesEditWindow=x,y,w,h" line in config.txt holds the
+    // last used size/position of the properties edit popup so it can be
+    // restored on the next session.
+    std::ifstream file("config.txt");
+    if (!file.is_open()) return false;
+
+    std::string line;
+    while (std::getline(file, line))
+    {
+        boost::algorithm::trim(line);
+        const std::string prefix = "propertiesEditWindow=";
+        if (line.compare(0, prefix.size(), prefix) != 0)
+            continue;
+
+        std::string values = line.substr(prefix.size());
+        int numbers[4] = { 0, 0, 0, 0 };
+        int index = 0;
+        size_t pos = 0;
+        while (index < 4)
+        {
+            size_t comma = values.find(',', pos);
+            std::string token = values.substr(pos, comma == std::string::npos ? std::string::npos : comma - pos);
+            try { numbers[index++] = boost::lexical_cast<int>(token); }
+            catch (...) { return false; }
+            if (comma == std::string::npos)
+                break;
+            pos = comma + 1;
+        }
+        if (index != 4) return false;
+        if (numbers[2] < 50 || numbers[3] < 50) return false; // ignore tiny/stale sizes
+
+        this->hud->propertiesEditWindowPosX = numbers[0];
+        this->hud->propertiesEditWindowPosY = numbers[1];
+        this->hud->propertiesEditWindowSizeX = numbers[2];
+        this->hud->propertiesEditWindowSizeY = numbers[3];
+        this->hud->propertiesEditWindowConfigSet = true;
+        return true;
+    }
+
+    return false;
 }
 
 bool Manager::applyRecentFilesFromConfig()
