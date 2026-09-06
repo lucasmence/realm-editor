@@ -15,6 +15,7 @@ Manager::Manager(bool noSplash, const std::string &gamePath)
     this->loadConstants();
 
     this->appName = "realm-editor";
+    this->buildVersion = "build 14";
     sf::VideoMode desktop = sf::VideoMode::getDesktopMode();
     this->window = std::make_shared<sf::RenderWindow>(desktop, appName, sf::Style::Default);
     this->window->setPosition(sf::Vector2i(0, 0));
@@ -1508,7 +1509,7 @@ void Manager::renderSplash()
     
     sf::Text versionText;
     versionText.setFont(*this->font);
-    versionText.setString("build 12");
+    versionText.setString(this->buildVersion);
     versionText.setCharacterSize(16);
     versionText.setFillColor(sf::Color(130, 130, 170));
     sf::FloatRect verBounds = versionText.getLocalBounds();
@@ -1603,10 +1604,10 @@ bool Manager::imguiRenderWelcome()
     ImGui::Text("realm-editor");
     ImGui::PopStyleColor();
 
-    float verW = ImGui::CalcTextSize("build 12").x;
+    float verW = ImGui::CalcTextSize(this->buildVersion.c_str()).x;
     ImGui::SetCursorPos(ImVec2((winSize.x - verW) / 2.f, 52.f));
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-    ImGui::Text("build 12");
+    ImGui::Text("%s", this->buildVersion.c_str());
     ImGui::PopStyleColor();
 
     ImGui::SetCursorPosY(88.f);
