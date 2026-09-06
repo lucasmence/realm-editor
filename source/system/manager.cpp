@@ -624,7 +624,14 @@ bool Manager::eventClick(sf::Event& event)
     }
 
     sf::Vector2f cursor = this->getMousePosition();
-    
+
+    // Right click over a prop opens the "Move to Front"/"Move to Back"
+    // context popup. The click is consumed here so it does not also run the
+    // other right-click actions (delete while inserting, camera pan).
+    if (event.mouseButton.button == sf::Mouse::Right && !this->hud->locked &&
+        this->hud->openPropContextMenu(cursor, sf::Vector2i(event.mouseButton.x, event.mouseButton.y)))
+        return true;
+
     // Picking an object consumes the second click: treating it as an ordinary
     // map click would, for instance, spawn a duplicate of the object.
     if (doubleClick && this->hud->selectItemDoubleClick(cursor))

@@ -68,6 +68,9 @@ Hud::Hud(Manager* manager)
 	this->showAboutWindow = false;
 	this->showCommandPalette = false;
 	this->showPropertiesEditWindow = false;
+	this->showPropContextMenu = false;
+	this->propContextMenuModel = nullptr;
+	this->propContextMenuOpened = false;
 	this->propertiesEditDirty = false;
 	this->propertiesEditWindowConfigSet = false;
 	this->propertiesEditWindowPosX = 0;
@@ -953,6 +956,48 @@ bool Hud::selectItem(sf::Vector2f cursor)
 	return false;
 }
 
+// Right click over a prop: picks the prop drawn on top under the cursor and
+// arms the "Move to Front"/"Move to Back" context popup. Returns true when a
+// prop was picked so the click is consumed and does not also run the other
+// right-click actions (delete while inserting, camera pan).
+bool Hud::openPropContextMenu(sf::Vector2f cursor, sf::Vector2i screenPos)
+{
+	if (this->locked)
+		return false;
+	if (!this->checkMapClick(cursor))
+		return false;
+
+	MapObjectUnit* objectSelected = nullptr;
+	for (auto& object : this->manager->map->objects)
+		if (object.type == MapObjectType::motProp && object.model &&
+			object.model->getGlobalBounds().contains(cursor) && this->isLayerVisibleByObjectType(object.type))
+		{
+			// Keep the prop drawn last (lowest priority, then lowest
+			// auto-priority): that is the one visually on top under the cursor.
+			if (objectSelected)
+			{
+				const bool selectedIsOnTop =
+					objectSelected->model->priority < object.model->priority ||
+					(objectSelected->model->priority == object.model->priority &&
+					 objectSelected->model->autoPriority < object.model->autoPriority);
+				if (selectedIsOnTop)
+					continue;
+			}
+			objectSelected = &object;
+		}
+
+	if (!objectSelected)
+		return false;
+
+	this->showPropContextMenu = true;
+	this->propContextMenuModel = objectSelected->model;
+	this->propContextMenuScreenPos = screenPos;
+	// A fresh arming re-opens the popup (a previous popup may still be open
+	// or half-dismissed from an earlier right click).
+	this->propContextMenuOpened = false;
+	return true;
+}
+
 bool Hud::getPaletteType(PaletteType& paletteType, MapObjectType type)
 {
 	switch (type) {
@@ -1713,6 +1758,33 @@ bool Hud::recordHistory(HistoryActionType type, std::string description)
 	return true;
 }
 
+// Records a render-order move (move to front/back) on the undo stack. The
+// caller passes a copy of the object taken BEFORE the move plus its index in
+// the objects list, so undo can restore the exact render order (the game
+// draws props in the order they appear in the map file).
+bool Hud::recordHistoryMove(MapObjectUnit object, int previousIndex, bool toFront, std::string description)
+{
+	if (this->locked)
+		return false;
+
+	HistoryEntry entry;
+	entry.type = HistoryActionType::hatMove;
+	entry.objects = { object };
+	entry.description = description;
+	entry.moveToFront = toFront;
+	entry.previousPriority = object.model ? object.model->priority : 0;
+	entry.previousAutoPriority = object.model ? object.model->autoPriority : 0;
+	entry.previousIndex = previousIndex;
+
+	this->redoStack.clear();
+	this->undoStack.emplace_back(entry);
+
+	if ((int)this->undoStack.size() > historyMaxSize)
+		this->undoStack.erase(this->undoStack.begin());
+
+	return true;
+}
+
 bool Hud::undoAction()
 {
 	if (this->locked)
@@ -1757,6 +1829,45 @@ bool Hud::undoAction()
 			neighbors.insert(neighbors.end(), objNeighbors.begin(), objNeighbors.end());
 		}
 		this->updateBitmaskList(neighbors);
+		this->showMessage("Undo: " + entry.description, 2.f);
+	}
+	else if (entry.type == HistoryActionType::hatMove)
+	{
+		if (entry.objects.empty() || !entry.objects.front().model)
+			return false;
+
+		// Locate the live object; it may have been deleted since the move.
+		std::list<MapObjectUnit>& objects = this->manager->map->objects;
+		auto it = objects.begin();
+		for (; it != objects.end(); ++it)
+			if (it->model == entry.objects.front().model)
+				break;
+		if (it == objects.end())
+			return false;
+
+		// Restore the render-order state (priority + auto-priority) and the
+		// position in the objects list, which the map file (and the game's
+		// prop draw order) follows.
+		it->model->priority = entry.previousPriority;
+		it->model->autoPriority = entry.previousAutoPriority;
+
+		int target = entry.previousIndex;
+		if (target < 0)
+			target = 0;
+		const int size = (int)objects.size();
+		if (target >= size)
+			target = size - 1;
+
+		auto dest = objects.begin();
+		for (int i = 0; i < target; i++)
+			++dest;
+		// Splice before the object itself is a no-op and undefined, so skip it.
+		if (dest != it)
+			objects.splice(dest, objects, it);
+
+		// Re-sort the render list with the restored values.
+		this->manager->addViewElement(std::static_pointer_cast<ViewElement>(it->model));
+		this->manager->map->dirty = true;
 		this->showMessage("Undo: " + entry.description, 2.f);
 	}
 
@@ -1808,6 +1919,19 @@ bool Hud::redoAction()
 			this->manager->map->removeObjectUnit(obj);
 			this->updateBitmaskList(objectList);
 		}
+		this->showMessage("Redo: " + entry.description, 2.f);
+	}
+	else if (entry.type == HistoryActionType::hatMove)
+	{
+		if (entry.objects.empty() || !entry.objects.front().model)
+			return false;
+
+		// Re-apply the move; the map methods take care of re-sorting the
+		// render list and marking the map dirty.
+		if (entry.moveToFront)
+			this->manager->map->moveObjectToFront(entry.objects.front().model);
+		else
+			this->manager->map->moveObjectToBack(entry.objects.front().model);
 		this->showMessage("Redo: " + entry.description, 2.f);
 	}
 
@@ -2053,6 +2177,7 @@ bool Hud::imguiRender()
 	this->imguiRenderAboutWindow();
 	this->imguiRenderCommandPalette();
 	this->imguiRenderTerrainLayers();
+	this->imguiRenderPropContextMenu();
 	return true;
 }
 
@@ -2632,6 +2757,116 @@ bool Hud::updateSelectedPortalShape()
 			return true;
 		}
 	return false;
+}
+
+// Draws the right-click popup with the "Move to Front" / "Move to Back"
+// actions for the prop that was right-clicked on the map. The popup appears
+// at the click position and its actions reorder the prop's rendering.
+void Hud::imguiRenderPropContextMenu()
+{
+	if (!this->showPropContextMenu)
+		return;
+
+	// The prop can be gone already (deleted or undone while the popup was
+	// armed): drop the popup instead of acting on a stale model.
+	bool modelStillValid = false;
+	if (this->propContextMenuModel)
+		for (auto& object : this->manager->map->objects)
+			if (object.model == this->propContextMenuModel)
+			{
+				modelStillValid = true;
+				break;
+			}
+	if (!modelStillValid)
+	{
+		this->showPropContextMenu = false;
+		this->propContextMenuModel = nullptr;
+		this->propContextMenuOpened = false;
+		return;
+	}
+
+	// Invisible host window: popup ids are scoped to the window they are
+	// opened from, so the popup must always be opened from the same context.
+	ImGui::SetNextWindowPos(ImVec2(0.f, 0.f), ImGuiCond_Always);
+	ImGui::SetNextWindowSize(ImVec2(1.f, 1.f), ImGuiCond_Always);
+	ImGui::SetNextWindowBgAlpha(0.f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
+	ImGui::Begin("##propContextMenuHost", NULL,
+		ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings |
+		ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoInputs);
+	ImGui::PopStyleVar();
+
+	// Open the popup only once per arming. Calling OpenPopup() every frame
+	// would reopen it in the very frame the user clicks elsewhere (ImGui
+	// closes popups on outside clicks at NewFrame, then this reopens them
+	// before the frame ends), making the popup impossible to dismiss.
+	if (!this->propContextMenuOpened)
+	{
+		ImGui::OpenPopup("Prop Context Menu");
+		this->propContextMenuOpened = true;
+	}
+
+	// Appear where the right click happened.
+	ImGui::SetNextWindowPos(ImVec2((float)this->propContextMenuScreenPos.x, (float)this->propContextMenuScreenPos.y), ImGuiCond_Appearing);
+
+	if (ImGui::BeginPopup("Prop Context Menu"))
+	{
+		// Snapshot the pre-move render-order state (a copy of the object plus
+		// its index in the objects list) so the move can be undone later.
+		MapObjectUnit snapshot{ MapObjectType::motTerrain, sf::Vector2f(0.f, 0.f), 0.f, nullptr, {} };
+		int previousIndex = 0;
+		bool found = false;
+		for (auto& object : this->manager->map->objects)
+			if (object.model == this->propContextMenuModel)
+			{
+				snapshot = object;
+				found = true;
+				break;
+			}
+			else
+				previousIndex++;
+
+		if (ImGui::MenuItem("Move to Front"))
+		{
+			if (found && this->manager->map->moveObjectToFront(this->propContextMenuModel))
+			{
+				this->recordHistoryMove(snapshot, previousIndex, true, "Moved prop to front");
+				this->showMessage("Prop moved to front (renders above other props)", 2.f);
+			}
+			this->showPropContextMenu = false;
+			this->propContextMenuModel = nullptr;
+			this->propContextMenuOpened = false;
+			ImGui::CloseCurrentPopup();
+		}
+		if (ImGui::MenuItem("Move to Back"))
+		{
+			if (found && this->manager->map->moveObjectToBack(this->propContextMenuModel))
+			{
+				this->recordHistoryMove(snapshot, previousIndex, false, "Moved prop to back");
+				this->showMessage("Prop moved to back (renders below other props)", 2.f);
+			}
+			this->showPropContextMenu = false;
+			this->propContextMenuModel = nullptr;
+			this->propContextMenuOpened = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
+
+	// The user clicked elsewhere and the popup closed on its own: disarm.
+	// Checked while still inside the host window: IsPopupOpen() hashes the
+	// popup name with the current window's id, so after ImGui::End() pops
+	// the host window the lookup would use a different id and always miss
+	// (which made the popup disarm itself on the very frame it was armed).
+	if (!ImGui::IsPopupOpen("Prop Context Menu"))
+	{
+		this->showPropContextMenu = false;
+		this->propContextMenuModel = nullptr;
+		this->propContextMenuOpened = false;
+	}
+
+	ImGui::End();
 }
 
 void Hud::imguiRenderPropertiesEditWindow()

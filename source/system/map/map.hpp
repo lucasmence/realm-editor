@@ -91,6 +91,8 @@ class Map
 
 		bool addObjectUnit(MapObjectUnit object);
 		bool removeObjectUnit(MapObjectUnit& object);
+		bool moveObjectToFront(std::shared_ptr<Model> model);
+		bool moveObjectToBack(std::shared_ptr<Model> model);
 		bool clearObjects();
 		std::string getTextureFromUnit(json line, MapObjectType type);
 		std::string getOriginFromField(json line, MapObjectType type);

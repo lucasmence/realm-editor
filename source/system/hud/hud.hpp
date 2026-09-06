@@ -31,13 +31,20 @@ struct ImguiEditValue
 	bool active;
 };
 
-enum class HistoryActionType {hatSpawn, hatDelete};
+enum class HistoryActionType {hatSpawn, hatDelete, hatMove};
 
 struct HistoryEntry
 {
 	HistoryActionType type;
 	std::list<MapObjectUnit> objects;
 	std::string description;
+	// hatMove entries: the render-order state of the object before the move
+	// (priority, auto-priority and objects-list index) plus the direction, so
+	// undo restores the exact order and redo re-applies the move.
+	bool moveToFront;
+	int previousPriority;
+	int previousAutoPriority;
+	int previousIndex;
 };
 
 class Hud 
@@ -130,6 +137,8 @@ class Hud
 		bool terrainFillGenerate(sf::Vector2f cursor);
 		bool updateShapeTerrainFill(sf::Vector2f cursor);
 		bool selectItem(sf::Vector2f cursor);
+		bool openPropContextMenu(sf::Vector2f cursor, sf::Vector2i screenPos);
+		void imguiRenderPropContextMenu();
 		bool deleteSelectedItem();
 		bool selectedItemUpdate();
 		bool loadSelectedItemProperties();
@@ -170,6 +179,7 @@ class Hud
 		std::list<MapObjectUnit> historySpawnBuffer;
 		bool matrixSpawnInProgress;
 		bool recordHistory(HistoryActionType type, std::string description);
+		bool recordHistoryMove(MapObjectUnit object, int previousIndex, bool toFront, std::string description);
 		bool undoAction();
 		bool redoAction();
 		bool clearHistory();
@@ -204,6 +214,19 @@ class Hud
 		bool showPreferencesWindow;
 		bool showOptionsWindow;
 		bool showPropertiesEditWindow;
+
+		// Right-click prop context menu state: armed by a right click over a
+		// prop (Manager::eventClick -> Hud::openPropContextMenu) and shown by
+		// imguiRenderPropContextMenu, which draws the "Move to Front"/"Move
+		// to Back" popup at the click position.
+		bool showPropContextMenu;
+		// True once OpenPopup() has been issued for the current arming; reset
+		// on re-arm, on dismiss and when the popup closes itself, so the popup
+		// is opened exactly once per right click (opening it every frame would
+		// make it impossible to dismiss by clicking elsewhere).
+		bool propContextMenuOpened;
+		std::shared_ptr<Model> propContextMenuModel;
+		sf::Vector2i propContextMenuScreenPos;
 
 		// Last used size/position of the properties edit popup, restored on the
 		// next session from config.txt.

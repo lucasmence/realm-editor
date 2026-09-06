@@ -223,6 +223,98 @@ bool Map::removeObjectUnit(MapObjectUnit& object)
 	return true;
 }
 
+// Moves a prop so it is drawn after (on top of) every other prop. The editor
+// sorts its render list by priority (then auto-priority) from highest to
+// lowest and draws it in that order, so the lowest auto-priority is drawn
+// last; the game draws props in the order they appear in the map file, so the
+// object is also moved to the end of the objects list to keep both in sync.
+bool Map::moveObjectToFront(std::shared_ptr<Model> model)
+{
+	if (!model)
+		return false;
+
+	auto it = this->objects.begin();
+	for (; it != this->objects.end(); ++it)
+		if (it->model == model)
+			break;
+
+	if (it == this->objects.end() || it->type != MapObjectType::motProp)
+		return false;
+
+	// Nothing to reorder against when this is the only prop on the map.
+	int minAutoPriority = 0;
+	int propCount = 0;
+	for (auto& object : this->objects)
+		if (object.type == MapObjectType::motProp && object.model != model && object.model)
+		{
+			if (propCount == 0 || object.model->autoPriority < minAutoPriority)
+				minAutoPriority = object.model->autoPriority;
+			propCount++;
+		}
+	if (propCount == 0)
+		return false;
+
+	// Reset to the type's base priority so the prop stays inside its own
+	// layer, then give it the smallest auto-priority: it now sorts last in
+	// the render list and is drawn on top of every other prop.
+	it->model->priority = this->getObjectPriority(MapObjectType::motProp);
+	it->model->autoPriority = minAutoPriority - 1;
+
+	// Move the object to the end of the objects list: the map file lists
+	// objects in this order and the game draws props in file order, so the
+	// reorder also takes effect in-game after the map is saved.
+	this->objects.splice(this->objects.end(), this->objects, it);
+
+	this->manager->addViewElement(std::static_pointer_cast<ViewElement>(it->model));
+	this->dirty = true;
+	return true;
+}
+
+// Moves a prop so it is drawn before (below) every other prop: the highest
+// auto-priority sorts first in the editor render list and the object is moved
+// to the start of the objects list (first in the map file, drawn first by the
+// game).
+bool Map::moveObjectToBack(std::shared_ptr<Model> model)
+{
+	if (!model)
+		return false;
+
+	auto it = this->objects.begin();
+	for (; it != this->objects.end(); ++it)
+		if (it->model == model)
+			break;
+
+	if (it == this->objects.end() || it->type != MapObjectType::motProp)
+		return false;
+
+	// Nothing to reorder against when this is the only prop on the map.
+	int maxAutoPriority = 0;
+	int propCount = 0;
+	for (auto& object : this->objects)
+		if (object.type == MapObjectType::motProp && object.model != model && object.model)
+		{
+			if (propCount == 0 || object.model->autoPriority > maxAutoPriority)
+				maxAutoPriority = object.model->autoPriority;
+			propCount++;
+		}
+	if (propCount == 0)
+		return false;
+
+	// Reset to the type's base priority so the prop stays inside its own
+	// layer, then give it the largest auto-priority: it now sorts first in
+	// the render list and is drawn below every other prop.
+	it->model->priority = this->getObjectPriority(MapObjectType::motProp);
+	it->model->autoPriority = maxAutoPriority + 1;
+
+	// First in the objects list = first in the map file = drawn first (below
+	// every other prop) both in the editor and in the game.
+	this->objects.splice(this->objects.begin(), this->objects, it);
+
+	this->manager->addViewElement(std::static_pointer_cast<ViewElement>(it->model));
+	this->dirty = true;
+	return true;
+}
+
 bool Map::renderObjectField(json& localfile, MapObjectField& field)
 {
 	if (field.valueString.active)
