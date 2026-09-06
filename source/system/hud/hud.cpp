@@ -1082,9 +1082,9 @@ bool Hud::matrixGenerate(sf::Vector2f cursor)
 
 		this->updateExtraEditsValue(
 			{ "Width", "Height", "Index" },
-			{ EditType::etInteger, EditType::etInteger, EditType::etInteger },
+			{ EditType::etInteger, EditType::etInteger, EditType::etString },
 			{ boost::lexical_cast<std::string>(int(this->shapeMatrix->shape->getGlobalBounds().width)), boost::lexical_cast<std::string>(int(this->shapeMatrix->shape->getGlobalBounds().height)), "0" },
-			{ 99999, 99999, 99 },
+			{ 99999, 99999, 255 },
 			{ "width", "height", "index" });
 
 		this->setExtraEditsValue({
@@ -1178,13 +1178,13 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 			if (this->manager->palette->selectedOrigin == "spawner")
 			{
 				fields.emplace_back(MapObjectField{ "default", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
-				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{ extraValues.at(1).string, true } });
 			}
 			else if (this->manager->palette->selectedOrigin == "level")
 			{
 				fields.emplace_back(MapObjectField{ "group", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
-				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
-				fields.emplace_back(MapObjectField{ "target-index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
+				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{ extraValues.at(1).string, true } });
+				fields.emplace_back(MapObjectField{ "target-index", MapObjectFieldString{ extraValues.at(2).string, true } });
 				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(3).integer, true } });
 				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(4).integer, true } });
 				fields.emplace_back(MapObjectField{ "map", MapObjectFieldString{extraValues.at(5).string, true} });
@@ -1195,7 +1195,7 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 				boost::erase_all(unitTypeField, unitTypePrefix);
 				unitTypeField = unitTypePrefix + unitTypeField;
 				fields.emplace_back(MapObjectField{ "alliance", MapObjectFieldString{ extraValues.at(0).string, true } });
-				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{ extraValues.at(1).string, true } });
 				fields.emplace_back(MapObjectField{ "target-x", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
 				fields.emplace_back(MapObjectField{ "target-y", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(3).integer, true } });
 				fields.emplace_back(MapObjectField{ "cooldown", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(4).integer, true } });
@@ -1205,26 +1205,26 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 			{
 				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
 				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
-				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
+				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{ extraValues.at(2).string, true } });
 			}
 			else if (this->manager->palette->selectedOrigin == "region")
 			{
 				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
 				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
-				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
+				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{ extraValues.at(2).string, true } });
 			}
 			else if (this->manager->palette->selectedOrigin == "teleporter")
 			{
 				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
 				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
-				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
-				fields.emplace_back(MapObjectField{ "target-index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(3).integer, true } });
+				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{ extraValues.at(2).string, true } });
+				fields.emplace_back(MapObjectField{ "target-index", MapObjectFieldString{ extraValues.at(3).string, true } });
 			}
 			else if (this->manager->palette->selectedOrigin == "slider")
 			{
 				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
 				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
-				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
+				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{ extraValues.at(2).string, true } });
 				fields.emplace_back(MapObjectField{ "speed-x", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(3).integer, true } });
 				fields.emplace_back(MapObjectField{ "speed-y", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(4).integer, true } });
 				fields.emplace_back(MapObjectField{ "invert-x", MapObjectFieldString{ "", false}, MapObjectFieldInt{ 0, false }, MapObjectFieldFloat{ 0.f, false }, MapObjectFieldBool{ extraValues.at(5).boolean, true } });
@@ -1234,7 +1234,7 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 			{
 				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
 				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
-				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
+				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{ extraValues.at(2).string, true } });
 				fields.emplace_back(MapObjectField{ "damage", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(3).integer, true } });
 			}
 			else if (this->manager->palette->selectedOrigin == "connector")
@@ -1257,7 +1257,7 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 			{
 				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
 				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
-				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true } });
+				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{ extraValues.at(2).string, true } });
 			}
 			break;
 		}
