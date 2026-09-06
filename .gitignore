@@ -56,3 +56,6 @@ imgui.ini
 config.txt
 libs
 *.bat
+config.txt.bak
+.gitignore
+config.test.txt
