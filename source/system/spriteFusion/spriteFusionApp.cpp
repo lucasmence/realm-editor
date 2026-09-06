@@ -197,6 +197,10 @@ int SpriteFusionApp::run()
 
         ImGui::SFML::Update(*this->window, this->clock.restart());
 
+        // Keep the ImGui text color white on every frame (see Manager::imguiUpdate).
+        ImGui::GetStyle().Colors[ImGuiCol_Text] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+        ImGui::GetStyle().Colors[ImGuiCol_TextDisabled] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+
         this->window->clear(sf::Color(20, 20, 28));
 
         // update() returns true when the user left the tool (BACK button):

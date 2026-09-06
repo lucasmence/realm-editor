@@ -8,6 +8,7 @@
 #include "../library/position.hpp"
 #include "../external/imgui/imgui.h"
 #include "../external/imgui/imgui-SFML.h"
+#include "../external/imgui/imgui_internal.h"
 
 Hud::Hud(Manager* manager)
 {
@@ -25,8 +26,7 @@ Hud::Hud(Manager* manager)
 	this->gridVisible = true;
 	this->spawnPress = false;
 	this->mousePressed = false;
-	this->toolsPanelRect = sf::FloatRect(0.f, 0.f, 0.f, 0.f);
-	this->palettePanelRect = sf::FloatRect(0.f, 0.f, 0.f, 0.f);
+	this->imguiPanelRects.clear();
 	this->centerShape = false;
 	this->mouseRightButton = false;
 	this->matrixActivated = false;
@@ -315,6 +315,7 @@ bool Hud::updateMouseReleased(sf::Vector2f cursor)
 	if (this->isMouseOverImgui())
 	{
 		this->matrixTriggered = false;
+		this->matrixPosSpawn = false;
 		this->shapeMatrix->visible = false;
 		this->terrainFillTriggered = false;
 		this->shapeTerrainFill->visible = false;
@@ -813,15 +814,69 @@ bool Hud::isMouseOverImgui()
 		return true;
 
 	// While the app owns a mouse drag (a click that started on the map), ImGui
-	// clears window hover, so also hit-test the persistent panels directly
-	// against their rectangles from the last rendered frame. This keeps a held
-	// drag (paint/matrix/terrain fill) from acting on the map under the panels.
+	// clears window hover and stops requesting the mouse, so also hit-test
+	// every window directly against the rectangles recorded when they last
+	// rendered (see updateImguiPanelRects). This keeps a held drag
+	// (paint/matrix/terrain fill) from acting on the map under any window.
 	const ImVec2 mouse = ImGui::GetIO().MousePos;
-	if (this->toolsPanelRect.width > 0.f && this->toolsPanelRect.height > 0.f && this->toolsPanelRect.contains(mouse.x, mouse.y))
-		return true;
-	if (this->palettePanelRect.width > 0.f && this->palettePanelRect.height > 0.f && this->palettePanelRect.contains(mouse.x, mouse.y))
-		return true;
+	for (const auto& rect : this->imguiPanelRects)
+		if (rect.width > 0.f && rect.height > 0.f && rect.contains(mouse.x, mouse.y))
+			return true;
 	return false;
+}
+
+// Records the screen rectangles of every visible ImGui window (menu bar,
+// Tools/Palette panels, popups...). The map must never react to the mouse
+// under a panel, and ImGui's own hover/capture flags stop reporting panels
+// while a drag that started on the map is in progress, so the editor
+// hit-tests the panels itself. Called once per frame after the UI is drawn;
+// the rects are consumed by the next frame's event handling.
+void Hud::updateImguiPanelRects()
+{
+	this->imguiPanelRects.clear();
+
+	ImGuiContext* ctx = ImGui::GetCurrentContext();
+	if (!ctx)
+		return;
+
+	for (ImGuiWindow* window : ctx->Windows)
+	{
+		if (!window->Active || window->Hidden || window->Collapsed)
+			continue;
+		// NoInputs windows (notifications, tooltips) and the fallback
+		// background window never receive the mouse: they cannot be clicked
+		// "over" and must not block the map.
+		if (window->Flags & ImGuiWindowFlags_NoMouseInputs)
+			continue;
+		if (window->IsFallbackWindow)
+			continue;
+		// Skip the invisible 1x1 anchor windows used only to host popups.
+		if (strncmp(window->Name, "##placeholder", 13) == 0)
+			continue;
+		// Ignore degenerate rects (collapsed leftovers); anything that small
+		// is not an interactive panel.
+		if (window->OuterRectClipped.GetWidth() < 4.f || window->OuterRectClipped.GetHeight() < 4.f)
+			continue;
+
+		const ImRect& rect = window->OuterRectClipped;
+		this->imguiPanelRects.emplace_back(sf::FloatRect(rect.Min.x, rect.Min.y, rect.GetWidth(), rect.GetHeight()));
+	}
+}
+
+// Called whenever the mouse goes down over an ImGui window (or while the
+// properties popup is open): a UI click must never also edit the map, so
+// disarm every in-progress spawn/paint action (spawn painting, matrix drag,
+// terrain fill) that could otherwise place an item behind the panels.
+void Hud::cancelMapActions()
+{
+	this->mousePressed = false;
+	this->matrixTriggered = false;
+	this->matrixPosSpawn = false;
+	this->terrainFillTriggered = false;
+	if (this->shapeMatrix)
+		this->shapeMatrix->visible = false;
+	if (this->shapeTerrainFill)
+		this->shapeTerrainFill->visible = false;
 }
 
 bool Hud::selectedItemUpdate()
@@ -1865,7 +1920,7 @@ void Hud::imguiRenderCommandPalette()
 	
 	ImGui::PushItemWidth(-1);
 	ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.12f, 0.12f, 0.18f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
 
 	bool enterPressed = ImGui::InputTextWithHint("##cmdSearch", "Type a command...",
 		this->commandPaletteSearch, sizeof(this->commandPaletteSearch),
@@ -1920,7 +1975,7 @@ void Hud::imguiRenderCommandPalette()
 	{
 		if (this->commandPaletteFilteredIndices.empty())
 		{
-			ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "No matching commands");
+			ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "No matching commands");
 		}
 		else
 		{
@@ -1934,7 +1989,7 @@ void Hud::imguiRenderCommandPalette()
 				if (entry.category != lastCategory)
 				{
 					lastCategory = entry.category;
-					ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.7f, 1.0f));
+					ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
 					ImGui::Text("-- %s --", entry.category.c_str());
 					ImGui::PopStyleColor();
 				}
@@ -2190,7 +2245,6 @@ void Hud::imguiRenderToolPanel()
 	ImGuiWindowFlags flags = ImGuiWindowFlags_NoBringToFrontOnFocus;
 
 	ImGui::Begin("Tools", NULL, flags);
-	this->toolsPanelRect = sf::FloatRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 4));
 
 	// Lock toggle: while locked the map is read-only. Hotkey: K.
@@ -2726,7 +2780,6 @@ void Hud::imguiRenderPalettePanel()
 	ImGuiWindowFlags flags = ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus;
 
 	ImGui::Begin("Palette", NULL, flags);
-	this->palettePanelRect = sf::FloatRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, ImGui::GetWindowSize().x, ImGui::GetWindowSize().y);
 
 	sf::Vector2f mousePos = this->manager->getMousePosition();
 	ImGui::Text("(%d, %d)", (int)mousePos.x, (int)mousePos.y);
@@ -2834,7 +2887,7 @@ void Hud::imguiRenderPaletteItems()
 {
 	if (this->manager->palette->paletteItems.empty())
 	{
-		ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "No items loaded");
+		ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "No items loaded");
 		return;
 	}
 
@@ -2877,7 +2930,7 @@ void Hud::imguiRenderPaletteItems()
 		{
 			
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.2f, 0.2f, 0.8f));
-			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.4f, 0.4f, 1.0f));
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
 		}
 		else if (item.model->shape)
 		{
@@ -3135,14 +3188,14 @@ void Hud::imguiRenderAboutWindow()
 	
 	float titleW = ImGui::CalcTextSize("realm-editor").x;
 	ImGui::SetCursorPos(ImVec2((winSize.x - titleW) / 2.f, 140.f));
-	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(220 / 255.f, 220 / 255.f, 245 / 255.f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
 	ImGui::Text("realm-editor");
 	ImGui::PopStyleColor();
 
 	
 	float verW = ImGui::CalcTextSize("build 12").x;
 	ImGui::SetCursorPos(ImVec2((winSize.x - verW) / 2.f, 175.f));
-	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(130 / 255.f, 130 / 255.f, 170 / 255.f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
 	ImGui::Text("build 12");
 	ImGui::PopStyleColor();
 
@@ -3155,14 +3208,14 @@ void Hud::imguiRenderAboutWindow()
 	
 	float creditW = ImGui::CalcTextSize("https://mence.dev").x;
 	ImGui::SetCursorPos(ImVec2((winSize.x - creditW) / 2.f, 215.f));
-	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(110 / 255.f, 110 / 255.f, 150 / 255.f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
 	ImGui::Text("https://mence.dev");
 	ImGui::PopStyleColor();
 
 	
 	float descW = ImGui::CalcTextSize("A simplified 2D map editor built with SFML").x;
 	ImGui::SetCursorPos(ImVec2((winSize.x - descW) / 2.f, 245.f));
-	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(100 / 255.f, 100 / 255.f, 135 / 255.f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
 	ImGui::Text("A simplified 2D map editor built with SFML");
 	ImGui::PopStyleColor();
 

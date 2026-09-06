@@ -139,6 +139,8 @@ class Hud
 		bool updateSelectedPortalShape();
 		bool checkMapClick(sf::Vector2f cursor);
 		bool isMouseOverImgui();
+		void updateImguiPanelRects();
+		void cancelMapActions();
 		bool updateDragCursor(sf::Vector2f cursor);
 		bool zoomMap(int value);
 		bool zoomMapReset();
@@ -258,11 +260,12 @@ class Hud
 		std::vector<std::string> extraFieldOrigins;
 		std::string formShapeSelected;
 
-		// Screen rectangles (in ImGui coordinates) of the panels that float
-		// over the map, recorded when they render. Used to keep map actions
-		// from running underneath them even while a map drag is in progress.
-		sf::FloatRect toolsPanelRect;
-		sf::FloatRect palettePanelRect;
+		// Screen rectangles (in ImGui coordinates) of every ImGui window that
+		// floats over the map (menu bar, Tools/Palette panels, popups...),
+		// recorded each frame after the UI renders. Used to keep map actions
+		// from running underneath any of them even while a map drag is in
+		// progress (ImGui stops reporting hover/capture during such drags).
+		std::vector<sf::FloatRect> imguiPanelRects;
 };
 
 #endif

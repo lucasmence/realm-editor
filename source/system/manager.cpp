@@ -170,6 +170,12 @@ bool Manager::update()
         }
 
         this->imguiUpdate();
+
+        // Remember where every ImGui window was drawn this frame so the next
+        // frame's map actions can be kept out from under the panels (see
+        // Hud::isMouseOverImgui).
+        if (this->hudLoaded)
+            this->hud->updateImguiPanelRects();
     }	this->display();
 
 	
@@ -190,7 +196,14 @@ bool Manager::update()
 bool Manager::imguiUpdate()
 {
     ImGui::SFML::Update(*this->window, deltaClock.restart());
-    
+
+    // Keep the ImGui text color white on every frame. Some UI code pushes
+    // dark text colors (missing pops or dark gray shades) which made labels
+    // hard to read against the dark background. Resetting the base style here
+    // guarantees the text is always white again.
+    ImGui::GetStyle().Colors[ImGuiCol_Text] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    ImGui::GetStyle().Colors[ImGuiCol_TextDisabled] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+
     if (this->hudLoaded)
         this->hud->imguiRender();
     
@@ -569,12 +582,21 @@ bool Manager::eventClick(sf::Event& event)
     // WantCaptureMouse additionally covers presses while any popup/modal is
     // open (confirm dialogs, file browser) or while an ImGui drag is active.
     if (ImGui::IsAnyItemHovered() || ImGui::GetIO().WantCaptureMouse || this->hud->isMouseOverImgui())
+    {
+        // A click on the UI must never also edit the map: disarm any
+        // in-progress spawn/paint action so nothing gets placed behind the
+        // panels.
+        this->hud->cancelMapActions();
         return true;
+    }
 
     // While the properties edit popup is open the map must not react to the
     // mouse - clicks and typing belong to the popup until it is closed.
     if (this->hud->isPropertiesEditOpen())
+    {
+        this->hud->cancelMapActions();
         return true;
+    }
 
     // Two quick left clicks on the same spot count as a double click, which
     // opens the properties popup of the object under the cursor.
@@ -1570,13 +1592,13 @@ bool Manager::imguiRenderWelcome()
 
     float titleW = ImGui::CalcTextSize("realm-editor").x;
     ImGui::SetCursorPos(ImVec2((winSize.x - titleW) / 2.f, 26.f));
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(220.f / 255.f, 220.f / 255.f, 245.f / 255.f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     ImGui::Text("realm-editor");
     ImGui::PopStyleColor();
 
     float verW = ImGui::CalcTextSize("build 12").x;
     ImGui::SetCursorPos(ImVec2((winSize.x - verW) / 2.f, 52.f));
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(130.f / 255.f, 130.f / 255.f, 170.f / 255.f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     ImGui::Text("build 12");
     ImGui::PopStyleColor();
 
@@ -1584,7 +1606,7 @@ bool Manager::imguiRenderWelcome()
     ImGui::Separator();
 
     ImGui::SetCursorPosY(100.f);
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(150.f / 255.f, 150.f / 255.f, 185.f / 255.f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     ImGui::TextWrapped("Welcome back! Open one of your recent maps or start a new one.");
     ImGui::PopStyleColor();
 
@@ -1598,7 +1620,7 @@ bool Manager::imguiRenderWelcome()
     {
         if (this->recentFiles.empty())
         {
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(90.f / 255.f, 90.f / 255.f, 130.f / 255.f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
             ImGui::TextWrapped("No recent maps yet. Use \"Open...\" to load a map file from the game folder.");
             ImGui::PopStyleColor();
         }

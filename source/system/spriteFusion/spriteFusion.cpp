@@ -568,7 +568,7 @@ void SpriteFusion::renderBrowser()
 {
     float scale = this->imguiScale;
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     ImGui::TextUnformatted(this->getLanguage("BROWSER").c_str());
     ImGui::PopStyleColor();
     ImGui::SameLine();
@@ -598,7 +598,7 @@ void SpriteFusion::renderBrowser()
 
     if (this->fileList.empty())
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
         ImGui::TextWrapped("%s", this->getLanguage("NO-PNG").c_str());
         ImGui::PopStyleColor();
     }
@@ -627,7 +627,7 @@ void SpriteFusion::renderBrowser()
 
     if (this->dropSupported)
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.55f, 0.55f, 0.6f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
         ImGui::TextWrapped("%s", this->getLanguage("DROP-FILES-HINT").c_str());
         ImGui::PopStyleColor();
     }
@@ -640,7 +640,7 @@ void SpriteFusion::renderStack()
 {
     float scale = this->imguiScale;
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     ImGui::TextUnformatted(this->getLanguage("STACK").c_str());
     ImGui::PopStyleColor();
     ImGui::SameLine();
@@ -658,13 +658,13 @@ void SpriteFusion::renderStack()
 
     if (this->stack.empty())
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
         ImGui::TextWrapped("%s", this->getLanguage("EMPTY-STACK").c_str());
         ImGui::PopStyleColor();
         return;
     }
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.55f, 0.55f, 0.6f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     ImGui::TextWrapped("%s", this->getLanguage("DROP-HINT").c_str());
     ImGui::PopStyleColor();
     ImGui::Spacing();
@@ -697,7 +697,7 @@ void SpriteFusion::renderStack()
             ImGui::SameLine();
 
             // Name + dimensions.
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.95f, 0.95f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
             ImGui::TextUnformatted(item.name.c_str());
             ImGui::PopStyleColor();
             ImGui::TextDisabled("%dx%d px  #%d", item.width, item.height, i + 1);
@@ -755,7 +755,7 @@ void SpriteFusion::renderOptions()
 {
     float scale = this->imguiScale;
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     ImGui::TextUnformatted(this->getLanguage("OPTIONS").c_str());
     ImGui::PopStyleColor();
     ImGui::Separator();
@@ -780,7 +780,7 @@ void SpriteFusion::renderOptions()
     if (!this->saveFolder.empty())
         outPathDisplay += "/" + this->saveFolder;
     outPathDisplay += "/" + std::string(this->outputName) + ".png";
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     ImGui::TextWrapped("%s", outPathDisplay.c_str());
     ImGui::PopStyleColor();
 
@@ -788,7 +788,7 @@ void SpriteFusion::renderOptions()
 
     // Destination folder: browse the subfolders of resources/sprites. The
     // current folder is the destination (".." goes up, single click enters).
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     ImGui::TextUnformatted(this->getLanguage("DESTINATION").c_str());
     ImGui::PopStyleColor();
     ImGui::SameLine();
@@ -816,7 +816,7 @@ void SpriteFusion::renderOptions()
 
         if (this->saveFolderList.empty())
         {
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
             ImGui::TextWrapped("%s", this->getLanguage("NO-FOLDERS").c_str());
             ImGui::PopStyleColor();
         }
@@ -862,7 +862,7 @@ void SpriteFusion::renderPreview()
 {
     float scale = this->imguiScale;
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     ImGui::TextUnformatted(this->getLanguage("PREVIEW").c_str());
     ImGui::PopStyleColor();
     ImGui::SameLine();
@@ -913,7 +913,7 @@ void SpriteFusion::renderPreview()
     }
     else
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
         ImGui::TextWrapped("%s", this->getLanguage("EMPTY-STACK").c_str());
         ImGui::PopStyleColor();
     }
@@ -925,7 +925,7 @@ void SpriteFusion::renderLog()
 {
     float scale = this->imguiScale;
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     ImGui::TextUnformatted(this->getLanguage("LOG").c_str());
     ImGui::PopStyleColor();
     ImGui::SameLine();
