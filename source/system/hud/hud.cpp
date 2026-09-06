@@ -3428,10 +3428,10 @@ void Hud::imguiRenderAboutWindow()
 	ImGui::PopStyleColor();
 
 	
-	float verW = ImGui::CalcTextSize("build 12").x;
+	float verW = ImGui::CalcTextSize(this->manager->buildVersion.c_str()).x;
 	ImGui::SetCursorPos(ImVec2((winSize.x - verW) / 2.f, 175.f));
 	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-	ImGui::Text("build 12");
+	ImGui::Text("%s", this->manager->buildVersion.c_str());
 	ImGui::PopStyleColor();
 
 	

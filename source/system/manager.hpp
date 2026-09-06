@@ -111,6 +111,7 @@ class Manager
 		sf::Vector2i doubleClickPreviousPosition;
 		bool doubleClickArmed;
 		std::string appName;
+		std::string buildVersion;
 		sf::FloatRect minimapViewArea;
 		std::vector<MapEdge> mapEdges;
 		FilePathData filePathData;
