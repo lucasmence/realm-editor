@@ -1294,7 +1294,7 @@ void TriggerEditor::renderEditorStatus()
         ImGui::SetCursorPosX(rightEdge - 150.f * scale);
     }
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.7f, 0.75f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     ImGui::TextUnformatted(status.c_str());
     ImGui::PopStyleColor();
 }
@@ -1369,7 +1369,7 @@ void TriggerEditor::renderJsonBody()
     }
     else
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
         ImGui::SetCursorScreenPos(ImVec2(base.x + this->editorGutterW + 8.f * this->imguiScale,
                                           base.y + 10.f * this->imguiScale));
         ImGui::TextUnformatted(this->getLanguage("NO-FILE").c_str());
@@ -1384,7 +1384,7 @@ void TriggerEditor::renderEditor()
     float scale = this->imguiScale;
 
     // ---- header: current file ----
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     if (this->fileLoaded)
         ImGui::TextUnformatted((this->currentFile + "  (" + this->currentFilePath + ")").c_str());
     else
@@ -1456,7 +1456,7 @@ void TriggerEditor::renderSidebar()
 {
     float scale = this->imguiScale;
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     ImGui::TextUnformatted(this->getLanguage("TRIGGERS").c_str());
     ImGui::PopStyleColor();
     ImGui::SameLine();
@@ -1469,7 +1469,7 @@ void TriggerEditor::renderSidebar()
 
     if (!this->triggerFolderRef.empty())
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.55f, 0.55f, 0.62f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
         ImGui::TextWrapped("%s: %s", this->getLanguage("FOLDER").c_str(), this->triggerFolderRef.c_str());
         ImGui::PopStyleColor();
     }
@@ -1478,7 +1478,7 @@ void TriggerEditor::renderSidebar()
 
     if (this->triggerFileList.empty())
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
         ImGui::TextWrapped("%s", this->getLanguage("NO-TRIGGER-FILES").c_str());
         ImGui::PopStyleColor();
     }
@@ -1532,7 +1532,7 @@ void TriggerEditor::renderSidebar()
     }
     else
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.45f, 0.45f, 0.5f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
         ImGui::Button(this->getLanguage("DELETE").c_str(), ImVec2(-1.f, 34.f * scale));
         ImGui::PopStyleColor();
         if (ImGui::IsItemHovered())
@@ -1580,7 +1580,7 @@ void TriggerEditor::renderLog()
 {
     float scale = this->imguiScale;
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     ImGui::TextUnformatted(this->getLanguage("LOG").c_str());
     ImGui::PopStyleColor();
     ImGui::SameLine();
@@ -2388,7 +2388,7 @@ void TriggerEditor::renderGuiMiscEditor()
     
     float scale = this->imguiScale;
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     ImGui::TextUnformatted("Other fields (item-drop, environments-drop, player-characters, config, exit, ...)");
     ImGui::PopStyleColor();
     ImGui::Separator();
@@ -2409,7 +2409,7 @@ void TriggerEditor::renderGuiMiscEditor()
 
     if (keys.empty())
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.55f, 0.55f, 0.62f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
         ImGui::TextWrapped("This file has no extra fields besides the trigger blocks.");
         ImGui::PopStyleColor();
     }
@@ -2637,7 +2637,7 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
         case GuiKind::Action:    title = "Actions";    break;
     }
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     ImGui::TextUnformatted((std::string(title) + "  (" + toStr((int)entries.size()) + ")").c_str());
     ImGui::PopStyleColor();
     // Compact square "+" button in the corner of each group list (the previous
@@ -2656,7 +2656,7 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
     ImGui::BeginChild((std::string("##gui-list-") + title).c_str(), ImVec2(0, listHeight), true);
     if (entries.empty())
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.55f, 0.55f, 0.62f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
         ImGui::TextWrapped("No %s yet.", title);
         ImGui::PopStyleColor();
     }
@@ -2730,7 +2730,7 @@ void TriggerEditor::renderGuiEditor()
         this->guiTriggerIndex = 0;
 
     // ---- trigger block selector ----
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     ImGui::TextUnformatted("Trigger block");
     ImGui::PopStyleColor();
     ImGui::SameLine(90.f * scale);
@@ -2757,7 +2757,7 @@ void TriggerEditor::renderGuiEditor()
     }
     else
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.45f, 0.45f, 0.5f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
         ImGui::SmallButton("- Remove block");
         ImGui::PopStyleColor();
     }
@@ -2834,7 +2834,7 @@ void TriggerEditor::renderMapSelect()
     
     float scale = this->imguiScale;
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     ImGui::TextUnformatted(this->getLanguage("TITLE").c_str());
     ImGui::PopStyleColor();
     ImGui::SameLine();
@@ -2853,14 +2853,14 @@ void TriggerEditor::renderMapSelect()
 
     // ---- map list (left) ----
     ImGui::BeginChild("##trigger-map-list", ImVec2(380.f * scale, 0), true);
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     ImGui::TextUnformatted(this->getLanguage("MAPS").c_str());
     ImGui::PopStyleColor();
     ImGui::Separator();
 
     if (this->mapList.empty())
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
         ImGui::TextWrapped("%s", this->getLanguage("NO-MAPS").c_str());
         ImGui::PopStyleColor();
     }
@@ -2881,14 +2881,14 @@ void TriggerEditor::renderMapSelect()
 
     // ---- details (right) ----
     ImGui::BeginChild("##trigger-map-info", ImVec2(0, 0), true);
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     ImGui::TextUnformatted(this->getLanguage("SELECT-MAP").c_str());
     ImGui::PopStyleColor();
     ImGui::Separator();
 
     if (this->selectedMap.empty())
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
         ImGui::TextWrapped("%s", this->getLanguage("SELECT-MAP-HINT").c_str());
         ImGui::PopStyleColor();
     }
@@ -2928,7 +2928,7 @@ void TriggerEditor::renderErrorPopup()
         ImGui::PopStyleColor();
         ImGui::Separator();
 
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.95f, 0.95f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
         for (auto &line : this->errorPopupLines)
             ImGui::TextWrapped("%s", line.c_str());
         ImGui::PopStyleColor();
