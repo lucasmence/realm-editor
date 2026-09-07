@@ -573,6 +573,9 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
     T("cutscene-music", "Cutscene: play background music", PT({
         P("strings", 0, "Music name (empty stops music)", "string", true)
     })),
+    T("cutscene-sound", "Cutscene: play a sound effect", PT({
+        P("strings", 0, "Sound name (resources/sounds)", "string", true)
+    })),
     T("cutscene-source", "Cutscene: show a centered background image", PT({
         P("strings", 0, "Texture path (data/textures)", "string", true)
     })),
