@@ -595,6 +595,15 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
         P("floatValue", -1, "Duration (seconds)", "float", true)
     })),
     T("cutscene-eof", "Cutscene: end and return to the previous mode", PT({})),
+    T("screen-fadein", "Screen: fade the screen in while playing (stage/cinematic)", PT({
+        P("floatValue", -1, "Duration (seconds, 0 = instant)", "float", true)
+    })),
+    T("screen-fadeout", "Screen: fade the screen to black while playing (stage/cinematic)", PT({
+        P("floatValue", -1, "Duration (seconds, 0 = instant)", "float", true)
+    })),
+    T("screen-fadecolor", "Screen: set the fade color used by screen fades (RRRGGGBBB)", PT({
+        P("strings", 0, "Fade color", "string", true)
+    })),
     T("daytime-pause", "Pause the day/night cycle", PT({})),
     T("daytime-unpause", "Resume the day/night cycle", PT({})),
     T("daytime-set", "Set the daytime hour (0-24)", PT({
