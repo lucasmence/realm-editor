@@ -469,7 +469,7 @@ bool Palette::selectPaletteItem(int index)
     {
         std::string& filename = item.filename;
         if (filename == "spawner")
-            this->manager->hud->updateExtraEditsValue({ "Default", "index" }, { EditType::etInteger, EditType::etString }, { "1", "" }, { 1, 255 }, {"default", "index"});
+            this->manager->hud->updateExtraEditsValue({ "Default", "index" }, { EditType::etInteger, EditType::etString }, { "0", "" }, { 1, 255 }, {"default", "index"});
         else if (filename == "level")
             this->manager->hud->updateExtraEditsValue({ "Group", "Index", "Target Index", "Width", "Height", "Map"}, 
                                                       { EditType::etInteger, EditType::etString, EditType::etString, EditType::etInteger, EditType::etInteger, EditType::etString },
