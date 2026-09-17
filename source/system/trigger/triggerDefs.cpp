@@ -59,7 +59,6 @@ const std::vector<TriggerTypeDef> GUI_EVENT_DEFS =
     })),
     T("item-dropped", "When an item is dropped", PT({})),
     T("item-picked", "When an item is picked up", PT({})),
-    T("player-joined", "When a player joins the game", PT({})),
     T("start-cutscene", "Start a cutscene (cinematic sequence rendered in menu mode)", PT({}))
 };
 
@@ -536,8 +535,6 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
         P("booleans", 0, "Enabled", "bool", true)
     })),
     T("extra-modes-info", "Show the extra modes info box", PT({})),
-    T("server-lock", "Lock the server", PT({})),
-    T("server-standby", "Put the server in standby", PT({})),
     T("player-alliance", "Set the alliance between two players", PT({
         P("integers", 0, "Player A", "int", true),
         P("integers", 1, "Player B", "int", true),
