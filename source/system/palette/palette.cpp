@@ -471,9 +471,12 @@ bool Palette::selectPaletteItem(int index)
         if (filename == "spawner")
             this->manager->hud->updateExtraEditsValue({ "Default", "index" }, { EditType::etInteger, EditType::etString }, { "0", "" }, { 1, 255 }, {"default", "index"});
         else if (filename == "level")
-            this->manager->hud->updateExtraEditsValue({ "Group", "Index", "Target Index", "Width", "Height", "Map"}, 
-                                                      { EditType::etInteger, EditType::etString, EditType::etString, EditType::etInteger, EditType::etInteger, EditType::etString },
-                                                      { "1", "1", "1", "100", "100", "" }, { 99, 255, 255, 999, 999, 255 }, {"group", "index", "target-index", "width", "height", "map"});
+        {
+            this->manager->hud->updateExtraEditsValue({ "Group", "Index", "Target Index", "Width", "Height", "Map", "Sound"}, 
+                                                      { EditType::etInteger, EditType::etString, EditType::etString, EditType::etInteger, EditType::etInteger, EditType::etString, EditType::etRadio },
+                                                      { "1", "1", "1", "100", "100", "", "none" }, { 99, 255, 255, 999, 999, 255, 0 }, {"group", "index", "target-index", "width", "height", "map", "portal-sfx"},
+                                                      this->getPortalSoundOptions());
+        }
         else if (filename == "generator")
             this->manager->hud->updateExtraEditsValue({"Alliance", "Index", "Target X", "Target Y", "Cooldown", "Unit type" },
                 { EditType::etString, EditType::etString, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etString },
@@ -533,4 +536,36 @@ bool Palette::selectPaletteItem(sf::Vector2f cursor, std::shared_ptr<Model> mode
         index++;
     }
     return false;
+}
+
+std::vector<std::string> Palette::getPortalSoundOptions()
+{
+    std::vector<std::string> options;
+
+    json constants = Json::loadFromFile(this->manager->constant.gamePath + "/data/options/constants.json");
+    if (constants.is_object() && constants.contains("DATA") && constants["DATA"].is_array())
+    {
+        for (const auto& item : constants["DATA"])
+        {
+            if (!item.is_object())
+                continue;
+
+            std::string key = item.value("key", "");
+            const std::string prefix = "PORTAL-SFX-";
+            if (key.length() <= prefix.length() || key.compare(0, prefix.length(), prefix) != 0)
+                continue;
+
+            std::string value = key.substr(prefix.length());
+            boost::algorithm::to_lower(value);
+            std::string soundName = item.value("value", "");
+
+            std::string label = value + (soundName.empty() ? " (silence)" : " (" + soundName + ")");
+            options.emplace_back(label + "|" + value);
+        }
+    }
+
+    if (options.empty())
+        options = { "none (silence)|none", "door (special-effects/door)|door", "dungeon (special-effects/dungeon-gate)|dungeon" };
+
+    return options;
 }

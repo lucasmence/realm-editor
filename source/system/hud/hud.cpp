@@ -1188,6 +1188,7 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(3).integer, true } });
 				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(4).integer, true } });
 				fields.emplace_back(MapObjectField{ "map", MapObjectFieldString{extraValues.at(5).string, true} });
+				fields.emplace_back(MapObjectField{ "portal-sfx", MapObjectFieldString{extraValues.at(6).string, true} });
 			}
 			else if (this->manager->palette->selectedOrigin == "generator")
 			{
@@ -1584,12 +1585,13 @@ std::vector<MapObjectUnit> Hud::updateBitmaskRemove(MapObjectUnit object)
 	return bitmapObjects;
 }
 
-bool Hud::updateExtraEditsValue(std::vector<std::string> caption, std::vector<EditType> type, std::vector<std::string> value, std::vector<int> maxValue, std::vector<std::string> origin)
+bool Hud::updateExtraEditsValue(std::vector<std::string> caption, std::vector<EditType> type, std::vector<std::string> value, std::vector<int> maxValue, std::vector<std::string> origin, std::vector<std::string> radioOptions)
 {
 	this->extraFieldCaptions = caption;
 	this->extraFieldTypes = type;
 	this->extraFieldMaxValues = maxValue;
 	this->extraFieldOrigins = origin;
+	this->extraFieldRadioOptions = radioOptions;
 	this->gettingExtraValues = true;
 	for (int index = 0; index < 7; index++)
 		memset(imguiExtraFields[index], 0, sizeof(imguiExtraFields[index]));
@@ -2601,6 +2603,28 @@ void Hud::renderPropertyEditFields(bool readOnly)
 						strncpy(imguiExtraFields[index], val ? "true" : "false", sizeof(imguiExtraFields[index]) - 1);
 					ImGui::SameLine();
 					ImGui::TextUnformatted(val ? "true" : "false");
+				}
+				break;
+			}
+			case EditType::etRadio:
+			{
+				std::string current = imguiExtraFields[index];
+				if (readOnly)
+					ImGui::TextUnformatted(current.c_str());
+				else
+				{
+					for (const auto& option : this->extraFieldRadioOptions)
+					{
+						size_t separator = option.find('|');
+						std::string label = separator != std::string::npos ? option.substr(0, separator) : option;
+						std::string value = separator != std::string::npos ? option.substr(separator + 1) : option;
+
+						bool selected = (current == value);
+						if (ImGui::RadioButton((label + fieldId).c_str(), selected))
+							strncpy(imguiExtraFields[index], value.c_str(), sizeof(imguiExtraFields[index]) - 1);
+						if (&option != &this->extraFieldRadioOptions.back())
+							ImGui::SameLine();
+					}
 				}
 				break;
 			}

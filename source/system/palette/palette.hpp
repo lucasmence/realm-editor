@@ -1,5 +1,6 @@
 #include <SFML/Graphics.hpp>
 #include <memory>
+#include <vector>
 #include "../model/model.hpp"
 
 #pragma once
@@ -56,6 +57,7 @@ class Palette
 		bool loadPaletteItemList(std::list<std::string>& list, std::string field);
 		std::shared_ptr<Model> loadPaletteItemModel(std::string filename, sf::Vector2f position);
 		bool loadPaletteShape(std::shared_ptr<Model> model, std::string filename, sf::Vector2f size = sf::Vector2f(0.f, 0.f));
+		std::vector<std::string> getPortalSoundOptions();
 
 		Palette(Manager* manager);
 		~Palette();
