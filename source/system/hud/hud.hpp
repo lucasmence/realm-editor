@@ -21,7 +21,7 @@ struct CommandPaletteEntry
     std::function<void()> action;
 };
 
-enum class EditType {etString, etInteger, etBoolean};
+enum class EditType {etString, etInteger, etBoolean, etRadio};
 
 struct ImguiEditValue
 {
@@ -159,7 +159,7 @@ class Hud
 										 sf::Vector2f tilesetOrigin, int x, int y, MapObjectType objectType, std::list<MapObjectField> fields);
 
 		bool getPaletteType(PaletteType &paletteType, MapObjectType type);
-		bool updateExtraEditsValue(std::vector<std::string> caption, std::vector<EditType> type, std::vector<std::string> value, std::vector<int> maxValue, std::vector<std::string> origin);
+		bool updateExtraEditsValue(std::vector<std::string> caption, std::vector<EditType> type, std::vector<std::string> value, std::vector<int> maxValue, std::vector<std::string> origin, std::vector<std::string> radioOptions = {});
 		bool setExtraEditsValue(std::vector<std::string> value);
 		bool setExtraEditValue(std::string value, int index);
 		bool resetExtraEditsValue();
@@ -281,6 +281,11 @@ class Hud
 		std::vector<EditType> extraFieldTypes;
 		std::vector<int> extraFieldMaxValues;
 		std::vector<std::string> extraFieldOrigins;
+		// Radio-group options for etRadio fields ("label|value" entries),
+		// resolved from constants.json PORTAL-SFX-* keys when the field is set
+		// up so the sound list is defined in one place for both the game and
+		// the editor.
+		std::vector<std::string> extraFieldRadioOptions;
 		std::string formShapeSelected;
 
 		// Screen rectangles (in ImGui coordinates) of every ImGui window that
