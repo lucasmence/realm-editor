@@ -62,7 +62,7 @@ if(WIN32)
     target_link_libraries(${PROJECT_NAME} PRIVATE 
         "${SFML_LIB_PATH}/sfml-graphics-s.lib" "${SFML_LIB_PATH}/sfml-window-s.lib"
         "${SFML_LIB_PATH}/sfml-system-s.lib" "${SFML_LIB_PATH}/sfml-audio-s.lib"
-        "${SFML_LIB_PATH}/sfml-network-s.lib" "${SFML_LIB_PATH}/sfml-main.lib"
+        "${SFML_LIB_PATH}/sfml-main.lib"
         "${SFML_LIB_PATH}/freetype.lib" "${SFML_LIB_PATH}/flac.lib"
         "${SFML_LIB_PATH}/vorbisenc.lib" "${SFML_LIB_PATH}/vorbisfile.lib"
         "${SFML_LIB_PATH}/vorbis.lib" "${SFML_LIB_PATH}/ogg.lib"
@@ -76,7 +76,7 @@ else()
 
     # Some distros ship no SFML CMake config, only pkg-config files
     # (the Grimsolf build uses the same approach).
-    pkg_check_modules(SFML IMPORTED_TARGET sfml-graphics sfml-window sfml-system sfml-audio sfml-network)
+    pkg_check_modules(SFML IMPORTED_TARGET sfml-graphics sfml-window sfml-system sfml-audio)
 
     if(SFML_FOUND)
         target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -87,9 +87,9 @@ else()
             pthread
         )
     else()
-        find_package(SFML 2.5 COMPONENTS graphics window system audio network REQUIRED)
+        find_package(SFML 2.5 COMPONENTS graphics window system audio REQUIRED)
         target_link_libraries(${PROJECT_NAME} PRIVATE
-            sfml-graphics sfml-window sfml-system sfml-audio sfml-network
+            sfml-graphics sfml-window sfml-system sfml-audio
             Boost::filesystem
             Boost::system
             OpenGL::GL
