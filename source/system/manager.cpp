@@ -1396,7 +1396,14 @@ bool Manager::addRecentFile(std::string path)
 
 std::list<std::string> Manager::loadFileLists(std::string directory, std::string subDirectory)
 {
-    return this->loadFileFromDirectory(directory, "", subDirectory);
+    std::list<std::string> listFiles = this->loadFileFromDirectory(directory, "", subDirectory);
+
+    // The paths are assembled on Windows with backslashes; normalize to "/"
+    // so lookups like "characters/neutral/nibbos/adam" work on every OS.
+    for (auto& file : listFiles)
+        boost::algorithm::replace_all(file, "\\", "/");
+
+    return listFiles;
 }
 
 std::list<std::string> Manager::loadFileFromDirectory(std::string directory, std::string base, std::string subDirectory)
@@ -1405,7 +1412,7 @@ std::list<std::string> Manager::loadFileFromDirectory(std::string directory, std
     if (base == "")
         path = this->constant.gamePath + "/data/" + directory;
     else
-        base += "\\";
+        base += "/";
 
     std::list<std::string> listFiles = {};
 
@@ -1423,7 +1430,10 @@ std::list<std::string> Manager::loadFileFromDirectory(std::string directory, std
             stringStreamName << entry.path().filename();
             std::string directory = this->getString(stringStreamDirectory.str()), name = this->getString(stringStreamName.str());
             boost::algorithm::replace_all(directory, "\\", "/");
-            std::list<std::string> subListFiles = this->loadFileFromDirectory(directory, name);
+            // Accumulate the base path so nested folders keep their parent
+            // names (e.g. characters/neutral/nibbos/adam), instead of only the
+            // immediate folder name.
+            std::list<std::string> subListFiles = this->loadFileFromDirectory(directory, base + name);
             if (subListFiles.size() > 0)
                 listFiles.insert(listFiles.end(), subListFiles.begin(), subListFiles.end());
         }
