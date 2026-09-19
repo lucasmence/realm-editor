@@ -13,7 +13,7 @@ struct ImFont;
 // One image in the fusion stack (in the exact order they will be merged).
 struct SpriteFusionItem
 {
-    std::string name;      // e.g. "barbarian.png"
+    std::string name;      // e.g. "npc.png"
     std::string relative;  // path relative to resources/sprites
     sf::Texture texture;
     int width = 0;
