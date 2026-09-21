@@ -1031,7 +1031,17 @@ bool Manager::choosePath(PathType type, std::string confirmButtonName, std::stri
             : this->constant.gamePath + "/data/maps/custom";
     }
 
-    this->filePathData = FilePathData{ type, confirmButtonName, dialogCaption, "", "", FileEntry{"", "", false}, getFolder, true, this->returnFiles(initialPath), cancelButtonVisible, false, {0}};
+    this->filePathData = FilePathData{ type, confirmButtonName, dialogCaption, "", "", FileEntry{"", "", false}, getFolder, true, this->returnFiles(initialPath), cancelButtonVisible, false, {0}, boost::filesystem::absolute(initialPath).string()};
+    if (type == PathType::ptSaveMap)
+    {
+        // Start the filename input pre-filled with the current map name so the
+        // user can just press Save (instead of "nothing happens" on empty name).
+        std::string suggested = this->map && !this->map->filename.empty()
+            ? boost::filesystem::path(this->map->filename).filename().replace_extension("").string()
+            : "map";
+        snprintf(this->filePathData.inputBuffer, sizeof(this->filePathData.inputBuffer), "%s", suggested.c_str());
+        this->filePathData.file = suggested;
+    }
     return true;
 }
 
@@ -1059,16 +1069,34 @@ bool Manager::updatePathImgui()
             if (ImGui::Selectable(label.c_str(), false, ImGuiSelectableFlags_AllowDoubleClick)) 
             {
                 this->filePathData.currentEntry = (this->filePathData.isFolder && entry.isFolder) || (!this->filePathData.isFolder && !entry.isFolder) ? entry : FileEntry{"", "", false};
+                bool isUpEntry = entry.isFolder && entry.name == "...";
+
+                // The "..." entry carries the parent directory of the CURRENT
+                // listing, so navigate from the tracked currentDirectory and
+                // not from the entry path itself.
+                std::string targetPath = isUpEntry
+                    ? this->filePathData.currentDirectory
+                    : entry.path;
+
                 if (ImGui::IsMouseDoubleClicked(0)) 
                 {
                     if (entry.isFolder) {
-                        this->filePathData.filePath = returnFiles(entry.path);
+                        boost::filesystem::path newDirectory = isUpEntry
+                            ? boost::filesystem::path(this->filePathData.currentDirectory).parent_path()
+                            : boost::filesystem::path(entry.path);
+
+                        if (boost::filesystem::is_directory(newDirectory))
+                        {
+                            this->filePathData.currentDirectory = boost::filesystem::absolute(newDirectory).string();
+                            this->filePathData.filePath = returnFiles(this->filePathData.currentDirectory);
+                        }
+
                         if (this->filePathData.type != PathType::ptMapFolder)
                             this->filePathData.currentEntry = { "", "", false };
                         if (this->filePathData.type == PathType::ptSaveMap)
                         {
-                            this->filePathData.path = entry.path;
-                            this->filePathData.currentEntry = entry;
+                            this->filePathData.path = this->filePathData.currentDirectory;
+                            this->filePathData.currentEntry = FileEntry{ "", this->filePathData.currentDirectory, true };
                         }           
                     }
                     else 
@@ -1108,27 +1136,40 @@ bool Manager::updatePathImgui()
 
         if (ImGui::Button(this->filePathData.confirmButtonName.data(), ImVec2(btnWidth, btnHeight)))
         { 
-            this->filePathData.path = this->filePathData.currentEntry.path;
-            if (this->filePathData.path == "" && this->filePathData.type == PathType::ptSaveMap && !this->filePathData.filePath.empty())
+            // Fall back to the browsed directory when nothing is selected, so
+            // navigation alone never makes the confirm button do nothing.
+            std::string selectedPath = this->filePathData.currentEntry.path;
+            if (selectedPath.empty() || this->filePathData.currentEntry.name == "...")
+                selectedPath = this->filePathData.currentDirectory;
+
+            if (this->filePathData.type == PathType::ptLoadMap
+                && boost::filesystem::is_directory(selectedPath))
             {
-                std::string dotDotPath = this->filePathData.filePath.front().path;
-                this->filePathData.path = boost::filesystem::path(dotDotPath).parent_path().string();
+                this->hud->showMessage("Select a map .json file first!");
             }
-            if (this->filePathData.path != "")
+            else if (!selectedPath.empty())
             {
+                this->filePathData.path = selectedPath;
                 if (this->filePathData.type == PathType::ptSaveMap)
                 {
-                    this->filePathData.overwriteDialog = (boost::filesystem::exists(boost::filesystem::path{ this->filePathData.path } / (this->filePathData.file + ".json")));
-                }
-                if (this->filePathData.overwriteDialog) 
-                {
-                    ImGui::OpenPopup("Overwrite");
+                    if (this->filePathData.file.empty())
+                    {
+                        this->hud->showMessage("Type a map name first!");
+                    }
+                    else
+                    {
+                        this->filePathData.overwriteDialog = (boost::filesystem::exists(boost::filesystem::path{ selectedPath } / (this->filePathData.file + ".json")));
+                        if (!this->filePathData.overwriteDialog)
+                            this->filePathData.active = false;
+                        else
+                            ImGui::OpenPopup("Overwrite");
+                    }
                 }
                 else
-                {     
+                {
                     this->filePathData.active = false;
-                }   
-            }       
+                }
+            }
         }
 
         if (this->filePathData.cancelButtonVisible)
