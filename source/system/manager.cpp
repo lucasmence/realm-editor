@@ -1118,7 +1118,7 @@ bool Manager::updatePathImgui()
             {
                 if (this->filePathData.type == PathType::ptSaveMap)
                 {
-                    this->filePathData.overwriteDialog = (boost::filesystem::exists(boost::filesystem::path{ this->filePathData.path + "\\" + this->filePathData.file + ".json" }));
+                    this->filePathData.overwriteDialog = (boost::filesystem::exists(boost::filesystem::path{ this->filePathData.path } / (this->filePathData.file + ".json")));
                 }
                 if (this->filePathData.overwriteDialog) 
                 {
