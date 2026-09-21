@@ -618,7 +618,8 @@ bool Map::saveMap()
 
 bool Map::saveMapAfter()
 {
-	this->filename += this->manager->filePathData.file != "" ? "\\" + this->manager->filePathData.file + ".json" : "";
+	if (this->manager->filePathData.file != "")
+		this->filename = boost::filesystem::path{ boost::filesystem::path{ this->filename } / this->manager->filePathData.file }.string() + ".json";
 	this->manager->filePathData.file = "";
 
 	if (!boost::filesystem::exists(boost::filesystem::path{ this->filename }.parent_path()))
