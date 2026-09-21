@@ -63,6 +63,7 @@ struct FilePathData
 	bool cancelButtonVisible;
 	bool overwriteDialog;
 	char inputBuffer[256];
+	std::string currentDirectory;
 };
 
 struct ImguiMiscData
