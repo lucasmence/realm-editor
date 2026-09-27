@@ -265,7 +265,7 @@ class Hud
 		char imguiMapVersion[128];
 		char imguiWeatherName[128];
 		char imguiParticles[128];
-		char imguiExtraFields[7][128];
+		char imguiExtraFields[9][128];
 
 	private:
 		

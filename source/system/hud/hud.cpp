@@ -92,7 +92,7 @@ Hud::Hud(Manager* manager)
 	memset(imguiMapVersion, 0, sizeof(imguiMapVersion));
 	memset(imguiWeatherName, 0, sizeof(imguiWeatherName));
 	memset(imguiParticles, 0, sizeof(imguiParticles));
-	for (int i = 0; i < 7; i++)
+	for (int i = 0; i < 9; i++)
 		memset(imguiExtraFields[i], 0, sizeof(imguiExtraFields[i]));
 	strncpy(imguiMapName, "map", sizeof(imguiMapName) - 1);
 	strncpy(imguiMapMusic, "none", sizeof(imguiMapMusic) - 1);
@@ -480,7 +480,7 @@ bool Hud::setEditValue(std::string editName, std::string value)
 		strncpy(imguiParticles, value.c_str(), sizeof(imguiParticles) - 1);
 	}
 	else {
-		for (int index = 0; index < 7; index++) {
+		for (int index = 0; index < 9; index++) {
 			std::string fieldName = "edtExtraField-" + boost::lexical_cast<std::string>(index);
 			if (editName == fieldName) {
 				strncpy(imguiExtraFields[index], value.c_str(), sizeof(imguiExtraFields[index]) - 1);
@@ -1162,6 +1162,7 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 			fields.emplace_back(MapObjectField{ "front", MapObjectFieldString{ "", false}, MapObjectFieldInt{ 0, false }, MapObjectFieldFloat{ 0.f, false }, MapObjectFieldBool{ extraValues.at(0).boolean, true } });
 			fields.emplace_back(MapObjectField{ "variable", MapObjectFieldString{ extraValues.at(1).string, true} });
 			fields.emplace_back(MapObjectField{ "subtype", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(2).integer, true} });
+			fields.emplace_back(MapObjectField{ "sign", MapObjectFieldString{ extraValues.at(3).string, true} });
 			break;
 		}
 		case (PaletteType::ptUnit):
@@ -1189,6 +1190,10 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(4).integer, true } });
 				fields.emplace_back(MapObjectField{ "map", MapObjectFieldString{extraValues.at(5).string, true} });
 				fields.emplace_back(MapObjectField{ "portal-sfx", MapObjectFieldString{extraValues.at(6).string, true} });
+				if (extraValues.at(7).active)
+					fields.emplace_back(MapObjectField{ "lock-time", MapObjectFieldString{ extraValues.at(7).string, true } });
+				if (extraValues.at(8).active)
+					fields.emplace_back(MapObjectField{ "unlock-time", MapObjectFieldString{ extraValues.at(8).string, true } });
 			}
 			else if (this->manager->palette->selectedOrigin == "generator")
 			{
@@ -1593,23 +1598,23 @@ bool Hud::updateExtraEditsValue(std::vector<std::string> caption, std::vector<Ed
 	this->extraFieldOrigins = origin;
 	this->extraFieldRadioOptions = radioOptions;
 	this->gettingExtraValues = true;
-	for (int index = 0; index < 7; index++)
+	for (int index = 0; index < 9; index++)
 		memset(imguiExtraFields[index], 0, sizeof(imguiExtraFields[index]));
-	for (int index = 0; index < (int)value.size() && index < 7; index++)
+	for (int index = 0; index < (int)value.size() && index < 9; index++)
 		strncpy(imguiExtraFields[index], value[index].c_str(), sizeof(imguiExtraFields[index]) - 1);
 	return true;
 }
 
 bool Hud::setExtraEditsValue(std::vector<std::string> value)
 {
-	for (int index = 0; index < (int)value.size() && index < 7; index++)
+	for (int index = 0; index < (int)value.size() && index < 9; index++)
 		strncpy(imguiExtraFields[index], value[index].c_str(), sizeof(imguiExtraFields[index]) - 1);
 	return true;
 }
 
 bool Hud::setExtraEditValue(std::string value, int index)
 {
-	if (index >= 0 && index < 7)
+	if (index >= 0 && index < 9)
 		strncpy(imguiExtraFields[index], value.c_str(), sizeof(imguiExtraFields[index]) - 1);
 	return true;
 }
@@ -1628,6 +1633,7 @@ bool Hud::resetExtraEditsValue()
 			break;
 		case (PaletteType::ptEnvironment):
 			this->setExtraEditValue("", 1);
+			this->setExtraEditValue("", 3);
 			break;
 		case (PaletteType::ptUnit):
 			this->setExtraEditsValue({ "0", "false", "enemy", "", "" });
@@ -1639,7 +1645,7 @@ bool Hud::resetExtraEditsValue()
 std::vector<ImguiEditValue> Hud::getExtraEditsValue()
 {
 	std::vector<ImguiEditValue> values = {};
-	for (int index = 0; index < 7; index++)
+	for (int index = 0; index < 9; index++)
 	{
 		std::string val(imguiExtraFields[index]);
 		ImguiEditValue editValue;
@@ -2558,7 +2564,7 @@ void Hud::imguiRenderToolPanel()
 
 void Hud::renderPropertyEditFields(bool readOnly)
 {
-	for (int index = 0; index < (int)this->extraFieldCaptions.size() && index < 7; index++)
+	for (int index = 0; index < (int)this->extraFieldCaptions.size() && index < 9; index++)
 	{
 		ImGui::Text("%s:", this->extraFieldCaptions[index].c_str()); ImGui::SameLine();
 		std::string fieldId = "##ef" + boost::lexical_cast<std::string>(index);
@@ -2663,7 +2669,7 @@ bool Hud::loadSelectedItemProperties()
 				else if (field.valueBool.active)
 					value = field.valueBool.value ? "true" : "false";
 
-				for (int index = 0; index < 7; index++)
+				for (int index = 0; index < 9; index++)
 					if ((int)this->extraFieldOrigins.size() > index && this->extraFieldOrigins[index] == field.field)
 					{
 						strncpy(imguiExtraFields[index], value.c_str(), sizeof(imguiExtraFields[index]) - 1);
