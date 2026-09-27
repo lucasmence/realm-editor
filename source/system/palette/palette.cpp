@@ -335,19 +335,20 @@ bool Palette::selectPalette(PaletteType type)
         case (PaletteType::ptEnvironment):
         {
             this->loadPaletteItemList(this->environment, "environment");
-            this->manager->hud->updateExtraEditsValue({ "Front", "Variable", "Subtype" }, 
-                                                      { EditType::etBoolean, EditType::etString, EditType::etInteger }, 
-                                                      { "false", "", "0" }, { 5, 48, 9 }, { "front", "variable", "subtype"});
+            this->manager->hud->updateExtraEditsValue({ "Front", "Variable", "Subtype", "Sign" }, 
+                                                      { EditType::etBoolean, EditType::etString, EditType::etInteger, EditType::etString }, 
+                                                      { "false", "", "0", "" }, { 5, 48, 9, 48 }, { "front", "variable", "subtype", "sign"});
             break;
         }
         case (PaletteType::ptUnit):
         {
             this->loadPaletteItemList(this->unit, "unit");
             this->manager->hud->updateExtraEditsValue({ "Group", "Boss", "Alliance", "Item drop", "Variable" }, 
-                                                      { EditType::etInteger, EditType::etBoolean, EditType::etString, EditType::etString, EditType::etString }, 
+                                                      { EditType::etInteger, EditType::etBoolean, EditType::etRadio, EditType::etString, EditType::etString }, 
                                                       { "0", "false", "enemy", "", "" }, 
                                                       { 99, 5, 10, 48, 48 }, 
-                                                      { "group", "boss", "alliance", "item-drop", "variable" });
+                                                      { "group", "boss", "alliance", "item-drop", "variable" },
+                                                      { "Enemy|enemy", "Neutral|neutral", "Ally|ally" });
             break;
         }
         case (PaletteType::ptMerchant):
@@ -472,15 +473,16 @@ bool Palette::selectPaletteItem(int index)
             this->manager->hud->updateExtraEditsValue({ "Default", "index" }, { EditType::etInteger, EditType::etString }, { "0", "" }, { 1, 255 }, {"default", "index"});
         else if (filename == "level")
         {
-            this->manager->hud->updateExtraEditsValue({ "Group", "Index", "Target Index", "Width", "Height", "Map", "Sound"}, 
-                                                      { EditType::etInteger, EditType::etString, EditType::etString, EditType::etInteger, EditType::etInteger, EditType::etString, EditType::etRadio },
-                                                      { "1", "1", "1", "100", "100", "", "none" }, { 99, 255, 255, 999, 999, 255, 0 }, {"group", "index", "target-index", "width", "height", "map", "portal-sfx"},
+            this->manager->hud->updateExtraEditsValue({ "Group", "Index", "Target Index", "Width", "Height", "Map", "Sound", "Lock Time", "Unlock Time"}, 
+                                                      { EditType::etInteger, EditType::etString, EditType::etString, EditType::etInteger, EditType::etInteger, EditType::etString, EditType::etRadio, EditType::etString, EditType::etString },
+                                                      { "1", "1", "1", "100", "100", "", "none", "", "" }, { 99, 255, 255, 999, 999, 255, 0, 0, 0 }, {"group", "index", "target-index", "width", "height", "map", "portal-sfx", "lock-time", "unlock-time"},
                                                       this->getPortalSoundOptions());
         }
         else if (filename == "generator")
             this->manager->hud->updateExtraEditsValue({"Alliance", "Index", "Target X", "Target Y", "Cooldown", "Unit type" },
-                { EditType::etString, EditType::etString, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etString },
-                { "enemy", "1", "0", "0", "5", "" }, {12, 255, 99999, 99999, 9999, 255}, {"alliance", "index", "target-x", "target-y", "cooldown", "unit-type"});
+                { EditType::etRadio, EditType::etString, EditType::etInteger, EditType::etInteger, EditType::etInteger, EditType::etString },
+                { "enemy", "1", "0", "0", "5", "" }, {12, 255, 99999, 99999, 9999, 255}, {"alliance", "index", "target-x", "target-y", "cooldown", "unit-type"},
+                { "Enemy|enemy", "Neutral|neutral", "Ally|ally" });
         else if (filename == "wall")
             this->manager->hud->updateExtraEditsValue({ "Width", "Height", "Index" },
                 { EditType::etInteger, EditType::etInteger, EditType::etString },
