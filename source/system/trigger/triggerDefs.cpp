@@ -124,6 +124,14 @@ const std::vector<TriggerTypeDef> GUI_CONDITION_DEFS =
         P("strings", 0, "Map path", "string", true),
         P("booleans", 0, "Expected visited", "bool", false)
     })),
+    T("portal-is-locked", "A portal is currently locked (manual lock or day/night schedule)", PT({
+        P("integers", 0, "Portal index", "int", true),
+        P("booleans", 0, "Expected locked", "bool", false)
+    })),
+    T("daytime-check", "The current day/night phase matches (day, night or an hour range like 19-5)", PT({
+        P("strings", 0, "Phase (day/night or hours like 19-5)", "string", false),
+        P("booleans", 0, "Expected match", "bool", false)
+    })),
     T("unit-check-type", "A unit has a specific type/filename", PT({
         P("strings", 0, "Type/filename", "string", true),
         P("strings", 1, "Unit name", "string", false)
@@ -382,6 +390,10 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
     T("portal-enable", "Enable or disable a portal", PT({
         P("integers", 0, "Portal index", "int", true),
         P("booleans", 0, "Active", "bool", true)
+    })),
+    T("portal-lock", "Lock or unlock a portal (blocks entering it)", PT({
+        P("integers", 0, "Portal index", "int", true),
+        P("booleans", 0, "Locked", "bool", true)
     })),
     T("set-global-variable", "Set a global boolean variable", PT({
         P("strings", 0, "Variable name", "string", true),
