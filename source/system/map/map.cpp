@@ -920,6 +920,27 @@ bool Map::newMap()
 	return true;
 }
 
+std::string Map::getTriggerTemplatePath()
+{
+	std::string gamePath = this->manager->constant.gamePath;
+
+	std::list<boost::filesystem::path> candidates =
+	{
+		boost::filesystem::path("templates/trigger.json"),
+		boost::filesystem::path(gamePath) / "realm-editor/templates/trigger.json",
+		boost::filesystem::path(gamePath) / "templates/trigger.json"
+	};
+
+	for (const boost::filesystem::path& candidate : candidates)
+	{
+		boost::system::error_code error;
+		if (boost::filesystem::is_regular_file(candidate, error))
+			return Json::convertPathToString(candidate);
+	}
+
+	return "";
+}
+
 bool Map::createTriggerFile()
 {
 	if (this->filename == "")
@@ -928,32 +949,74 @@ bool Map::createTriggerFile()
 		return false;
 	}
 
-	boost::filesystem::path filenameBoost = this->filename, mainPath = this->manager->constant.gamePath + "/templates/";
-	std::string parentPath = Json::convertPathToString(filenameBoost.parent_path()) + "/trigger";
+	std::string templatePath = this->getTriggerTemplatePath();
 
-	if (!boost::filesystem::exists(parentPath))
-		boost::filesystem::create_directory(parentPath);
-	
-	std::string filePath = Json::convertPathToString(mainPath);
+	if (templatePath == "")
+	{
+		this->manager->hud->showMessage("Failed: trigger template not found (templates/trigger.json)!", 5.f);
+		return false;
+	}
 
-	parentPath = parentPath + "/" + Json::convertPathToString(filenameBoost.filename());
+	boost::filesystem::path filenameBoost = this->filename;
+	std::string triggerFolder = Json::convertPathToString(filenameBoost.parent_path()) + "/trigger";
+	std::string triggerPath = triggerFolder + "/" + Json::convertPathToString(filenameBoost.filename());
 
-	if (boost::filesystem::exists(parentPath))
+	boost::system::error_code error;
+
+	if (boost::filesystem::exists(triggerPath, error))
 	{
 		this->manager->hud->showMessage("Failed: The trigger file already exists!");
 		return false;
 	}
 
-	boost::filesystem::copy_file(filePath + "trigger.json", parentPath);
+	boost::filesystem::create_directories(triggerFolder, error);
 
-	std::string originalPath = parentPath, regionField = "data/maps/";
-	boost::erase_all(originalPath, ".json");
+	if (error)
+	{
+		this->manager->hud->showMessage("Failed to create " + triggerFolder + ": " + error.message(), 5.f);
+		return false;
+	}
 
-	std::size_t pos = originalPath.find(regionField);
-	std::string fieldPath = originalPath.substr(pos + regionField.size());
+	boost::filesystem::copy_file(boost::filesystem::path(templatePath), boost::filesystem::path(triggerPath), error);
 
-	this->file["trigger"][0]["script"] = fieldPath;
+	if (error)
+	{
+		boost::filesystem::remove(triggerPath, error);
+		this->manager->hud->showMessage("Failed to copy the trigger template: " + error.message(), 5.f);
+		return false;
+	}
 
-	this->manager->hud->showMessage("Trigger file created! Path -> " + fieldPath, 5.f);
+	std::string mapsFolder = Json::convertPathToString(boost::filesystem::path(this->manager->constant.gamePath) / "data" / "maps") + "/";
+	std::string stemPath = triggerPath;
+
+	if (boost::iends_with(stemPath, ".json"))
+		stemPath = stemPath.substr(0, stemPath.size() - 5);
+
+	if (stemPath.compare(0, mapsFolder.size(), mapsFolder) != 0)
+	{
+		std::size_t pos = stemPath.find("data/maps/");
+
+		if (pos == std::string::npos)
+		{
+			// Keep the created file (it is valid on its own) but do not write
+			// a broken script reference into the map.
+			this->manager->hud->showMessage("Trigger file created, but the map is outside data/maps so it was not linked!", 5.f);
+			return true;
+		}
+
+		stemPath = stemPath.substr(pos + std::string("data/maps/").size());
+	}
+	else
+	{
+		stemPath = stemPath.substr(mapsFolder.size());
+	}
+
+	if (!this->file["trigger"].is_array())
+		this->file["trigger"] = json::array();
+
+	this->file["trigger"] = json::array({ json{ { "script", stemPath } } });
+	this->dirty = true;
+
+	this->manager->hud->showMessage("Trigger file created! Path -> " + stemPath, 5.f);
 	return true;
 }

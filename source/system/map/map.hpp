@@ -118,6 +118,7 @@ class Map
 		bool loadMapAfter();
 		bool newMap();
 		bool reloadMap();
+		std::string getTriggerTemplatePath();
 		bool createTriggerFile();
 		std::string getRelativePath(std::string path, std::string target);
 };
