@@ -99,6 +99,7 @@ class Map
 		std::list<MapObjectField> getSubfieldsFromLine(json line);
 		bool updateMapInfo();
 		int getObjectPriority(MapObjectType type);
+		int getPortalTypePriority(std::string portalType);
 		int getObjectAutoPriority(MapObjectType type);
 		std::vector<std::string> getSubFieldsExceptionsList();
 

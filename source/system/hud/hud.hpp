@@ -76,6 +76,12 @@ class Hud
 		bool itemSelect;
 		bool itemSelected;
 		bool itemSelectedMove;
+
+		// Corner drag-resize of rectangle portals: the 4 handles are shown on
+		// the selected portal and can be held to drag its width/height.
+		bool portalResizeActive;
+		int portalResizeHandle;
+		sf::Vector2f portalResizeAnchor;
 		bool dragCursor;
 		bool gridVisible;
 		bool removeBgVisible;
@@ -99,6 +105,7 @@ class Hud
 		std::shared_ptr<Model> shapeMapArea;
 		std::shared_ptr<Model> shapeMatrix;
 		std::shared_ptr<Model> shapeItemSelected;
+		std::shared_ptr<Model> shapeResizeHandles[4];
 		std::shared_ptr<Model> shapeTerrainFill;
 		std::shared_ptr<Model> itemModelSelected;
 		std::shared_ptr<Model> shapeMinimap;
@@ -146,6 +153,10 @@ class Hud
 		bool isPropertiesEditOpen();
 		bool selectItemDoubleClick(sf::Vector2f cursor);
 		bool updateSelectedPortalShape();
+		bool isPortalResizeable(std::shared_ptr<Model> model);
+		bool portalResizeActivate(sf::Vector2f cursor);
+		bool updatePortalResize(sf::Vector2f cursor);
+		bool portalResizeCommit();
 		bool checkMapClick(sf::Vector2f cursor);
 		bool isMouseOverImgui();
 		void updateImguiPanelRects();

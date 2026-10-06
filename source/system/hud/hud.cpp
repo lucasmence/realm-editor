@@ -38,6 +38,9 @@ Hud::Hud(Manager* manager)
 	this->itemSelect = false;
 	this->itemSelected = false;
 	this->itemSelectedMove = false;
+	this->portalResizeActive = false;
+	this->portalResizeHandle = -1;
+	this->portalResizeAnchor = sf::Vector2f(0.f, 0.f);
 	this->dragCursor = false;
 	this->removeBgVisible = false;
 	this->locked = false;
@@ -120,6 +123,17 @@ Hud::Hud(Manager* manager)
 	this->manager->addView(std::static_pointer_cast<ViewElement>(this->shapeItemSelected));
 	this->shapeItemSelected->visible = false;
 
+	// Corner handles of the selected rectangle portal: small white squares
+	// drawn on top of the selection outline; each one can be held and dragged
+	// to resize the portal like a rectangle in an image editor.
+	for (int handle = 0; handle < 4; handle++)
+	{
+		this->shapeResizeHandles[handle] = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, 0.f), "", 0, false);
+		this->shapeResizeHandles[handle]->loadShape(sf::Vector2f(8.f, 8.f), sf::Color(255, 255, 255, 220));
+		this->manager->addView(std::static_pointer_cast<ViewElement>(this->shapeResizeHandles[handle]));
+		this->shapeResizeHandles[handle]->visible = false;
+	}
+
 	this->shapeMinimap = nullptr;
 	this->itemModelSelected = nullptr;
 
@@ -132,6 +146,9 @@ Hud::~Hud()
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeMapArea));
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeMatrix));
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeItemSelected));
+	for (int handle = 0; handle < 4; handle++)
+		if (this->shapeResizeHandles[handle])
+			this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeResizeHandles[handle]));
 	if (this->shapeTerrainFill)
 		this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeTerrainFill));
 	this->manager->removeView(std::static_pointer_cast<ViewElement>(this->shapeMinimap));
@@ -160,6 +177,8 @@ bool Hud::setLocked(bool value)
 		this->itemSelected = false;
 		this->itemSelectedMove = false;
 		this->itemModelSelected = nullptr;
+		this->portalResizeActive = false;
+		this->portalResizeHandle = -1;
 
 		if (this->shapeMatrix)
 			this->shapeMatrix->visible = false;
@@ -284,6 +303,11 @@ bool Hud::updateClick(sf::Vector2f cursor, bool rightButton)
 		return true;
 	}
 
+	// Holding a corner handle of the selected portal consumes the click: the
+	// drag then resizes the portal instead of spawning/selecting behind it.
+	if (this->portalResizeActivate(cursor))
+		return true;
+
 	this->selectedItemUpdate();
 	this->updateItemSelectedMove(cursor);
 	this->matrixActivate(cursor);
@@ -313,6 +337,14 @@ bool Hud::updateItemSelectedMove(sf::Vector2f cursor)
 bool Hud::updateMouseReleased(sf::Vector2f cursor)
 {
 	this->mousePressed = false;
+	// End of a portal corner drag: write the final width/height into the
+	// object fields so the resized size is saved with the map.
+	if (this->portalResizeActive)
+	{
+		this->portalResizeActive = false;
+		this->portalResizeCommit();
+		return true;
+	}
 	// Released over an ImGui window: cancel the in-progress matrix / terrain
 	// fill drag without generating anything behind the panel.
 	if (this->isMouseOverImgui())
@@ -340,7 +372,9 @@ bool Hud::updateMousePressed(sf::Vector2f cursor)
 	const bool overImgui = this->isMouseOverImgui();
 	// While locked only the drag (camera pan) tool may run: everything else
 	// is handled by the lock checks inside each action below.
-	if (!this->locked && this->spawnPress && !overImgui)
+	if (this->portalResizeActive)
+		return this->updatePortalResize(cursor);
+	else if (!this->locked && this->spawnPress && !overImgui)
 		return this->spawnClick(cursor);
 	else if (this->terrainFillTriggered && !overImgui)
 		return this->updateShapeTerrainFill(cursor);
@@ -355,6 +389,13 @@ bool Hud::updateCursor(sf::Vector2f cursor)
 {
 	// Never show the painting/preview cursor on a locked (read-only) map.
 	if (this->locked)
+	{
+		this->shapeHover->visible = false;
+		return false;
+	}
+	// While dragging a portal corner the ghost cursor would only get in the
+	// way of the resize feedback.
+	if (this->portalResizeActive)
 	{
 		this->shapeHover->visible = false;
 		return false;
@@ -539,6 +580,36 @@ bool Hud::updateHoverMapSize()
 bool Hud::updateHoverGeneral()
 {
 	this->shapeItemSelected->visible = this->itemSelected;
+
+	// Corner handles: shown on the selected rectangle portal and glued to its
+	// four corners every frame so they follow moves and resizes.
+	bool resizeHandlesVisible = !this->locked && this->itemSelected && this->itemModelSelected
+		&& this->isPortalResizeable(this->itemModelSelected);
+	sf::FloatRect selectedBounds(0.f, 0.f, 0.f, 0.f);
+	if (resizeHandlesVisible)
+		selectedBounds = this->itemModelSelected->getGlobalBounds();
+
+	for (int handle = 0; handle < 4; handle++)
+	{
+		if (!this->shapeResizeHandles[handle])
+			continue;
+
+		this->shapeResizeHandles[handle]->visible = resizeHandlesVisible;
+		if (!resizeHandlesVisible)
+			continue;
+
+		sf::Vector2f corner;
+		switch (handle)
+		{
+			case 0: corner = sf::Vector2f(selectedBounds.left, selectedBounds.top); break;
+			case 1: corner = sf::Vector2f(selectedBounds.left + selectedBounds.width, selectedBounds.top); break;
+			case 2: corner = sf::Vector2f(selectedBounds.left, selectedBounds.top + selectedBounds.height); break;
+			default: corner = sf::Vector2f(selectedBounds.left + selectedBounds.width, selectedBounds.top + selectedBounds.height); break;
+		}
+
+		this->shapeResizeHandles[handle]->setPosition(corner - sf::Vector2f(4.f, 4.f));
+	}
+
 	if (this->shapeMinimap && this->shapeMinimap->shape)
 		std::static_pointer_cast<sf::RectangleShape>(this->shapeMinimap->shape)->setSize(sf::Vector2f(this->manager->minimapViewArea.width / 2.f, this->manager->minimapViewArea.height / 2.f));
 	return true;
@@ -1265,6 +1336,12 @@ std::list<MapObjectField> Hud::getExtraEditValuesByType()
 				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
 				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{ extraValues.at(2).string, true } });
 			}
+			else if (this->manager->palette->selectedOrigin == "chunk")
+			{
+				fields.emplace_back(MapObjectField{ "width", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(0).integer, true } });
+				fields.emplace_back(MapObjectField{ "height", MapObjectFieldString{"", false}, MapObjectFieldInt{ extraValues.at(1).integer, true } });
+				fields.emplace_back(MapObjectField{ "index", MapObjectFieldString{ extraValues.at(2).string, true } });
+			}
 			break;
 		}
 	}
@@ -1371,7 +1448,9 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 					objectType = MapObjectType::motPortal;
 					paletteTypeField = "";
 					texture = "";
-					priorityValue = this->manager->map->getObjectPriority(objectType);
+					// Use the type-specific priority: "chunk" portals must render
+					// below every other element, including terrain.
+					priorityValue = this->manager->map->getPortalTypePriority(this->manager->palette->selectedOrigin);
 					std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, tilesetPosition, "", priorityValue, false, "", this->manager->palette->selectedOrigin);
 
 					if (this->manager->palette->selectedOrigin == "spawner")
@@ -1397,6 +1476,8 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 					else if (this->manager->palette->selectedOrigin == "guardian")
 						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(0).integer, extraValues.at(1).integer));
 					else if (this->manager->palette->selectedOrigin == "waygate")
+						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(0).integer, extraValues.at(1).integer));
+					else if (this->manager->palette->selectedOrigin == "chunk")
 						this->manager->palette->loadPaletteShape(model, this->manager->palette->selectedOrigin, sf::Vector2f(extraValues.at(0).integer, extraValues.at(1).integer));
 
 					model->setOrigin(tilesetOrigin);
@@ -2786,6 +2867,167 @@ bool Hud::updateSelectedPortalShape()
 			this->shapeItemSelected->setPosition(object.model->getPosition());
 			return true;
 		}
+	return false;
+}
+
+// A portal can be corner-resized when it is drawn as a rectangle shape (all
+// sized portals: level, wall, region, teleporter, slider, crusher, connector,
+// exit, guardian, waygate, chunk). Circle portals (spawner, generator) have no
+// width/height fields to resize.
+bool Hud::isPortalResizeable(std::shared_ptr<Model> model)
+{
+	if (!model || !model->shape || model->shapeType != ShapeType::stRectangle)
+		return false;
+
+	for (auto& object : this->manager->map->objects)
+		if (object.model == model)
+			return object.type == MapObjectType::motPortal;
+
+	return false;
+}
+
+// Mouse press over one of the four corner handles of the selected portal:
+// arms the resize drag and stores the opposite corner as the fixed anchor.
+// Returns true when the press was consumed so no other click action runs.
+bool Hud::portalResizeActivate(sf::Vector2f cursor)
+{
+	this->portalResizeActive = false;
+
+	if (this->locked || this->mouseRightButton)
+		return false;
+	if (!this->itemSelected || !this->itemModelSelected)
+		return false;
+	if (!this->isPortalResizeable(this->itemModelSelected))
+		return false;
+
+	// Slight padding around each handle so grabbing it is forgiving.
+	for (int handle = 0; handle < 4; handle++)
+	{
+		if (!this->shapeResizeHandles[handle] || !this->shapeResizeHandles[handle]->visible)
+			continue;
+
+		sf::FloatRect bounds = this->shapeResizeHandles[handle]->getGlobalBounds();
+		bounds.left -= 4.f;
+		bounds.top -= 4.f;
+		bounds.width += 8.f;
+		bounds.height += 8.f;
+
+		if (!bounds.contains(cursor))
+			continue;
+
+		sf::FloatRect portal = this->itemModelSelected->getGlobalBounds();
+
+		switch (handle)
+		{
+			case 0: this->portalResizeAnchor = sf::Vector2f(portal.left + portal.width, portal.top + portal.height); break;
+			case 1: this->portalResizeAnchor = sf::Vector2f(portal.left, portal.top + portal.height); break;
+			case 2: this->portalResizeAnchor = sf::Vector2f(portal.left + portal.width, portal.top); break;
+			default: this->portalResizeAnchor = sf::Vector2f(portal.left, portal.top); break;
+		}
+
+		this->portalResizeHandle = handle;
+		this->portalResizeActive = true;
+		return true;
+	}
+
+	return false;
+}
+
+// Live update of the resize drag: the rectangle is rebuilt between the fixed
+// anchor corner and the cursor, with a small minimum size so a portal can
+// never collapse to zero.
+bool Hud::updatePortalResize(sf::Vector2f cursor)
+{
+	if (!this->portalResizeActive || !this->itemModelSelected)
+		return false;
+	if (!this->isPortalResizeable(this->itemModelSelected))
+		return false;
+
+	float left = this->portalResizeAnchor.x;
+	float top = this->portalResizeAnchor.y;
+	float right = this->portalResizeAnchor.x;
+	float bottom = this->portalResizeAnchor.y;
+
+	switch (this->portalResizeHandle)
+	{
+		case 0: left = cursor.x; top = cursor.y; break;
+		case 1: right = cursor.x; top = cursor.y; break;
+		case 2: left = cursor.x; bottom = cursor.y; break;
+		default: right = cursor.x; bottom = cursor.y; break;
+	}
+
+	if (right < left)
+		std::swap(left, right);
+	if (bottom < top)
+		std::swap(top, bottom);
+
+	const float minimumSize = 8.f;
+	if (right - left < minimumSize)
+		right = left + minimumSize;
+	if (bottom - top < minimumSize)
+		bottom = top + minimumSize;
+
+	sf::Vector2f size(right - left, bottom - top);
+	sf::Vector2f origin = this->itemModelSelected->shape->getOrigin();
+
+	std::static_pointer_cast<sf::RectangleShape>(this->itemModelSelected->shape)->setSize(size);
+	this->itemModelSelected->setPosition(sf::Vector2f(left + origin.x, top + origin.y));
+
+	// Keep the selection outline glued to the resized rectangle.
+	std::static_pointer_cast<sf::RectangleShape>(this->shapeItemSelected->shape)->setSize(size);
+	this->shapeItemSelected->setPosition(this->itemModelSelected->getPosition());
+	return true;
+}
+
+// End of the resize drag: writes the final width/height back into the
+// object's fields (keeping the type each field was loaded with) so the map is
+// saved with the new size, and refreshes the property panel buffers.
+bool Hud::portalResizeCommit()
+{
+	if (!this->itemModelSelected)
+		return false;
+
+	for (auto& object : this->manager->map->objects)
+	{
+		if (object.model != this->itemModelSelected)
+			continue;
+
+		sf::FloatRect bounds = object.model->getGlobalBounds();
+		int width = (int)bounds.width;
+		int height = (int)bounds.height;
+		bool updated = false;
+
+		for (auto& field : object.fields)
+		{
+			int value = 0;
+			if (field.field == "width")
+				value = width;
+			else if (field.field == "height")
+				value = height;
+			else
+				continue;
+
+			if (field.valueInt.active)
+				field.valueInt.value = value;
+			else if (field.valueFloat.active)
+				field.valueFloat.value = (float)value;
+			else if (field.valueString.active)
+				field.valueString.value = boost::lexical_cast<std::string>(value);
+			else
+				field.valueInt = MapObjectFieldInt{ value, true };
+
+			updated = true;
+		}
+
+		if (updated)
+		{
+			this->manager->map->dirty = true;
+			this->loadSelectedItemProperties();
+			this->showMessage("Portal resized to " + boost::lexical_cast<std::string>(width) + "x" + boost::lexical_cast<std::string>(height));
+		}
+
+		return updated;
+	}
 	return false;
 }
 

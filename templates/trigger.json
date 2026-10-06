@@ -1,36 +1,23 @@
 {
-    "trigger":
+    "environments-drop": [],
+    "item-drop": [],
+    "item-drop-list": [],
+    
+    "trigger": 
     [
-
-    ],
-    "item-drop":
-    [
-
-    ],
-    "item-drop-list":
-    [
-        
-    ],
-    "procedural": false,
-    "procedural-list": "",
-    "procedural-room-size": 10,
-    "procedural-exit-door": "",
-    "unit-spawn-range": 500,
-    "unit-spawn-limit": 10,
-    "unit-spawn":
-    [
-        
-    ],
-    "merchant-spawn-chance": 0.25,
-    "merchant-spawn":
-    [
-
-    ],
-    "exit": "",
-    "special-exits-chance": 0.25,
-    "special-exits":
-    [
-
+        {
+            "events":  
+            [
+                {"event": "initialization"}
+            ],
+            "conditions":  
+            [
+                 
+            ],
+            "then":  
+            [  
+                 
+            ]
+        }
     ]
-
 }

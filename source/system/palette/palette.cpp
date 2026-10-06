@@ -46,7 +46,7 @@ bool Palette::loadPalettes()
     this->unit = this->manager->loadFileLists("characters");
     this->merchant = this->manager->loadFileLists("merchants/stores");
     this->item = this->manager->loadFileLists("items");
-    this->portal = {"spawner", "level", "generator", "wall", "region", "teleporter", "slider", "crusher", "connector", "exit", "guardian", "waygate"};
+    this->portal = {"spawner", "level", "generator", "wall", "region", "teleporter", "slider", "crusher", "connector", "exit", "guardian", "waygate", "chunk"};
 
     this->environment = this->manager->loadFileLists("textures/environment");
 
@@ -216,6 +216,13 @@ bool Palette::loadPaletteShape(std::shared_ptr<Model> model, std::string filenam
             model->loadShape(sf::Vector2f(32.f, 0), sf::Color(255, 200, 100, 100));
         else
             model->loadShape(size, sf::Color(255, 200, 100, 100));
+    }
+    if (filename == "chunk")
+    {
+        if (size.x <= 0.f && size.y <= 0.f)
+            model->loadShape(sf::Vector2f(32.f, 0), sf::Color(120, 80, 50, 100));
+        else
+            model->loadShape(size, sf::Color(120, 80, 50, 100));
     }
 
     return true;
@@ -475,7 +482,7 @@ bool Palette::selectPaletteItem(int index)
         {
             this->manager->hud->updateExtraEditsValue({ "Group", "Index", "Target Index", "Width", "Height", "Map", "Sound", "Lock Time", "Unlock Time"}, 
                                                       { EditType::etInteger, EditType::etString, EditType::etString, EditType::etInteger, EditType::etInteger, EditType::etString, EditType::etRadio, EditType::etString, EditType::etString },
-                                                      { "1", "1", "1", "100", "100", "", "none", "", "" }, { 99, 255, 255, 999, 999, 255, 0, 0, 0 }, {"group", "index", "target-index", "width", "height", "map", "portal-sfx", "lock-time", "unlock-time"},
+                                                      { "1", "1", "1", "64", "64", "", "none", "", "" }, { 99, 255, 255, 999, 999, 255, 0, 0, 0 }, {"group", "index", "target-index", "width", "height", "map", "portal-sfx", "lock-time", "unlock-time"},
                                                       this->getPortalSoundOptions());
         }
         else if (filename == "generator")
@@ -516,6 +523,10 @@ bool Palette::selectPaletteItem(int index)
                 { EditType::etInteger, EditType::etInteger },
                 { "64", "64"}, { 99999, 99999}, { "width", "height"});
         else if (filename == "waygate")
+            this->manager->hud->updateExtraEditsValue({ "Width", "Height", "Index" },
+                { EditType::etInteger, EditType::etInteger, EditType::etString },
+                { "64", "64", "0" }, { 99999, 99999, 255 }, { "width", "height", "index" });
+        else if (filename == "chunk")
             this->manager->hud->updateExtraEditsValue({ "Width", "Height", "Index" },
                 { EditType::etInteger, EditType::etInteger, EditType::etString },
                 { "64", "64", "0" }, { 99999, 99999, 255 }, { "width", "height", "index" });

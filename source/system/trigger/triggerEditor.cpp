@@ -689,28 +689,26 @@ bool TriggerEditor::saveCurrentFile()
 std::string TriggerEditor::defaultTriggerTemplate() const
 {
     return R"({
-    "trigger":
+    "environments-drop": [],
+    "item-drop": [],
+    "item-drop-list": [],
+    
+    "trigger": 
     [
         {
-            "events":
+            "events":  
             [
+                {"event": "initialization"}
             ],
-            "conditions":
+            "conditions":  
             [
+                 
             ],
-            "then":
-            [
+            "then":  
+            [  
+                 
             ]
         }
-    ],
-    "item-drop":
-    [
-    ],
-    "item-drop-list":
-    [
-    ],
-    "environments-drop":
-    [
     ]
 }
 )";

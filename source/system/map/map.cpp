@@ -106,6 +106,17 @@ int Map::getObjectAutoPriority(MapObjectType type)
 	return priority;
 }
 
+// Portals are all drawn in the same layer, except "chunk": it must always
+// render below every other element, including terrain (higher priority =
+// drawn first = further back in the editor render list).
+int Map::getPortalTypePriority(std::string portalType)
+{
+	if (portalType == "chunk")
+		return this->getObjectPriority(MapObjectType::motTerrain) + 1;
+
+	return this->getObjectPriority(MapObjectType::motPortal);
+}
+
 std::string Map::getOriginFromField(json line, MapObjectType type)
 {
 	switch (type)
@@ -811,6 +822,12 @@ bool Map::loadMapAfter()
 			for (int dimensionIndex = 0; dimensionIndex < this->file[field][index][dimensionField].size(); dimensionIndex++)
 			{
 				int priorityIndex = priority + this->file[field][index][dimensionField][dimensionIndex].value("priority", 0);
+
+				// Portals never store a "priority" field in the map file; the
+				// render priority comes from the portal type instead so "chunk"
+				// portals stay below the terrain after save/load.
+				if (type == MapObjectType::motPortal)
+					priorityIndex = this->getPortalTypePriority(this->file[field][index].value("type", ""));
 
 				sf::Vector2f position(this->file[field][index][dimensionField][dimensionIndex].value("x", 0.f),
 					this->file[field][index][dimensionField][dimensionIndex].value("y", 0.f));
