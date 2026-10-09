@@ -943,9 +943,9 @@ std::string Map::getTriggerTemplatePath()
 
 	std::list<boost::filesystem::path> candidates =
 	{
-		boost::filesystem::path("templates/trigger.json"),
-		boost::filesystem::path(gamePath) / "realm-editor/templates/trigger.json",
-		boost::filesystem::path(gamePath) / "templates/trigger.json"
+		boost::filesystem::path("templates/trigger.yaml"),
+		boost::filesystem::path(gamePath) / "realm-editor/templates/trigger.yaml",
+		boost::filesystem::path(gamePath) / "templates/trigger.yaml"
 	};
 
 	for (const boost::filesystem::path& candidate : candidates)
@@ -970,13 +970,13 @@ bool Map::createTriggerFile()
 
 	if (templatePath == "")
 	{
-		this->manager->hud->showMessage("Failed: trigger template not found (templates/trigger.json)!", 5.f);
+		this->manager->hud->showMessage("Failed: trigger template not found (templates/trigger.yaml)!", 5.f);
 		return false;
 	}
 
 	boost::filesystem::path filenameBoost = this->filename;
 	std::string triggerFolder = Json::convertPathToString(filenameBoost.parent_path()) + "/trigger";
-	std::string triggerPath = triggerFolder + "/" + Json::convertPathToString(filenameBoost.filename());
+	std::string triggerPath = triggerFolder + "/" + Json::convertPathToString(filenameBoost.stem()) + ".yaml";
 
 	boost::system::error_code error;
 
@@ -1006,7 +1006,7 @@ bool Map::createTriggerFile()
 	std::string mapsFolder = Json::convertPathToString(boost::filesystem::path(this->manager->constant.gamePath) / "data" / "maps") + "/";
 	std::string stemPath = triggerPath;
 
-	if (boost::iends_with(stemPath, ".json"))
+	if (boost::iends_with(stemPath, ".yaml"))
 		stemPath = stemPath.substr(0, stemPath.size() - 5);
 
 	if (stemPath.compare(0, mapsFolder.size(), mapsFolder) != 0)

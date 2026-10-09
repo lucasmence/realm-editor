@@ -34,13 +34,13 @@ static const ImU32 COLOR_SELECTION   = IM_COL32( 38,  79, 120, 110);
 static const ImU32 COLOR_CARET       = IM_COL32(235, 235, 235, 255);
 
 // Indentation unit used by auto-indent and the Format button (matches the
-// 4-space dump used everywhere in the project's JSON files).
-static const int INDENT = 4;
+// 2-space layout written by Json::dumpYaml).
+static const int INDENT = 2;
 
 // Undo/redo history limit (per open file).
 static const int HISTORY_LIMIT = 200;
 
-// The Trigger Editor renders dense content (JSON text and trigger block
+// The Trigger Editor renders dense content (YAML text and trigger block
 // lists), so its font is ~40% smaller than the regular menu font.
 static const float GUI_FONT_SCALE = 0.6f;
 
@@ -58,132 +58,222 @@ static const float GUI_GROUP_MIN_HEIGHT = 170.f;
 static const float GUI_GROUP_VIEWPORT_FRACTION = 0.24f;
 
 // ---------------------------------------------------------------------------
-// JSON tokenizer (used by the syntax highlighter)
+// YAML tokenizer (used by the syntax highlighter)
 // ---------------------------------------------------------------------------
-enum class JsonTokenType
-{
-    Key,
-    String,
-    Number,
-    Boolean,
-    Null,
-    Punctuation,
-    Other
-};
-
-struct JsonToken
-{
-    int start;
-    int end;
-    JsonTokenType type;
-};
 
 static bool isIdentChar(char c)
 {
     return std::isalnum((unsigned char)c) != 0 || c == '_' || c == '-' || c == '.';
 }
 
-static std::vector<JsonToken> tokenizeJson(const std::string &text)
+enum class YamlTokenType
 {
-    std::vector<JsonToken> tokens;
-    const int n = (int)text.size();
-    int i = 0;
+    Key,
+    String,
+    Number,
+    Boolean,
+    Null,
+    Punctuation, // "-", ":", flow indicators and anchors/tags
+    Comment,
+    Other
+};
 
+struct YamlToken
+{
+    int start;
+    int end;
+    YamlTokenType type;
+};
+
+// The trigger files are YAML documents, so the highlighter works line by line:
+// a "key:" prefix colors the key, the rest of the line is the value. Bare
+// scalars are classified by content (numbers, booleans, null), quoted strings
+// keep their token and "#" starts a comment until the end of the line.
+static std::vector<YamlToken> tokenizeYaml(const std::string &text)
+{
+    std::vector<YamlToken> tokens;
+    const int n = (int)text.size();
+
+    int i = 0;
     while (i < n)
     {
-        char c = text[i];
+        // Line bounds.
+        int lineStart = i;
+        int lineEnd = lineStart;
+        while (lineEnd < n && text[lineEnd] != '\n')
+            ++lineEnd;
 
-        if (c == '"')
+        // Indentation and the optional "- " sequence markers.
+        int cursor = lineStart;
+        while (cursor < lineEnd && (text[cursor] == ' ' || text[cursor] == '\t'))
+            ++cursor;
+
+        bool lineIsItem = false;
+        while (cursor < lineEnd && text[cursor] == '-')
         {
-            int start = i;
-            ++i;
-            bool closed = false;
-            while (i < n)
+            // A "-" is a list marker when followed by a space or end of line
+            // (otherwise it is part of a negative number or a plain scalar).
+            if (cursor + 1 >= lineEnd || text[cursor + 1] == ' ' || text[cursor + 1] == '\t')
             {
-                if (text[i] == '\\')
+                tokens.push_back(YamlToken{ cursor, cursor + 1, YamlTokenType::Punctuation });
+                lineIsItem = true;
+                ++cursor;
+                while (cursor < lineEnd && (text[cursor] == ' ' || text[cursor] == '\t'))
+                    ++cursor;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        if (lineIsItem && cursor >= lineEnd)
+        {
+            i = lineEnd + 1;
+            continue;
+        }
+
+        // A key is the first plain scalar of the line followed by ":"
+        // ("key: value") or by the end of the line ("key:"). Comment lines
+        // ("# ...") are left to the value tokenizer below.
+        int keyStart = cursor;
+        if (cursor < lineEnd && text[cursor] != '#' && text[cursor] != ':')
+        {
+            while (cursor < lineEnd && text[cursor] != ':' && text[cursor] != ' ' && text[cursor] != '\t')
+                ++cursor;
+            int keyEnd = cursor;
+            while (cursor < lineEnd && (text[cursor] == ' ' || text[cursor] == '\t'))
+                ++cursor;
+
+            if (keyEnd > keyStart && cursor < lineEnd && text[cursor] == ':')
+            {
+                tokens.push_back(YamlToken{ keyStart, keyEnd, YamlTokenType::Key });
+                tokens.push_back(YamlToken{ cursor, cursor + 1, YamlTokenType::Punctuation });
+                ++cursor;
+                while (cursor < lineEnd && (text[cursor] == ' ' || text[cursor] == '\t'))
+                    ++cursor;
+            }
+            else
+            {
+                cursor = keyStart;
+            }
+        }
+
+        // The remaining line is the value ("key: value", "- value" or a
+        // continuation line). Classify it token by token.
+        bool inComment = false;
+        while (cursor < lineEnd)
+        {
+            char c = text[cursor];
+
+            if (inComment)
+            {
+                ++cursor;
+                continue;
+            }
+
+            if (c == '#')
+            {
+                inComment = true;
+                int end = cursor;
+                while (end < lineEnd)
+                    ++end;
+                tokens.push_back(YamlToken{ cursor, end, YamlTokenType::Comment });
+                cursor = end;
+                continue;
+            }
+
+            if (c == '"' || c == '\'')
+            {
+                char quote = c;
+                int start = cursor;
+                ++cursor;
+                while (cursor < lineEnd)
                 {
-                    i += 2;
-                    continue;
+                    if (quote == '"' && text[cursor] == '\\')
+                    {
+                        cursor += 2;
+                        continue;
+                    }
+                    if (text[cursor] == quote)
+                    {
+                        ++cursor;
+                        break;
+                    }
+                    ++cursor;
                 }
-                if (text[i] == '"')
+                tokens.push_back(YamlToken{ start, std::min(cursor, lineEnd), YamlTokenType::String });
+                continue;
+            }
+
+            if (c == '-' || (c >= '0' && c <= '9'))
+            {
+                int start = cursor;
+                ++cursor;
+                while (cursor < lineEnd)
                 {
-                    ++i;
-                    closed = true;
-                    break;
+                    char d = text[cursor];
+                    if ((d >= '0' && d <= '9') || d == '.' || d == 'e' || d == 'E' || d == '+' || d == '-')
+                        ++cursor;
+                    else
+                        break;
                 }
-                ++i;
+                tokens.push_back(YamlToken{ start, cursor, YamlTokenType::Number });
+                continue;
             }
 
-            JsonTokenType type = closed ? JsonTokenType::String : JsonTokenType::Other;
-
-            // A string followed by ':' (skipping whitespace) is an object key.
-            if (closed)
+            if (c == '{' || c == '}' || c == '[' || c == ']' || c == ',' || c == '*'
+                || c == '&' || c == '!' || c == '|' || c == '>' || c == '%')
             {
-                int j = i;
-                while (j < n && (text[j] == ' ' || text[j] == '\t'))
-                    ++j;
-                if (j < n && text[j] == ':')
-                    type = JsonTokenType::Key;
+                tokens.push_back(YamlToken{ cursor, cursor + 1, YamlTokenType::Punctuation });
+                ++cursor;
+                continue;
             }
 
-            tokens.push_back(JsonToken{ start, i, type });
-        }
-        else if (c == '-' || (c >= '0' && c <= '9'))
-        {
-            int start = i;
-            ++i;
-            while (i < n)
+            if (std::isalpha((unsigned char)c) || c == '_')
             {
-                char d = text[i];
-                if ((d >= '0' && d <= '9') || d == '.' || d == 'e' || d == 'E' || d == '+' || d == '-')
-                    ++i;
-                else
-                    break;
+                int start = cursor;
+                while (cursor < lineEnd && isIdentChar(text[cursor]))
+                    ++cursor;
+
+                std::string word = text.substr(start, cursor - start);
+                YamlTokenType type = YamlTokenType::Other;
+                if (word == "true" || word == "false")
+                    type = YamlTokenType::Boolean;
+                else if (word == "null" || word == "~")
+                    type = YamlTokenType::Null;
+                tokens.push_back(YamlToken{ start, cursor, type });
+                continue;
             }
-            tokens.push_back(JsonToken{ start, i, JsonTokenType::Number });
+
+            ++cursor;
         }
-        else if (text.compare(i, 4, "true") == 0 && (i + 4 >= n || !isIdentChar(text[i + 4])))
-        {
-            tokens.push_back(JsonToken{ i, i + 4, JsonTokenType::Boolean });
-            i += 4;
-        }
-        else if (text.compare(i, 5, "false") == 0 && (i + 5 >= n || !isIdentChar(text[i + 5])))
-        {
-            tokens.push_back(JsonToken{ i, i + 5, JsonTokenType::Boolean });
-            i += 5;
-        }
-        else if (text.compare(i, 4, "null") == 0 && (i + 4 >= n || !isIdentChar(text[i + 4])))
-        {
-            tokens.push_back(JsonToken{ i, i + 4, JsonTokenType::Null });
-            i += 4;
-        }
-        else if (c == '{' || c == '}' || c == '[' || c == ']' || c == ':' || c == ',')
-        {
-            tokens.push_back(JsonToken{ i, i + 1, JsonTokenType::Punctuation });
-            ++i;
-        }
-        else
-        {
-            ++i; // whitespace and stray characters produce no token
-        }
+
+        i = lineEnd + 1;
     }
 
     return tokens;
 }
 
-static ImU32 tokenColor(JsonTokenType type)
+static ImU32 yamlTokenColor(YamlTokenType type)
 {
     switch (type)
     {
-        case JsonTokenType::Key:         return COLOR_KEY;
-        case JsonTokenType::String:      return COLOR_STRING;
-        case JsonTokenType::Number:      return COLOR_NUMBER;
-        case JsonTokenType::Boolean:     return COLOR_BOOLEAN;
-        case JsonTokenType::Null:        return COLOR_BOOLEAN;
-        case JsonTokenType::Punctuation: return COLOR_PUNCT;
+        case YamlTokenType::Key:         return COLOR_KEY;
+        case YamlTokenType::String:      return COLOR_STRING;
+        case YamlTokenType::Number:      return COLOR_NUMBER;
+        case YamlTokenType::Boolean:     return COLOR_BOOLEAN;
+        case YamlTokenType::Null:        return COLOR_BOOLEAN;
+        case YamlTokenType::Punctuation: return COLOR_PUNCT;
+        case YamlTokenType::Comment:     return COLOR_LINE_NUMBER;
         default:                         return COLOR_BROKEN;
     }
 }
+
+// ---------------------------------------------------------------------------
+// UTF-8 helpers (the editor buffer is UTF-8; cursor positions are byte
+// offsets, display columns are counted in code points)
+// ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // UTF-8 helpers (the editor buffer is UTF-8; cursor positions are byte
@@ -454,7 +544,7 @@ bool TriggerEditor::openMapSession(const std::string &ref)
     size_t slash = scriptRef.find_last_of('/');
     this->triggerFolderRef = (slash == std::string::npos) ? "" : scriptRef.substr(0, slash);
     std::string mainStem = (slash == std::string::npos) ? scriptRef : scriptRef.substr(slash + 1);
-    this->mainTriggerFile = mainStem + ".json";
+    this->mainTriggerFile = mainStem + ".yaml";
     this->triggerFolderPath = this->gamePath + "/data/maps/"
                               + (this->triggerFolderRef.empty() ? "" : this->triggerFolderRef + "/");
 
@@ -499,7 +589,7 @@ void TriggerEditor::resetSession()
     this->undoStack.clear();
     this->redoStack.clear();
     this->parseError.clear();
-    this->jsonValid = true;
+    this->yamlValid = true;
     this->guiTab = GuiTab::Visual;
     this->guiTriggers.clear();
     this->guiRoot = json();
@@ -525,7 +615,7 @@ void TriggerEditor::refreshTriggerFileList()
             return;
 
         for (auto &entry : boost::filesystem::directory_iterator(dir))
-            if (boost::filesystem::is_regular_file(entry.status()) && entry.path().extension() == ".json")
+            if (boost::filesystem::is_regular_file(entry.status()) && entry.path().extension() == ".yaml")
                 this->triggerFileList.push_back(entry.path().filename().string());
     }
     catch (...)
@@ -554,8 +644,9 @@ void TriggerEditor::openTriggerFile(const std::string &filename)
     this->selectionStart = -1;
     this->undoStack.clear();
     this->redoStack.clear();
-    this->validateJson();
+    this->validateYaml();
     this->openTriggerFileGui();
+    this->logSyntaxWarnings();
     this->addLog("[info] " + this->getLanguage("OPENED") + ": " + path, 0x88CCFFFF);
 }
 
@@ -571,7 +662,7 @@ void TriggerEditor::openTriggerFileGui()
     this->guiPopup.open = false;
     this->guiPopup.error.clear();
 
-    if (this->jsonToGui())
+    if (this->textToGui())
     {
         this->guiTab = GuiTab::Visual;
         this->guiConvertible = true;
@@ -590,8 +681,8 @@ void TriggerEditor::createTriggerFile(const std::string &name)
     std::string trimmed = name;
     boost::trim(trimmed);
 
-    // Accept "name" or "name.json", validate the stem.
-    if (boost::iends_with(trimmed, ".json"))
+    // Accept "name" or "name.yaml", validate the stem.
+    if (boost::iends_with(trimmed, ".yaml"))
         trimmed = trimmed.substr(0, trimmed.size() - 5);
     boost::trim(trimmed);
 
@@ -609,7 +700,7 @@ void TriggerEditor::createTriggerFile(const std::string &name)
         return;
     }
 
-    std::string filename = trimmed + ".json";
+    std::string filename = trimmed + ".yaml";
     std::string path = this->triggerFolderPath + filename;
 
     if (boost::filesystem::exists(path))
@@ -683,35 +774,24 @@ bool TriggerEditor::saveCurrentFile()
 
     this->dirty = false;
     this->addLog("[ok] " + this->getLanguage("SAVED") + ": " + this->currentFilePath, 0x55FF88FF);
+    if (!this->yamlValid)
+        this->addLog("[erro] " + this->getLanguage("INVALID") + ": " + this->parseError, 0xFF6060FF);
+    this->logSyntaxWarnings();
     return true;
 }
 
 std::string TriggerEditor::defaultTriggerTemplate() const
 {
-    return R"({
-    "environments-drop": [],
-    "item-drop": [],
-    "item-drop-list": [],
-    
-    "trigger": 
-    [
-        {
-            "events":  
-            [
-                {"event": "initialization"}
-            ],
-            "conditions":  
-            [
-                 
-            ],
-            "then":  
-            [  
-                 
-            ]
-        }
-    ]
-}
-)";
+    return R"YAML(environments-drop: []
+item-drop: []
+item-drop-list: []
+
+trigger:
+  - events:
+      - event: "initialization"
+    conditions: []
+    then: []
+)YAML";
 }
 
 // ---------------------------------------------------------------------------
@@ -770,29 +850,229 @@ bool TriggerEditor::performAction(const std::string &action, const std::string &
 // JSON editor widget
 // ---------------------------------------------------------------------------
 
-void TriggerEditor::validateJson()
+namespace
+{
+    // Levenshtein distance, used for "did you mean" suggestions.
+    size_t editDistance(const std::string &a, const std::string &b)
+    {
+        std::vector<size_t> row(b.size() + 1);
+        for (size_t j = 0; j <= b.size(); ++j)
+            row[j] = j;
+
+        for (size_t i = 1; i <= a.size(); ++i)
+        {
+            size_t previous = row[0];
+            row[0] = i;
+            for (size_t j = 1; j <= b.size(); ++j)
+            {
+                size_t current = row[j];
+                size_t cost = (a[i - 1] == b[j - 1]) ? 0 : 1;
+                row[j] = std::min({ row[j] + 1, row[j - 1] + 1, previous + cost });
+                previous = current;
+            }
+        }
+
+        return row[b.size()];
+    }
+
+    // Closest known name to `value`, or "" when nothing is close enough.
+    std::string closestName(const std::string &value, const std::vector<std::string> &names)
+    {
+        std::string best;
+        size_t bestDistance = 0;
+        for (const auto &name : names)
+        {
+            size_t distance = editDistance(value, name);
+            if (best.empty() || distance < bestDistance)
+            {
+                best = name;
+                bestDistance = distance;
+            }
+        }
+
+        size_t limit = std::max<size_t>(2, value.size() / 3);
+        return (!best.empty() && bestDistance <= limit) ? best : "";
+    }
+
+    std::string suggestionSuffix(const std::string &value, const std::vector<std::string> &names)
+    {
+        std::string hint = closestName(value, names);
+        return hint.empty() ? "" : ". Did you mean \"" + hint + "\"?";
+    }
+
+    std::vector<std::string> keysOf(const std::vector<TriggerTypeDef> &defs)
+    {
+        std::vector<std::string> keys;
+        for (const auto &def : defs)
+            keys.push_back(def.key);
+        return keys;
+    }
+}
+
+// Structural checks on a parsed trigger document. Each problem becomes a
+// warning with a hint (the closest valid name when there is a typo). Warnings
+// do not block saving; they are logged and counted in the status line.
+void TriggerEditor::checkTriggerSyntax(const json &root)
+{
+    this->syntaxWarnings.clear();
+
+    const auto warn = [this](const std::string &message)
+    {
+        this->syntaxWarnings.push_back(message);
+    };
+
+    if (!root.is_object())
+    {
+        warn("The document must be a YAML mapping (key: value) at the top level.");
+        return;
+    }
+
+    if (!root.contains("trigger") || root["trigger"].is_null())
+    {
+        warn("Missing top-level \"trigger\" list. Add: trigger: []");
+        return;
+    }
+
+    if (!root["trigger"].is_array())
+    {
+        warn("\"trigger\" must be a list: each block starts with \"- \" under it.");
+        return;
+    }
+
+    const std::vector<std::string> blockKeys = { "events", "conditions", "conditions-or", "then", "else" };
+    const std::vector<std::string> fieldNames = { "floatValue", "integerValue", "unitName", "text",
+                                                  "strings", "integers", "floats", "booleans" };
+    const std::vector<std::string> listFields = { "strings", "integers", "floats", "booleans" };
+
+    struct ListRule
+    {
+        const char *key;      // list inside the block
+        const char *typeKey;  // field holding the type name inside each entry
+        const char *kind;     // label used in messages
+        const std::vector<TriggerTypeDef> *defs;
+    };
+
+    const ListRule rules[] = {
+        { "events", "event", "event", &GUI_EVENT_DEFS },
+        { "conditions", "condition", "condition", &GUI_CONDITION_DEFS },
+        { "conditions-or", "condition", "condition", &GUI_CONDITION_DEFS },
+        { "then", "action", "action", &GUI_ACTION_DEFS },
+        { "else", "action", "action", &GUI_ACTION_DEFS }
+    };
+
+    int blockIndex = 0;
+    for (const auto &block : root["trigger"])
+    {
+        ++blockIndex;
+        const std::string where = "trigger block " + std::to_string(blockIndex);
+
+        if (!block.is_object())
+        {
+            warn(where + ": each block must be a mapping with events / conditions / then.");
+            continue;
+        }
+
+        for (auto it = block.begin(); it != block.end(); ++it)
+            if (std::find(blockKeys.begin(), blockKeys.end(), it.key()) == blockKeys.end())
+                warn(where + ": unknown key \"" + it.key() + "\"" + suggestionSuffix(it.key(), blockKeys));
+
+        for (const auto &rule : rules)
+        {
+            if (!block.contains(rule.key) || block[rule.key].is_null())
+                continue;
+
+            if (!block[rule.key].is_array())
+            {
+                warn(where + ": \"" + rule.key + "\" must be a list (\"- \" items).");
+                continue;
+            }
+
+            const std::vector<std::string> knownNames = keysOf(*rule.defs);
+            int entryIndex = 0;
+            for (const auto &entry : block[rule.key])
+            {
+                ++entryIndex;
+                const std::string entryWhere = where + ", " + rule.key + " item " + std::to_string(entryIndex);
+
+                if (!entry.is_object())
+                {
+                    warn(entryWhere + ": must be a mapping with a \"" + rule.typeKey + "\" key.");
+                    continue;
+                }
+
+                if (!entry.contains(rule.typeKey) || !entry[rule.typeKey].is_string())
+                {
+                    warn(entryWhere + ": missing \"" + rule.typeKey + "\". Example: "
+                         + rule.typeKey + ": \"" + (knownNames.empty() ? "" : knownNames.front()) + "\"");
+                    continue;
+                }
+
+                const std::string name = entry[rule.typeKey].get<std::string>();
+                if (guiFindDef(*rule.defs, name) == nullptr)
+                    warn(entryWhere + ": unknown " + rule.kind + " \"" + name + "\""
+                         + suggestionSuffix(name, knownNames));
+
+                for (auto field = entry.begin(); field != entry.end(); ++field)
+                {
+                    const std::string key = field.key();
+                    if (key == rule.typeKey)
+                        continue;
+
+                    if (std::find(fieldNames.begin(), fieldNames.end(), key) == fieldNames.end())
+                        warn(entryWhere + ": unknown field \"" + key + "\"" + suggestionSuffix(key, fieldNames));
+                }
+
+                for (const auto &listField : listFields)
+                {
+                    if (!entry.contains(listField) || entry[listField].is_null())
+                        continue;
+
+                    if (!entry[listField].is_array())
+                    {
+                        warn(entryWhere + ": \"" + listField + "\" must be a list of { value: ... } items.");
+                        continue;
+                    }
+
+                    for (const auto &item : entry[listField])
+                        if (!item.is_object() || !item.contains("value"))
+                            warn(entryWhere + ": every item of \"" + listField + "\" needs a value. Example: - value: 0");
+                }
+            }
+        }
+    }
+}
+
+void TriggerEditor::logSyntaxWarnings()
+{
+    for (const auto &warning : this->syntaxWarnings)
+        this->addLog("[warn] " + warning, 0xFFCC66FF);
+}
+
+void TriggerEditor::validateYaml()
 {
     this->parseError.clear();
     this->parseErrorLine = 0;
     this->parseErrorCol = 0;
+    this->syntaxWarnings.clear();
 
     if (this->text.empty())
     {
-        this->jsonValid = true;
+        this->yamlValid = true;
         return;
     }
 
     try
     {
-        json parsed = json::parse(this->text);
-        (void)parsed;
-        this->jsonValid = true;
+        json parsed = Json::parseYaml(this->text);
+        this->yamlValid = true;
+        this->checkTriggerSyntax(parsed);
     }
-    catch (const json::parse_error &e)
+    catch (const std::exception &e)
     {
-        this->jsonValid = false;
+        this->yamlValid = false;
         this->parseError = e.what();
 
+        // fkYAML reports the position as "(at line L, column C)".
         std::string msg = e.what();
         size_t pos = msg.find("at line ");
         if (pos != std::string::npos)
@@ -806,15 +1086,15 @@ void TriggerEditor::validateJson()
     }
     catch (...)
     {
-        this->jsonValid = false;
+        this->yamlValid = false;
         this->parseError = "parse error";
     }
 }
 
-void TriggerEditor::formatJson()
+void TriggerEditor::formatYaml()
 {
-    this->validateJson();
-    if (!this->jsonValid)
+    this->validateYaml();
+    if (!this->yamlValid)
     {
         this->showError("[erro] " + this->getLanguage("INVALID") + ": " + this->parseError);
         return;
@@ -822,13 +1102,13 @@ void TriggerEditor::formatJson()
 
     try
     {
-        json parsed = json::parse(this->text);
+        json parsed = Json::parseYaml(this->text);
         this->snapshotUndo();
-        this->text = parsed.dump(4);
+        this->text = Json::dumpYaml(parsed);
         this->cursorPos = 0;
         this->selectionStart = -1;
         this->dirty = true;
-        this->validateJson();
+        this->validateYaml();
         this->addLog("[info] " + this->getLanguage("FORMATTED"), 0x88CCFFFF);
     }
     catch (...)
@@ -1147,7 +1427,7 @@ void TriggerEditor::renderEditorText(ImVec2 base)
     int lastLine = std::min(lines - 1, firstLine + this->editorVisibleLines);
 
     // Line numbers + tokens.
-    std::vector<JsonToken> tokens = tokenizeJson(this->text);
+    std::vector<YamlToken> tokens = tokenizeYaml(this->text);
 
     for (int line = firstLine; line <= lastLine; ++line)
     {
@@ -1176,7 +1456,7 @@ void TriggerEditor::renderEditorText(ImVec2 base)
             float x = base.x + this->editorGutterW - this->scrollX
                       + (float)this->utf8Columns(s) * this->editorCharW;
             drawList->AddText(ImGui::GetFont(), ImGui::GetFontSize(), ImVec2(x, y),
-                              tokenColor(token.type), this->text.c_str() + s, this->text.c_str() + e);
+                              yamlTokenColor(token.type), this->text.c_str() + s, this->text.c_str() + e);
         }
     }
 
@@ -1250,7 +1530,7 @@ void TriggerEditor::renderEditorStatus()
     float scale = this->imguiScale;
 
     // Left: JSON validity.
-    if (this->jsonValid)
+    if (this->yamlValid)
     {
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.45f, 0.85f, 0.45f, 1.0f));
         ImGui::TextUnformatted(this->getLanguage("VALID").c_str());
@@ -1266,6 +1546,15 @@ void TriggerEditor::renderEditorStatus()
                                        .c_str());
         else
             ImGui::TextUnformatted(this->getLanguage("INVALID").c_str());
+        ImGui::PopStyleColor();
+    }
+
+    // Structure warnings (typos, missing fields); the file still saves.
+    if (!this->syntaxWarnings.empty())
+    {
+        ImGui::SameLine(0.f, 24.f * scale);
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.8f, 0.4f, 1.0f));
+        ImGui::TextUnformatted((std::to_string(this->syntaxWarnings.size()) + " warning(s) - see log").c_str());
         ImGui::PopStyleColor();
     }
 
@@ -1299,7 +1588,7 @@ void TriggerEditor::renderEditorStatus()
 
 // Raw JSON editor body (status line + code editor). Rendered inside the JSON
 // tab so the custom key/mouse handling never runs while the GUI tab is active.
-void TriggerEditor::renderJsonBody()
+void TriggerEditor::renderYamlBody()
 {
     float scale = this->imguiScale;
 
@@ -1411,12 +1700,12 @@ void TriggerEditor::renderEditor()
     {
         ImGuiTabItemFlags flags = (this->guiTab == target) ? ImGuiTabItemFlags_SetSelected : 0;
         bool tab = ImGui::BeginTabItem((target == GuiTab::Visual) ? "GUI"
-                                        : (target == GuiTab::Misc) ? "Misc" : "JSON",
+                                        : (target == GuiTab::Misc) ? "Misc" : "YAML",
                                        nullptr, flags);
         bool clicked = ImGui::IsItemClicked();
         if (clicked && this->guiTab != target)
         {
-            if (!needsConversion || this->jsonToGui())
+            if (!needsConversion || this->textToGui())
                 this->guiTab = target;
             else
             {
@@ -1441,7 +1730,7 @@ void TriggerEditor::renderEditor()
     else if (this->guiTab == GuiTab::Misc)
         this->renderGuiMiscEditor();
     else
-        this->renderJsonBody();
+        this->renderYamlBody();
 
     // Log panel below the editor, inside the right panel.
     ImGui::Separator();
@@ -1566,7 +1855,7 @@ void TriggerEditor::renderToolbar()
     if (!formatEnabled)
         ImGui::BeginDisabled();
     if (ImGui::Button(this->getLanguage("FORMAT").c_str(), ImVec2(130.f * scale, 32.f * scale)))
-        this->formatJson();
+        this->formatYaml();
     if (!formatEnabled)
         ImGui::EndDisabled();
 
@@ -1708,7 +1997,7 @@ std::vector<GuiEntry> &TriggerEditor::guiEntryList(GuiKind kind, GuiTrigger &tri
 // Parses this->text into the GUI model. Returns false (and stores a message)
 // when the JSON cannot be represented in the visual editor; in that case the
 // user must fix the JSON before switching to the GUI tab.
-bool TriggerEditor::jsonToGui()
+bool TriggerEditor::textToGui()
 {
     this->guiTriggers.clear();
     this->guiConvertError.clear();
@@ -1716,10 +2005,10 @@ bool TriggerEditor::jsonToGui()
 
     try
     {
-        json root = json::parse(this->text);
+        json root = Json::parseYaml(this->text);
         if (!root.is_object())
         {
-            this->guiConvertError = "The trigger file must be a JSON object.";
+            this->guiConvertError = "The trigger file must be a YAML mapping (key: value).";
             this->guiConvertible = false;
             return false;
         }
@@ -1794,7 +2083,7 @@ bool TriggerEditor::jsonToGui()
             if (!this->guiConvertible)
                 return false;
             trigger.conditions.insert(trigger.conditions.end(), conditionsOr.begin(), conditionsOr.end());
-            // group matches guiToJson: 0 = then, 1 = else (same convention as
+            // group matches guiToText: 0 = then, 1 = else (same convention as
             // the popup branch radios and the GuiEntry.group documentation).
             trigger.actions = parseList("then", "action", 0);
             if (!this->guiConvertible)
@@ -1811,13 +2100,13 @@ bool TriggerEditor::jsonToGui()
             this->guiTriggers.push_back(GuiTrigger());
         return true;
     }
-    catch (const json::parse_error &e)
+    catch (const std::exception &e)
     {
-        this->guiConvertError = std::string("Invalid JSON: ") + e.what();
+        this->guiConvertError = std::string("Invalid YAML: ") + e.what();
     }
     catch (...)
     {
-        this->guiConvertError = "Invalid JSON.";
+        this->guiConvertError = "Invalid YAML.";
     }
 
     this->guiConvertible = false;
@@ -1826,7 +2115,7 @@ bool TriggerEditor::jsonToGui()
 
 // Regenerates this->text from the GUI model, keeping every non-trigger field
 // of the document (item-drop, environments-drop, player-characters, ...).
-void TriggerEditor::guiToJson()
+void TriggerEditor::guiToText()
 {
     json root = this->guiRoot;
     if (!root.is_object())
@@ -1882,15 +2171,15 @@ void TriggerEditor::guiToJson()
 
     root["trigger"] = triggers;
     this->guiRoot = root;
-    this->text = root.dump(4) + "\n";
+    this->text = Json::dumpYaml(root);
 }
 
 // Called after every GUI mutation: keeps the raw JSON text in sync with the
 // visual model (the JSON tab is updated in real time).
 void TriggerEditor::guiSyncText()
 {
-    this->guiToJson();
-    this->validateJson();
+    this->guiToText();
+    this->validateYaml();
     this->dirty = true;
     this->caretTimer = 0.f;
 }
@@ -3077,7 +3366,7 @@ bool TriggerEditor::updateImpl()
                 // the discard popup by requestAction).
                 std::string trimmed = this->newFileName;
                 boost::trim(trimmed);
-                if (boost::iends_with(trimmed, ".json"))
+                if (boost::iends_with(trimmed, ".yaml"))
                     trimmed = trimmed.substr(0, trimmed.size() - 5);
                 boost::trim(trimmed);
 
@@ -3090,7 +3379,7 @@ bool TriggerEditor::updateImpl()
                     }
 
                 bool exists = !trimmed.empty()
-                              && boost::filesystem::exists(this->triggerFolderPath + trimmed + ".json");
+                              && boost::filesystem::exists(this->triggerFolderPath + trimmed + ".yaml");
 
                 if (!valid)
                     this->createError = this->getLanguage("INVALID-NAME");

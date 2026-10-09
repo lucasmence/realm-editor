@@ -1,0 +1,9 @@
+environments-drop: []
+item-drop: []
+item-drop-list: []
+
+trigger:
+  - events:
+      - event: "initialization"
+    conditions: []
+    then: []

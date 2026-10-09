@@ -34,6 +34,7 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE 
     "source/system/external/imgui"
     "source/system/external/nlohmann"
+    "source/system/external/fkYAML"
     "source/system/external/RichText"
     "source/system/hud"
     "source/system/library"

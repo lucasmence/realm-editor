@@ -14,10 +14,10 @@ struct ImFont; // forward declaration (Dear ImGui)
 // ---------------------------------------------------------------------------
 // Visual (GUI) editing model
 //
-// A trigger file is a JSON document whose "trigger" array holds one or more
+// A trigger file is a YAML document whose "trigger" list holds one or more
 // trigger blocks. Each block has events, conditions and actions. The GUI
-// editor edits those blocks through typed rows and regenerates the raw JSON
-// text on every change (the JSON tab stays in sync in real time).
+// editor edits those blocks through typed rows and regenerates the raw YAML
+// text on every change (the YAML tab stays in sync in real time).
 // ---------------------------------------------------------------------------
 
 enum class GuiKind { Event, Condition, Action };
@@ -62,16 +62,17 @@ struct GuiPopupState
 // ---------------------------------------------------------------------------
 // Trigger Editor (realm-editor tool, launched by Grimsolf with --trigger-editor)
 //
-// ImGui tool that edits the trigger JSON files linked to a map
-// (<gamePath>/data/maps/<map>.json -> <gamePath>/data/maps/<dir>/trigger/<map>.json,
-// following the "script" field of the map's "trigger" array, e.g. meadows.json).
+// ImGui tool that edits the trigger YAML files linked to a map
+// (<gamePath>/data/maps/<map>.json -> <gamePath>/data/maps/<dir>/trigger/<map>.yaml,
+// following the "script" field of the map's "trigger" array, e.g. meadows.yaml).
 //
 // Flow:
 //   1. Map select  - pick one of the maps under <gamePath>/data/maps/.
 //   2. Open/create - the editor resolves (or creates and links) the map's
 //                    main trigger file and opens it.
-//   3. Edit        - a JSON text editor with syntax highlighting, auto
-//                    indentation and a live JSON validity check, plus a
+//   3. Edit        - a YAML text editor with syntax highlighting, auto
+//                    indentation, a live YAML validity check and structure
+//                    warnings (unknown names get a "did you mean" hint), plus a
 //                    sidebar that lists every trigger file in the same folder
 //                    (the main file can reference others through the
 //                    "script" entries of its own "trigger" array). New files
@@ -137,8 +138,8 @@ class TriggerEditor
         // ---- trigger session (resolved once the map is chosen) ----
         std::string triggerFolderRef;       // folder ref relative to data/maps ("custom/trigger")
         std::string triggerFolderPath;      // "<gamePath>/data/maps/custom/trigger/"
-        std::string mainTriggerFile;        // filename of the map-linked trigger ("meadows.json")
-        std::vector<std::string> triggerFileList; // .json files inside the trigger folder
+        std::string mainTriggerFile;        // filename of the map-linked trigger ("meadows.yaml")
+        std::vector<std::string> triggerFileList; // .yaml files inside the trigger folder
 
         // ---- open file state ----
         std::string currentFile;            // filename inside the trigger folder
@@ -159,10 +160,11 @@ class TriggerEditor
         std::vector<std::string> redoStack;
 
         // ---- live JSON validation ----
-        bool jsonValid = true;
+        bool yamlValid = true;
         std::string parseError;
         int parseErrorLine = 0;
         int parseErrorCol = 0;
+        std::vector<std::string> syntaxWarnings; // structure / name warnings of the open file
 
         // ---- visual (GUI) mode ----
         // Active editor tab: GUI edits the trigger blocks, Misc edits the
@@ -235,13 +237,13 @@ class TriggerEditor
         void renderSidebar();
         void renderToolbar();
         void renderLog();
-        void renderJsonBody();   // raw JSON editor content (inside the JSON tab)
+        void renderYamlBody();   // raw JSON editor content (inside the JSON tab)
 
         // visual (GUI) editor
         void renderGuiEditor();
         void renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries);
-        bool jsonToGui();                  // parse this->text into guiTriggers
-        void guiToJson();                  // regenerate this->text from guiTriggers
+        bool textToGui();                  // parse this->text into guiTriggers
+        void guiToText();                  // regenerate this->text from guiTriggers
         std::string guiDescription(GuiKind kind, const std::string &type) const;
         std::string guiEntryValues(GuiKind kind, const GuiEntry &entry) const; // compact values summary
         const std::vector<TriggerTypeDef> &guiDefs(GuiKind kind) const;
@@ -257,7 +259,7 @@ class TriggerEditor
         bool guiMiscEditArray(json &value);
         bool guiMiscEditObject(json &value);
         void guiMiscAddArrayElement(json &value);
-        void guiSyncText();                // guiToJson + validate + dirty + log
+        void guiSyncText();                // guiToText + validate + dirty + log
         void guiMoveEntry(std::vector<GuiEntry> &entries, int index, int direction);
         void guiDeleteEntry(std::vector<GuiEntry> &entries, int index);
         std::vector<GuiEntry> &guiEntryList(GuiKind kind, GuiTrigger &trigger);
@@ -265,8 +267,10 @@ class TriggerEditor
         // JSON editor widget
         void renderEditor();
         void renderEditorStatus();
-        void validateJson();
-        void formatJson();
+        void validateYaml();
+        void formatYaml();
+        void checkTriggerSyntax(const json &root);  // fills syntaxWarnings
+        void logSyntaxWarnings();
         void handleEditorKeys();
         void handleEditorMouse(ImVec2 base);
         void renderEditorText(ImVec2 base);
