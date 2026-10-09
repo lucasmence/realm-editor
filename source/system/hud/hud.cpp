@@ -3259,6 +3259,23 @@ void Hud::imguiRenderPropertiesEditWindow()
 			this->showPropertiesEditWindow = false;
 			ImGui::CloseCurrentPopup();
 		}
+
+		// Grow the popup to fit every property row plus the OK/Cancel buttons
+		// so the last fields are never hidden behind a scrollbar, even when a
+		// smaller size was restored from config.txt. This only ever grows the
+		// window (the user can still drag it larger); the final size in use is
+		// persisted when the popup closes.
+		const float contentBottom = ImGui::GetItemRectMax().y - ImGui::GetWindowPos().y;
+		float neededHeight = contentBottom + ImGui::GetStyle().WindowPadding.y;
+		// Never grow past the display: if there are more fields than fit on
+		// screen the popup stays scrollable instead of pushing the
+		// OK/Cancel buttons off the visible area.
+		const float maxHeight = ImGui::GetIO().DisplaySize.y;
+		if (neededHeight > maxHeight)
+			neededHeight = maxHeight;
+		if (ImGui::GetWindowSize().y < neededHeight)
+			ImGui::SetWindowSize(ImVec2(ImGui::GetWindowSize().x, neededHeight));
+
 		ImGui::EndPopup();
 	}
 
