@@ -57,6 +57,7 @@ struct GuiPopupState
     std::vector<float> floatsBuf;
     std::vector<bool> boolsBuf;
     std::string error;
+    float fixedBodyH = 0.f;      // height of everything above the params child
 };
 
 // ---------------------------------------------------------------------------
@@ -179,6 +180,10 @@ class TriggerEditor
         std::string guiConvertError;
         GuiPopupState guiPopup;
         bool guiDeleteBlockOpen = false;    // confirm removing the selected block
+        bool guiHideMemos = false;          // hide the event/condition/action list panels
+        bool guiHideEvents = false;         // hide the Events memo only
+        bool guiHideConditions = false;     // hide the Conditions memo only
+        bool guiHideActions = false;        // hide the Actions memo only
 
         // ---- per-frame editor layout (computed in renderEditor) ----
         float editorCharW = 8.f;

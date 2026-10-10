@@ -44,18 +44,17 @@ static const int HISTORY_LIMIT = 200;
 // lists), so its font is ~40% smaller than the regular menu font.
 static const float GUI_FONT_SCALE = 0.6f;
 
-// The Add/Edit registration popup covers ~60% of the screen (with a floor so
-// it stays usable on small viewports); the type lookup list takes ~38% of the
-// popup height, the rest goes to the parameter editors.
-static const float GUI_POPUP_SIZE_FRACTION = 0.6f;
+// The Add/Edit registration popup fits its content: the search box, the
+// type lookup (max 6 rows, longer lists scroll inside that child) and the
+// parameter editors (scrollable child) are measured from real layout, so the
+// Save/Cancel bar always stays visible without scrolling the popup itself.
+static const float GUI_POPUP_MAX_WIDTH_FRACTION = 0.6f;
 static const float GUI_POPUP_MIN_WIDTH = 640.f;
 static const float GUI_POPUP_MIN_HEIGHT = 480.f;
-static const float GUI_TYPE_LIST_HEIGHT_FRACTION = 0.38f;
-
-// Minimum height of each group list in the visual editor; it also grows with
-// the viewport (24% of the screen height).
-static const float GUI_GROUP_MIN_HEIGHT = 170.f;
-static const float GUI_GROUP_VIEWPORT_FRACTION = 0.24f;
+static const float GUI_TYPE_LIST_MAX_ROWS = 6.f;
+static const float GUI_TYPE_LIST_MIN_ROWS = 3.f;
+static const float GUI_PARAMS_MIN_ROWS = 5.f;
+static const float GUI_PARAMS_MIN_PX = 150.f;
 
 // ---------------------------------------------------------------------------
 // YAML tokenizer (used by the syntax highlighter)
@@ -2413,16 +2412,34 @@ void TriggerEditor::renderGuiPopup()
     }
     std::string caption = std::string(this->guiPopup.editing ? "Edit " : "Add ") + kindLabel;
 
-    // The registration popup is deliberately large (~60% of the screen) so the
-    // type lookup and the parameter editors have room to breathe. The search
-    // box, the lookup list and the parameter group all stretch to the popup
-    // width (the bordered "group" around them is the child window frame).
-    ImVec2 popupSize(std::max(GUI_POPUP_MIN_WIDTH, this->viewportW * GUI_POPUP_SIZE_FRACTION),
-                     std::max(GUI_POPUP_MIN_HEIGHT, this->viewportH * GUI_POPUP_SIZE_FRACTION));
+    // Popup height is driven by the content measured on the previous frame
+    // (everything above the params child + its computed height + the
+    // Save/Cancel bar). With that fit, the popup itself never scrolls and
+    // Save/Cancel always stay on screen.
+    const ImGuiStyle &style = ImGui::GetStyle();
+    float textH = ImGui::GetTextLineHeight();
+    float inputH = ImGui::GetFrameHeight();
+    float sp = style.ItemSpacing.y;
+    float padY = style.WindowPadding.y * 2.f;
+    float listRowH = textH + sp;
+
+    // Available height for the params child: viewport minus header rows
+    // (measured last frame) minus the Save/Cancel bar and paddings.
+    float saveBarH = inputH;
+    float paramsAvail = this->viewportH * 0.97f
+                        - this->guiPopup.fixedBodyH
+                        - saveBarH
+                        - padY - sp;
+    float paramsH = std::max(paramsAvail, std::max(GUI_PARAMS_MIN_ROWS * (inputH + sp), GUI_PARAMS_MIN_PX));
+
+    float popupH = this->guiPopup.fixedBodyH + paramsH + saveBarH + padY + sp;
+    popupH = std::max(popupH, GUI_POPUP_MIN_HEIGHT);
+    popupH = std::min(popupH, this->viewportH * 0.97f);
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 6.0f * scale);
     ImGui::OpenPopup("##trigger-gui-entry");
-    ImGui::SetNextWindowSize(popupSize, ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(std::max(GUI_POPUP_MIN_WIDTH, this->viewportW * GUI_POPUP_MAX_WIDTH_FRACTION),
+                                    popupH), ImGuiCond_Always);
     if (ImGui::BeginPopupModal("##trigger-gui-entry", nullptr,
                                ImGuiWindowFlags_NoSavedSettings))
     {
@@ -2439,7 +2456,20 @@ void TriggerEditor::renderGuiPopup()
         std::string filter = this->guiPopup.search;
         boost::to_lower(filter);
 
-        float listHeight = popupSize.y * GUI_TYPE_LIST_HEIGHT_FRACTION;
+        // Show at most 6 types at a time (minimum 3 rows); longer lists
+        // scroll inside this child so the popup itself never scrolls.
+        int visibleCount = 0;
+        for (const auto &def : defs)
+        {
+            std::string hay = def.description + " " + def.key;
+            std::string low = hay;
+            boost::to_lower(low);
+            if (filter.empty() || low.find(filter) != std::string::npos)
+                ++visibleCount;
+        }
+        float listRows = std::max((float)visibleCount, GUI_TYPE_LIST_MIN_ROWS);
+        listRows = std::min(listRows, GUI_TYPE_LIST_MAX_ROWS);
+        float listHeight = listRows * listRowH;
         ImGui::BeginChild("##gui-type-list", ImVec2(0, listHeight), true);
         for (const auto &def : defs)
         {
@@ -2475,7 +2505,11 @@ void TriggerEditor::renderGuiPopup()
             ImGui::PopStyleColor();
             ImGui::Separator();
 
-            ImGui::BeginChild("##gui-params", ImVec2(0, 0), true);
+            // Body height so far (header rows above the params child) is
+            // used by the next frame to compute the popup size.
+            this->guiPopup.fixedBodyH = ImGui::GetCursorPosY() + style.WindowPadding.y;
+
+            ImGui::BeginChild("##gui-params", ImVec2(0, paramsH), true);
 
             // Group selector for conditions (and/or) and actions (then/else).
             if (this->guiPopup.kind == GuiKind::Condition)
@@ -2911,6 +2945,20 @@ void TriggerEditor::guiMiscAddArrayElement(json &value)
     }
 }
 
+// Height a group memo needs to show every row without a scrollbar: the rows
+// plus the spacing between them, plus the panel padding and border.
+static float guiGroupContentHeight(const std::vector<GuiEntry> &entries)
+{
+    ImGuiStyle &style = ImGui::GetStyle();
+    float padding = style.WindowPadding.y * 2.f + 2.f;
+    if (entries.empty())
+        return ImGui::GetTextLineHeight() + padding;
+    float rowH = ImGui::GetFrameHeight();
+    return rowH * (float)entries.size()
+         + style.ItemSpacing.y * (float)(entries.size() - 1)
+         + padding;
+}
+
 void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
 {
     
@@ -2924,6 +2972,35 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
         case GuiKind::Action:    title = "Actions";    break;
     }
 
+    bool hideMemo = false;
+    switch (kind)
+    {
+        case GuiKind::Event:     hideMemo = this->guiHideEvents;     break;
+        case GuiKind::Condition: hideMemo = this->guiHideConditions; break;
+        case GuiKind::Action:    hideMemo = this->guiHideActions;    break;
+    }
+
+    // Collapse toggle (arrow) right after the title: "v" expands, ">" shows
+    // the panel is collapsed. Every memo keeps its own toggle, and the count
+    // of entries stays visible even when the list is hidden.
+    // The ## suffix gives each toggle a unique ImGui ID: a shared label ("v"/
+    // ">") made all three buttons collide on the same ID and the click acted
+    // on the wrong memo (conditions only worked after events was clicked).
+    std::string toggleId = hideMemo ? ">##expand-" : "v##collapse-";
+    toggleId += title;
+    if (ImGui::SmallButton(toggleId.c_str()))
+    {
+        switch (kind)
+        {
+            case GuiKind::Event:     this->guiHideEvents = !this->guiHideEvents;     break;
+            case GuiKind::Condition: this->guiHideConditions = !this->guiHideConditions; break;
+            case GuiKind::Action:    this->guiHideActions = !this->guiHideActions;    break;
+        }
+    }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip(hideMemo ? "Show the %s list" : "Hide the %s list", title);
+
+    ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     ImGui::TextUnformatted((std::string(title) + "  (" + toStr((int)entries.size()) + ")").c_str());
     ImGui::PopStyleColor();
@@ -2938,9 +3015,21 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Add %s", title);
 
-    float listHeight = std::max(GUI_GROUP_MIN_HEIGHT * scale,
-                                this->viewportH * GUI_GROUP_VIEWPORT_FRACTION);
-    ImGui::BeginChild((std::string("##gui-list-") + title).c_str(), ImVec2(0, listHeight), true);
+    // The memo panels can be hidden through the toolbar toggle (all) or
+    // through the arrow button in each group header (one at a time).
+    if (this->guiHideMemos || hideMemo)
+    {
+        ImGui::Separator();
+        return;
+    }
+
+    // The memo is always exactly as tall as its content: every row is visible
+    // without an internal scrollbar (the user asked for no scrolling inside
+    // the memos). When all three lists together exceed the available space,
+    // the parent panel's own scrollbar keeps everything reachable.
+    float listHeight = guiGroupContentHeight(entries);
+    ImGui::BeginChild((std::string("##gui-list-") + title).c_str(), ImVec2(0, listHeight), true,
+                      ImGuiWindowFlags_NoScrollbar);
     if (entries.empty())
     {
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
@@ -3068,9 +3157,21 @@ void TriggerEditor::renderGuiEditor()
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Add Action");
 
+    // Toggle that hides every memo panel (events, conditions and actions).
+    ImGui::SameLine();
+    if (ImGui::Button(this->guiHideMemos ? "Show memos" : "Hide memos",
+                      ImVec2(0, 30.f * scale)))
+        this->guiHideMemos = !this->guiHideMemos;
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip(this->guiHideMemos ? "Show the event, condition and action lists"
+                                             : "Hide the event, condition and action lists");
+
     ImGui::Separator();
 
     GuiTrigger &trigger = this->guiTriggers[this->guiTriggerIndex];
+
+    // ---- memos: each one is exactly as tall as its content (no scrolling
+    // inside the memos); the panel's own scrollbar handles overflow. ----
     this->renderGuiGroup(GuiKind::Event, trigger.events);
     this->renderGuiGroup(GuiKind::Condition, trigger.conditions);
     this->renderGuiGroup(GuiKind::Action, trigger.actions);
