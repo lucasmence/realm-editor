@@ -9,6 +9,9 @@
 #include "../external/imgui/imgui.h"
 #include "../external/imgui/imgui-SFML.h"
 #include "../external/imgui/imgui_internal.h"
+#include "../trigger/triggerEditor.hpp"
+#include "../spriteFusion/spriteFusion.hpp"
+#include "../library/json.hpp"
 
 Hud::Hud(Manager* manager)
 {
@@ -2256,6 +2259,11 @@ void Hud::imguiRenderCommandPalette()
 
 bool Hud::imguiRender()
 {
+	// Tools opened from the "Tools" menu run in their own SFML/ImGui window
+	// and pump their own loop each frame from here (so the main editor window
+	// simply keeps drawing behind them).
+	this->updateToolWindow(Hud::ToolKind::None);
+
 	this->imguiRenderMenuBar();
 	this->imguiRenderToolPanel();
 	this->imguiRenderPropertiesEditWindow();
@@ -2268,6 +2276,158 @@ bool Hud::imguiRender()
 	this->imguiRenderTerrainLayers();
 	this->imguiRenderPropContextMenu();
 	return true;
+}
+
+// ---------------------------------------------------------------------------
+// "Tools" menu: opens the embedded tools (Trigger Editor / Sprite Fusion)
+// in their own window. The windowing and font setup mirror TriggerApp /
+// SpriteFusionApp so the tools behave exactly like the standalone (Grimsolf
+// --trigger-editor / --sprite-fusion) launches, but from this editor process.
+// ---------------------------------------------------------------------------
+static std::string hudToolConstantValue(const json &file, const std::string &key)
+{
+	if (!file.is_object() || !file.contains("DATA") || !file["DATA"].is_array())
+		return "";
+	for (const auto &item : file["DATA"])
+		if (item.is_object() && item.value("key", "") == key)
+			return item.value("value", "");
+	return "";
+}
+
+void Hud::updateToolWindow(Hud::ToolKind kind)
+{
+	if (kind != ToolKind::None)
+	{
+		// Launch request from the menu: close any running tool and open the
+		// requested one.
+		this->closeToolWindow();
+
+		// The tools read maps / resources / language files from the game
+		// folder selected when opening the map (fallback: working directory).
+		std::string gamePath = this->manager->constant.gamePath;
+		if (gamePath.empty())
+			gamePath = boost::filesystem::current_path().string();
+
+		sf::VideoMode desktop = sf::VideoMode::getDesktopMode();
+		std::string title = (kind == ToolKind::TriggerEditor)
+			? "realm-editor - Trigger Editor" : "realm-editor - Sprite Fusion";
+		this->toolWindow = std::make_shared<sf::RenderWindow>(desktop, title, sf::Style::Default);
+		// Init registers a NEW ImGui context for the tool window and makes it
+		// current; the fonts below and the tool instance must load into it.
+		ImGui::SFML::Init(*this->toolWindow);
+
+		// Register the game font with the same sizes the in-game menus use
+		// (mirrors TriggerApp / SpriteFusionApp so the tool looks identical).
+		ImGuiIO &io = ImGui::GetIO();
+		ImFont *fontNormal = nullptr;
+		ImFont *fontBig = nullptr;
+		json constants = Json::loadFromFile(gamePath + "/data/options/constants.json");
+		std::string fontPath = gamePath + "/" + hudToolConstantValue(constants, "FONT-TYPE");
+		int sizeNormal = std::atoi(hudToolConstantValue(constants, "FONT-MENU-IMGUI").c_str());
+		int sizeBig = std::atoi(hudToolConstantValue(constants, "FONT-MENU-IMGUI-BIG").c_str());
+		if (sizeNormal <= 0)
+			sizeNormal = 16;
+		if (sizeBig <= 0)
+			sizeBig = 20;
+		if (!fontPath.empty())
+		{
+			fontNormal = io.Fonts->AddFontFromFileTTF(fontPath.c_str(), (float)sizeNormal);
+			fontBig = io.Fonts->AddFontFromFileTTF(fontPath.c_str(), (float)sizeBig);
+		}
+		if (fontBig == nullptr)
+			fontBig = fontNormal;
+		if (fontNormal == nullptr)
+		{
+			fontNormal = io.Fonts->AddFontDefault();
+			fontBig = fontNormal;
+		}
+		ImGui::SFML::UpdateFontTexture();
+
+		if (kind == ToolKind::TriggerEditor)
+			this->toolTriggerEditor = std::make_unique<TriggerEditor>(gamePath, fontNormal, fontBig);
+		else
+			this->toolSpriteFusion = std::make_unique<SpriteFusion>(gamePath, fontNormal, fontBig, false);
+
+		this->toolKind = kind;
+
+		// The tool setup changed the ImGui context in the middle of the menu
+		// bar; switch back to the editor window so the rest of this frame
+		// keeps drawing into the editor's own context.
+		ImGui::SFML::SetCurrentWindow(*this->manager->window);
+		return;
+	}
+
+	if (this->toolKind == ToolKind::None || !this->toolWindow || !this->toolWindow->isOpen())
+		return;
+
+	// -------- per-frame: pump the tool window loop --------
+	bool leaveRequested = false;
+	sf::Event event;
+	while (this->toolWindow->pollEvent(event))
+	{
+		// The window-qualified overload selects the tool window's own ImGui
+		// context before processing (the global overload would use whatever
+		// context is current - the editor's - and swallow the input there).
+		ImGui::SFML::ProcessEvent(*this->toolWindow, event);
+		if (event.type == sf::Event::Closed)
+			leaveRequested = true;
+	}
+
+	ImGui::SFML::Update(*this->toolWindow, this->toolClock.restart());
+
+	// Keep the ImGui text color white on every frame (see Manager::imguiUpdate).
+	ImGui::GetStyle().Colors[ImGuiCol_Text] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+	ImGui::GetStyle().Colors[ImGuiCol_TextDisabled] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+
+	this->toolWindow->clear(sf::Color(20, 20, 28));
+
+	if (this->toolKind == ToolKind::TriggerEditor && this->toolTriggerEditor)
+		leaveRequested = leaveRequested || this->toolTriggerEditor->update(0.f);
+	else if (this->toolKind == ToolKind::SpriteFusion && this->toolSpriteFusion)
+		leaveRequested = leaveRequested || this->toolSpriteFusion->update(0.f);
+
+	ImGui::SFML::Render(*this->toolWindow);
+	this->toolWindow->display();
+
+	// update() returns true when the user left the tool (BACK button or
+	// map-select stage): close the tool window instead of the whole process.
+	if (leaveRequested)
+		this->closeToolWindow();
+
+	// Hand the ImGui context back to the editor window for the rest of the
+	// frame (the menu bar and panels keep drawing below).
+	ImGui::SFML::SetCurrentWindow(*this->manager->window);
+}
+
+void Hud::closeToolWindow()
+{
+	// Destroy the tool while its own ImGui context is still current - the
+	// TriggerEditor/SpriteFusion destructors just free plain data, but any
+	// ImGui calls they make (or make later in this file below) must run
+	// against the right context.
+	if (this->toolWindow && this->toolWindow->isOpen())
+		ImGui::SFML::SetCurrentWindow(*this->toolWindow);
+
+	this->toolTriggerEditor = nullptr;
+	this->toolSpriteFusion = nullptr;
+
+	if (this->toolWindow)
+	{
+		// Shutdown must come before close(): the context is looked up by the
+		// window handle. Only the tool window's context is removed - the
+		// editor's own ImGui context stays alive.
+		if (this->toolWindow->isOpen())
+			ImGui::SFML::Shutdown(*this->toolWindow);
+		this->toolWindow->close();
+	}
+	this->toolWindow = nullptr;
+	this->toolKind = ToolKind::None;
+
+	// Restore the editor window as the current ImGui context so the next
+	// frame keeps rendering the editor UI (the global Shutdown() is NOT
+	// called: killing every context here would tear down the editor too).
+	if (this->manager->window)
+		ImGui::SFML::SetCurrentWindow(*this->manager->window);
 }
 
 void Hud::imguiRenderMenuBar()
@@ -2332,6 +2492,12 @@ void Hud::imguiRenderMenuBar()
 		ImGui::Separator();
 		if (ImGui::MenuItem("Map Preferences...")) { this->showPreferencesWindow = true; }
 		if (ImGui::MenuItem("Options...")) { this->showOptionsWindow = true; }
+		if (ImGui::BeginMenu("Tools"))
+		{
+			if (ImGui::MenuItem("Trigger Editor")) { this->updateToolWindow(Hud::ToolKind::TriggerEditor); }
+			if (ImGui::MenuItem("Sprite Fusion")) { this->updateToolWindow(Hud::ToolKind::SpriteFusion); }
+			ImGui::EndMenu();
+		}
 		if (ImGui::MenuItem("About")) { this->showAboutWindow = true; }
 		ImGui::Separator();
 		if (ImGui::MenuItem("Exit")) { this->manager->imguiTrigger(ImguiMiscData{ true, ImguiMiscType::imtExitConfirmation }); }

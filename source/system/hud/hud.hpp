@@ -11,7 +11,6 @@
 
 #ifndef HUD_HPP
 #define HUD_HPP
-
 class Manager;
 
 struct CommandPaletteEntry
@@ -46,6 +45,9 @@ struct HistoryEntry
 	int previousAutoPriority;
 	int previousIndex;
 };
+
+class TriggerEditor;
+class SpriteFusion;
 
 class Hud 
 {
@@ -250,6 +252,20 @@ class Hud
 		
 		bool showAboutWindow;
 		bool showTerrainLayers;
+
+		// Embedded tools ("Tools" menu): the trigger editor and sprite
+		// fusion run in their own window during the menu action. The raw
+		// pointer is owned by Hud but the tool installs its own ImGui font,
+		// so it has to be destroyed before imgui shutdown (see updateTools).
+		enum class ToolKind { None, TriggerEditor, SpriteFusion, SpriteEditor };
+		ToolKind toolKind = ToolKind::None;
+		std::unique_ptr<TriggerEditor> toolTriggerEditor;
+		std::unique_ptr<SpriteFusion> toolSpriteFusion;
+		std::shared_ptr<sf::RenderWindow> toolWindow;
+		bool toolFontDirty = false;          // font pushed by the tool, popped on close
+		sf::Clock toolClock;
+		void updateToolWindow(ToolKind kind);
+		void closeToolWindow();
 
 		// Layer visibility toggles
 		bool showTerrain;
