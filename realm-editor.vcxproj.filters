@@ -71,6 +71,9 @@
     <ClCompile Include="source\system\library\position.cpp">
       <Filter>library</Filter>
     </ClCompile>
+    <ClCompile Include="source\system\library\toolLaunch.cpp">
+      <Filter>library</Filter>
+    </ClCompile>
     <ClCompile Include="source\system\palette\palette.cpp">
       <Filter>palette</Filter>
     </ClCompile>
@@ -122,6 +125,9 @@
       <Filter>text</Filter>
     </ClInclude>
     <ClInclude Include="source\system\library\position.hpp">
+      <Filter>library</Filter>
+    </ClInclude>
+    <ClInclude Include="source\system\library\toolLaunch.hpp">
       <Filter>library</Filter>
     </ClInclude>
     <ClInclude Include="source\system\palette\palette.hpp">

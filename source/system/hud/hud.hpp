@@ -46,9 +46,6 @@ struct HistoryEntry
 	int previousIndex;
 };
 
-class TriggerEditor;
-class SpriteFusion;
-
 class Hud 
 {
 	public:
@@ -253,19 +250,12 @@ class Hud
 		bool showAboutWindow;
 		bool showTerrainLayers;
 
-		// Embedded tools ("Tools" menu): the trigger editor and sprite
-		// fusion run in their own window during the menu action. The raw
-		// pointer is owned by Hud but the tool installs its own ImGui font,
-		// so it has to be destroyed before imgui shutdown (see updateTools).
-		enum class ToolKind { None, TriggerEditor, SpriteFusion, SpriteEditor };
-		ToolKind toolKind = ToolKind::None;
-		std::unique_ptr<TriggerEditor> toolTriggerEditor;
-		std::unique_ptr<SpriteFusion> toolSpriteFusion;
-		std::shared_ptr<sf::RenderWindow> toolWindow;
-		bool toolFontDirty = false;          // font pushed by the tool, popped on close
-		sf::Clock toolClock;
-		void updateToolWindow(ToolKind kind);
-		void closeToolWindow();
+		// Embedded tools ("Tools" menu): the trigger editor and sprite fusion
+		// are standalone modes of this same binary (--trigger-editor /
+		// --sprite-fusion). Opening them here spawns a SECOND realm-editor
+		// process (fire and forget); closing the tool exits only that process,
+		// so the map editor window, the open map and unsaved changes survive.
+		void launchTool(std::string toolFlag);
 
 		// Layer visibility toggles
 		bool showTerrain;
