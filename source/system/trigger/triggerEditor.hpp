@@ -74,10 +74,14 @@ struct GuiPopupState
 //   3. Edit        - a YAML text editor with syntax highlighting, auto
 //                    indentation, a live YAML validity check and structure
 //                    warnings (unknown names get a "did you mean" hint), plus a
-//                    sidebar that lists every trigger file in the same folder
-//                    (the main file can reference others through the
-//                    "script" entries of its own "trigger" array). New files
-//                    can be created and non-main files deleted.
+//                    sidebar that lists the files of the browsable folder
+//                    selected there. The map's trigger folder comes first (the
+//                    main file can reference others through the "script"
+//                    entries of its own "trigger" array); the game's
+//                    interaction and cutscene folders are listed as well,
+//                    because their files are trigger documents too. New files
+//                    can be created and non-main files deleted inside the
+//                    map's trigger folder only.
 //
 // The whole UI is wrapped in a try/catch inside update() so an unexpected
 // exception is reported through a popup instead of killing the process
@@ -140,10 +144,26 @@ class TriggerEditor
         std::string triggerFolderRef;       // folder ref relative to data/maps ("custom/trigger")
         std::string triggerFolderPath;      // "<gamePath>/data/maps/custom/trigger/"
         std::string mainTriggerFile;        // filename of the map-linked trigger ("meadows.yaml")
-        std::vector<std::string> triggerFileList; // .yaml files inside the trigger folder
+
+        // ---- browsable folders (sidebar) ----
+        // The map's trigger folder is the first entry while a map session is
+        // open. The game folders that hold trigger documents too (interactions
+        // and cutscenes) follow, so the same visual editor can open them.
+        struct BrowseSource
+        {
+            std::string label;              // language field with the button label
+            std::string ref;                // folder relative to the game ("data/cutscenes")
+            std::string folder;             // full folder path, with a trailing '/'
+            bool editable = false;          // create/delete allowed (map trigger folder)
+            std::vector<std::string> files; // ".yaml" files, relative and '/'-separated
+        };
+
+        std::vector<BrowseSource> sources;
+        int sourceIndex = 0;                // folder currently listed in the sidebar
+        int currentFileSource = -1;         // folder owning the open file (-1 = none)
 
         // ---- open file state ----
-        std::string currentFile;            // filename inside the trigger folder
+        std::string currentFile;            // path inside its folder ("meadows.yaml", "nibbos/adam.yaml")
         std::string currentFilePath;        // full path relative to the game folder
         std::string text;                   // editor buffer (UTF-8)
         bool dirty = false;                 // unsaved changes?
@@ -230,8 +250,15 @@ class TriggerEditor
         std::string resolveMapScript(const json &mapJson) const;
         void resetSession();
 
+        // browsable folders
+        void refreshSources();
+        void refreshSourceFiles(int index);
+        void switchSource(int index);
+        void openFileInSource(int index, const std::string &filename);
+        void openSourceSession(int index, const std::string &filename); // no map session
+        bool sourceIsEditable(int index) const;
+
         // trigger file stage
-        void refreshTriggerFileList();
         void openTriggerFile(const std::string &filename);
         void createTriggerFile(const std::string &name);
         void deleteTriggerFile(const std::string &filename);

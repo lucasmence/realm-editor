@@ -56,6 +56,21 @@ static const float GUI_TYPE_LIST_MIN_ROWS = 3.f;
 static const float GUI_PARAMS_MIN_ROWS = 5.f;
 static const float GUI_PARAMS_MIN_PX = 150.f;
 
+// Folders outside data/maps whose YAML documents share the trigger layout, so
+// the editor can open (and save) them the same way (interactions: one file per
+// character; cutscenes: one file per cutscene). Folders that do not exist are
+// skipped, so the tool keeps working in projects without them.
+struct ExtraSourceDef
+{
+    const char *folder;  // folder inside data/
+    const char *label;   // language field used as the sidebar button label
+};
+
+static const ExtraSourceDef EXTRA_SOURCES[] = {
+    { "interactions", "INTERACTIONS" },
+    { "cutscenes",    "CUTSCENES" }
+};
+
 // ---------------------------------------------------------------------------
 // YAML tokenizer (used by the syntax highlighter)
 // ---------------------------------------------------------------------------
@@ -321,13 +336,14 @@ TriggerEditor::TriggerEditor(const std::string &gamePath, ImFont *fontNormal, Im
         this->designWidth = 1920.f;
 
     this->refreshMapList();
+    this->refreshSources();
 }
 
 TriggerEditor::~TriggerEditor()
 {
     this->logLines.clear();
     this->mapList.clear();
-    this->triggerFileList.clear();
+    this->sources.clear();
     this->undoStack.clear();
     this->redoStack.clear();
 }
@@ -562,7 +578,9 @@ bool TriggerEditor::openMapSession(const std::string &ref)
     if (created)
         this->addLog("[info] " + this->getLanguage("MAP-LINKED") + ": " + scriptRef, 0x88CCFFFF);
 
-    this->refreshTriggerFileList();
+    // The map's trigger folder is the first browsable folder of the session.
+    this->sourceIndex = 0;
+    this->refreshSources();
     this->openTriggerFile(this->mainTriggerFile);
     this->stage = Stage::Editor;
     this->addLog("[info] " + this->getLanguage("MAP") + ": " + ref, 0x88CCFFFF);
@@ -577,7 +595,9 @@ void TriggerEditor::resetSession()
     this->triggerFolderRef.clear();
     this->triggerFolderPath.clear();
     this->mainTriggerFile.clear();
-    this->triggerFileList.clear();
+    this->sources.clear();
+    this->sourceIndex = 0;
+    this->currentFileSource = -1;
     this->currentFile.clear();
     this->currentFilePath.clear();
     this->text.clear();
@@ -597,37 +617,153 @@ void TriggerEditor::resetSession()
     this->guiConvertError.clear();
     this->guiPopup = GuiPopupState();
     this->guiDeleteBlockOpen = false;
+
+    // Without a map the sidebar only offers the game folders (interactions and
+    // cutscenes), which the map-select stage lists too.
+    this->refreshSources();
 }
 
 // ---------------------------------------------------------------------------
-// Trigger file stage
+// Browsable folders
 // ---------------------------------------------------------------------------
 
-void TriggerEditor::refreshTriggerFileList()
+// Rebuilds the browsable folder list: the map's trigger folder (only while a
+// map session is open) followed by the game folders that also hold trigger
+// documents. Every folder has its ".yaml" files scanned right away.
+void TriggerEditor::refreshSources()
 {
-    this->triggerFileList.clear();
+    this->sources.clear();
 
     try
     {
-        boost::filesystem::path dir = this->triggerFolderPath;
+        if (!this->triggerFolderPath.empty())
+        {
+            BrowseSource source;
+            source.label = "TRIGGERS";
+            source.ref = "data/maps/" + this->triggerFolderRef;
+            source.folder = this->triggerFolderPath;
+            source.editable = true;
+            this->sources.push_back(source);
+        }
+
+        for (const ExtraSourceDef &def : EXTRA_SOURCES)
+        {
+            std::string ref = std::string("data/") + def.folder;
+            std::string folder = this->gamePath + "/" + ref + "/";
+            if (!boost::filesystem::is_directory(folder))
+                continue;
+
+            BrowseSource source;
+            source.label = def.label;
+            source.ref = ref;
+            source.folder = folder;
+            source.editable = false;
+            this->sources.push_back(source);
+        }
+    }
+    catch (...)
+    {
+        // A failed scan must never close the editor.
+    }
+
+    if (this->sourceIndex < 0 || this->sourceIndex >= (int)this->sources.size())
+        this->sourceIndex = 0;
+
+    for (int index = 0; index < (int)this->sources.size(); ++index)
+        this->refreshSourceFiles(index);
+}
+
+// Lists the ".yaml" documents of one browsable folder. The scan is recursive
+// (so the per-map subfolders of data/interactions show up as
+// "nibbos/adam.yaml") and the stored paths always use '/'.
+void TriggerEditor::refreshSourceFiles(int index)
+{
+    if (index < 0 || index >= (int)this->sources.size())
+        return;
+
+    BrowseSource &source = this->sources[index];
+    source.files.clear();
+
+    try
+    {
+        boost::filesystem::path dir = source.folder;
         if (!boost::filesystem::is_directory(dir))
             return;
 
-        for (auto &entry : boost::filesystem::directory_iterator(dir))
-            if (boost::filesystem::is_regular_file(entry.status()) && entry.path().extension() == ".yaml")
-                this->triggerFileList.push_back(entry.path().filename().string());
+        for (boost::filesystem::recursive_directory_iterator it(dir), end; it != end; ++it)
+        {
+            if (!boost::filesystem::is_regular_file(it->status()))
+                continue;
+            if (it->path().extension() != ".yaml")
+                continue;
+
+            std::string rel = it->path().lexically_relative(dir).string();
+            boost::replace_all(rel, "\\", "/");
+            source.files.push_back(rel);
+        }
     }
     catch (...)
     {
         // Keep the current list on a failed scan.
     }
 
-    std::sort(this->triggerFileList.begin(), this->triggerFileList.end());
+    std::sort(source.files.begin(), source.files.end());
 }
+
+bool TriggerEditor::sourceIsEditable(int index) const
+{
+    return index >= 0 && index < (int)this->sources.size() && this->sources[index].editable;
+}
+
+// Switches the folder listed in the sidebar. The open file stays open: it
+// belongs to its own folder, remembered in currentFileSource.
+void TriggerEditor::switchSource(int index)
+{
+    if (index < 0 || index >= (int)this->sources.size() || index == this->sourceIndex)
+        return;
+
+    this->sourceIndex = index;
+    this->refreshSourceFiles(index);
+    this->addLog("[info] " + this->getLanguage("FOLDER") + ": " + this->sources[index].ref, 0x88CCFFFF);
+}
+
+void TriggerEditor::openFileInSource(int index, const std::string &filename)
+{
+    if (index < 0 || index >= (int)this->sources.size())
+        return;
+
+    this->sourceIndex = index;
+    this->refreshSourceFiles(index);
+    this->openTriggerFile(filename);
+}
+
+// Opens a file of an extra folder (interactions / cutscenes) straight from the
+// map-select stage: without a map session no map is touched and only the
+// chosen document is edited here.
+void TriggerEditor::openSourceSession(int index, const std::string &filename)
+{
+    if (index < 0 || index >= (int)this->sources.size())
+        return;
+
+    this->selectedMap.clear();
+    this->mapPath.clear();
+    this->triggerFolderRef.clear();
+    this->triggerFolderPath.clear();
+    this->mainTriggerFile.clear();
+    this->stage = Stage::Editor;
+    this->openFileInSource(index, filename);
+}
+
+// ---------------------------------------------------------------------------
+// Trigger file stage
+// ---------------------------------------------------------------------------
 
 void TriggerEditor::openTriggerFile(const std::string &filename)
 {
-    std::string path = this->triggerFolderPath + filename;
+    if (this->sourceIndex < 0 || this->sourceIndex >= (int)this->sources.size())
+        return;
+
+    std::string path = this->sources[this->sourceIndex].folder + filename;
     if (!boost::filesystem::exists(path))
     {
         this->showError("[erro] " + this->getLanguage("FAILED-LOAD") + ": " + path);
@@ -636,6 +772,7 @@ void TriggerEditor::openTriggerFile(const std::string &filename)
 
     this->text = this->readTextFile(path);
     this->currentFile = filename;
+    this->currentFileSource = this->sourceIndex;
     this->currentFilePath = path;
     this->fileLoaded = true;
     this->dirty = false;
@@ -677,6 +814,14 @@ void TriggerEditor::openTriggerFileGui()
 
 void TriggerEditor::createTriggerFile(const std::string &name)
 {
+    // Only the map's trigger folder is managed by this editor: the interaction
+    // and cutscene folders belong to the game and are edited here, not created.
+    if (!this->sourceIsEditable(this->sourceIndex))
+    {
+        this->showError("[erro] " + this->getLanguage("FOLDER-LOCKED"));
+        return;
+    }
+
     std::string trimmed = name;
     boost::trim(trimmed);
 
@@ -700,7 +845,7 @@ void TriggerEditor::createTriggerFile(const std::string &name)
     }
 
     std::string filename = trimmed + ".yaml";
-    std::string path = this->triggerFolderPath + filename;
+    std::string path = this->sources[this->sourceIndex].folder + filename;
 
     if (boost::filesystem::exists(path))
     {
@@ -714,13 +859,22 @@ void TriggerEditor::createTriggerFile(const std::string &name)
         return;
     }
 
-    this->refreshTriggerFileList();
+    this->refreshSourceFiles(this->sourceIndex);
     this->addLog("[ok] " + this->getLanguage("CREATED") + ": " + path, 0x55FF88FF);
     this->openTriggerFile(filename);
 }
 
 void TriggerEditor::deleteTriggerFile(const std::string &filename)
 {
+    // Only the map's trigger folder is managed by this editor: the interaction
+    // and cutscene folders belong to the game, so their files are opened and
+    // saved here but never deleted.
+    if (!this->sourceIsEditable(this->currentFileSource))
+    {
+        this->showError("[erro] " + this->getLanguage("FOLDER-LOCKED"));
+        return;
+    }
+
     // The map-linked trigger file is the entry point of the map's script
     // structure: it is never allowed to be deleted.
     if (filename == this->mainTriggerFile)
@@ -729,7 +883,7 @@ void TriggerEditor::deleteTriggerFile(const std::string &filename)
         return;
     }
 
-    std::string path = this->triggerFolderPath + filename;
+    std::string path = this->sources[this->currentFileSource].folder + filename;
     if (!boost::filesystem::exists(path))
         return;
 
@@ -739,9 +893,11 @@ void TriggerEditor::deleteTriggerFile(const std::string &filename)
         return;
     }
 
-    if (filename == this->currentFile)
+    int source = this->currentFileSource;
+    if (path == this->currentFilePath)
     {
         this->currentFile.clear();
+        this->currentFileSource = -1;
         this->currentFilePath.clear();
         this->text.clear();
         this->fileLoaded = false;
@@ -752,7 +908,7 @@ void TriggerEditor::deleteTriggerFile(const std::string &filename)
         this->redoStack.clear();
     }
 
-    this->refreshTriggerFileList();
+    this->refreshSourceFiles(source);
     this->addLog("[ok] " + this->getLanguage("DELETED") + ": " + path, 0x55FF88FF);
 }
 
@@ -1742,27 +1898,57 @@ void TriggerEditor::renderSidebar()
 {
     float scale = this->imguiScale;
 
+    // ---- folder selector ----
+    // The map's trigger folder plus the game folders whose files are trigger
+    // documents too (interactions / cutscenes). The active folder is the one
+    // whose files are listed below.
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-    ImGui::TextUnformatted(this->getLanguage("TRIGGERS").c_str());
-    ImGui::PopStyleColor();
+    for (int index = 0; index < (int)this->sources.size(); ++index)
+    {
+        if (index > 0)
+            ImGui::SameLine();
+
+        bool active = (index == this->sourceIndex);
+        if (active)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.20f, 0.42f, 0.62f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.24f, 0.48f, 0.70f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.17f, 0.36f, 0.54f, 1.0f));
+        }
+
+        if (ImGui::SmallButton(this->getLanguage(this->sources[index].label).c_str()) && !active)
+            this->switchSource(index);
+
+        if (active)
+            ImGui::PopStyleColor(3);
+
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("%s", this->sources[index].ref.c_str());
+    }
+
+    // New files are only created inside the map's trigger folder: the other
+    // folders belong to the game and are edited here, not created.
+    bool canCreate = this->sourceIsEditable(this->sourceIndex);
     ImGui::SameLine();
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10.f * scale);
-
-    if (ImGui::SmallButton("[+]"))
+    if (!canCreate)
+        ImGui::BeginDisabled();
+    if (ImGui::SmallButton("[+]") && canCreate)
         this->createPopupOpen = true;
+    if (!canCreate)
+        ImGui::EndDisabled();
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("%s", this->getLanguage("NEW-TRIGGER").c_str());
+        ImGui::SetTooltip("%s", this->getLanguage(canCreate ? "NEW-TRIGGER" : "FOLDER-LOCKED").c_str());
 
-    if (!this->triggerFolderRef.empty())
-    {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-        ImGui::TextWrapped("%s: %s", this->getLanguage("FOLDER").c_str(), this->triggerFolderRef.c_str());
-        ImGui::PopStyleColor();
-    }
+    if (!this->sources.empty())
+        ImGui::TextWrapped("%s: %s", this->getLanguage("FOLDER").c_str(), this->sources[this->sourceIndex].ref.c_str());
+    ImGui::PopStyleColor();
 
     ImGui::Separator();
 
-    if (this->triggerFileList.empty())
+    const BrowseSource *source = this->sources.empty() ? nullptr : &this->sources[this->sourceIndex];
+
+    if (source == nullptr || source->files.empty())
     {
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
         ImGui::TextWrapped("%s", this->getLanguage("NO-TRIGGER-FILES").c_str());
@@ -1770,10 +1956,13 @@ void TriggerEditor::renderSidebar()
     }
     else
     {
-        for (const auto &file : this->triggerFileList)
+        for (const auto &file : source->files)
         {
-            bool isMain = (file == this->mainTriggerFile);
-            bool selected = (file == this->currentFile);
+            // The main tag is only meaningful inside the map's trigger folder,
+            // and the open file is matched in the folder it belongs to, so
+            // equal names in different folders are not confused.
+            bool isMain = source->editable && (file == this->mainTriggerFile);
+            bool selected = (this->currentFileSource == this->sourceIndex && file == this->currentFile);
 
             ImGui::PushID(file.c_str());
             if (ImGui::Selectable(file.c_str(), selected))
@@ -1806,8 +1995,11 @@ void TriggerEditor::renderSidebar()
 
     ImGui::Separator();
 
-    // Delete the currently open trigger (never the main one).
-    bool canDelete = this->fileLoaded && !this->currentFile.empty() && this->currentFile != this->mainTriggerFile;
+    // Delete the currently open file. Only the map's trigger folder is managed
+    // by this editor, and never its main (map-linked) file.
+    bool currentEditable = this->sourceIsEditable(this->currentFileSource);
+    bool canDelete = this->fileLoaded && !this->currentFile.empty() && currentEditable
+                     && this->currentFile != this->mainTriggerFile;
     if (canDelete)
     {
         if (ImGui::Button(this->getLanguage("DELETE").c_str(), ImVec2(-1.f, 34.f * scale)))
@@ -1822,7 +2014,7 @@ void TriggerEditor::renderSidebar()
         ImGui::Button(this->getLanguage("DELETE").c_str(), ImVec2(-1.f, 34.f * scale));
         ImGui::PopStyleColor();
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("%s", this->getLanguage("DELETE-MAIN-FORBIDDEN").c_str());
+            ImGui::SetTooltip("%s", this->getLanguage(currentEditable ? "DELETE-MAIN-FORBIDDEN" : "FOLDER-LOCKED").c_str());
     }
 
     ImGui::Spacing();
@@ -3228,7 +3420,10 @@ void TriggerEditor::renderMapSelect()
     ImGui::SameLine();
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10.f * scale);
     if (ImGui::SmallButton(this->getLanguage("REFRESH").c_str()))
+    {
         this->refreshMapList();
+        this->refreshSources();
+    }
 
     ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - 220.f * scale);
     if (ImGui::Button(this->getLanguage("BACK").c_str(), ImVec2(200.f * scale, 34.f * scale)))
@@ -3261,6 +3456,44 @@ void TriggerEditor::renderMapSelect()
                 this->selectMap(mapRef);
             if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
                 this->openMapSession(mapRef);
+        }
+    }
+
+    // ---- documents outside data/maps (interactions / cutscenes) ----
+    // These folders hold trigger documents as well, so they are opened here
+    // without going through a map (and without touching any map file).
+    bool hasExtraFiles = false;
+    for (const auto &source : this->sources)
+        if (!source.editable && !source.files.empty())
+            hasExtraFiles = true;
+
+    if (hasExtraFiles)
+    {
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+        ImGui::TextUnformatted(this->getLanguage("OTHER-FOLDERS").c_str());
+        ImGui::PopStyleColor();
+        ImGui::Separator();
+
+        for (int index = 0; index < (int)this->sources.size(); ++index)
+        {
+            if (this->sources[index].editable)
+                continue;
+
+            // Copies: opening a file rescans its folder and would invalidate
+            // the iterators of the loop below.
+            const std::string ref = this->sources[index].ref;
+            const std::vector<std::string> files = this->sources[index].files;
+
+            for (const auto &file : files)
+            {
+                std::string label = ref + "/" + file;
+                ImGui::PushID(label.c_str());
+                if (ImGui::Selectable(label.c_str()))
+                    this->openSourceSession(index, file);
+                ImGui::PopID();
+            }
         }
     }
     ImGui::EndChild();
@@ -3479,8 +3712,8 @@ bool TriggerEditor::updateImpl()
                         break;
                     }
 
-                bool exists = !trimmed.empty()
-                              && boost::filesystem::exists(this->triggerFolderPath + trimmed + ".yaml");
+                bool exists = !trimmed.empty() && !this->sources.empty()
+                              && boost::filesystem::exists(this->sources[this->sourceIndex].folder + trimmed + ".yaml");
 
                 if (!valid)
                     this->createError = this->getLanguage("INVALID-NAME");
@@ -3586,7 +3819,7 @@ bool TriggerEditor::updateImpl()
         }
     }
 
-    ImGui::PopStyleColor(8);
+    ImGui::PopStyleColor(9);
     ImGui::End();
     ImGui::PopStyleVar(3);
     ImGui::PopFont();
