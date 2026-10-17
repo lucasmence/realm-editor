@@ -97,9 +97,10 @@ const std::vector<TriggerTypeDef> GUI_CONDITION_DEFS =
     T("player-control-type", "Player control mode matches", PT({
         P("integerValue", -1, "Control mode", "int", true)
     })),
-    T("get-global-variable", "Global variable is a specific boolean", PT({
+    T("get-global-variable", "Global variable matches a boolean, or contains a string in its list", PT({
         P("strings", 0, "Variable name", "string", true),
-        P("booleans", 0, "Expected value", "bool", true)
+        P("booleans", 0, "Expected value", "bool", false),
+        P("strings", 1, "Value to find in the list (optional)", "string", false)
     })),
     T("unit-check-alive", "A unit is alive or dead", PT({
         P("strings", 0, "Unit name", "string", true),
@@ -362,6 +363,14 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
         P("booleans", 0, "Set as default animation", "bool", false)
     })),
     T("call-event", "Trigger the call-event event", PT({})),
+    T("interaction", "Run a character interaction document (conditions + then/else actions)", PT({
+        P("strings", 0, "Interaction path (e.g. \"nibbos/adam\")", "string", true),
+        P("unitName", -1, "Condition unit (optional)", "string", false)
+    })),
+    T("execute-function", "Run a function trigger from data/maps/triggers (conditions + then/else actions)", PT({
+        P("strings", 0, "Function path (e.g. \"give-gold\")", "string", true),
+        P("unitName", -1, "Condition unit (optional)", "string", false)
+    })),
     T("prop-play-animation", "Play an animation on a prop", PT({
         P("strings", 0, "Prop variable", "string", true),
         P("strings", 1, "Animation", "string", true)
@@ -395,9 +404,10 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
         P("integers", 0, "Portal index", "int", true),
         P("booleans", 0, "Locked", "bool", true)
     })),
-    T("set-global-variable", "Set a global boolean variable", PT({
+    T("set-global-variable", "Set a global variable's boolean and/or string list", PT({
         P("strings", 0, "Variable name", "string", true),
-        P("booleans", 0, "Value", "bool", true)
+        P("booleans", 0, "Value", "bool", false),
+        P("strings", 1, "String value (optional, add more rows with + Add text)", "string", false)
     })),
     T("prop-kill", "Remove a prop", PT({
         P("strings", 0, "Prop variable", "string", true)
