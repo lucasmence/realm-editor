@@ -201,6 +201,12 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
         P("strings", 3, "Text category", "string", false),
         P("strings", 4, "Text key", "string", false)
     })),
+    T("text-dialogquest", "Open a dialog box from the DIALOGUES.QUESTS pattern", PT({
+        P("unitName", -1, "Speaker unit (portrait/caption)", "string", false),
+        P("integers", 0, "Dialog box ID", "int", false),
+        P("strings", 0, "Quest name (ex: PB-01)", "string", true),
+        P("strings", 1, "Line name (ex: GOBLIN-05)", "string", true)
+    })),
     T("text-console", "Show a message in the console", PT({
         P("strings", 0, "Category", "string", true),
         P("strings", 1, "Key", "string", true),
@@ -467,6 +473,11 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
     T("unit-set-dialog-value", "Set the dialog value of a unit", PT({
         P("strings", 0, "Unit name", "string", true),
         P("integers", 0, "Value", "int", true)
+    })),
+    T("unit-set-floating-text", "Change a unit's floating text and shouting state", PT({
+        P("unitName", -1, "Unit name", "string", true),
+        P("strings", 0, "Floating text (FLOATING-TEXTS key or literal)", "string", false),
+        P("booleans", 0, "Shouting (keep the label on screen)", "bool", false)
     })),
     T("wall-remove", "Remove walls inside a region", PT({
         P("integers", 0, "Region index", "int", true)
