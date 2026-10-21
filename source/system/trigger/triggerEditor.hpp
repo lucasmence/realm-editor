@@ -44,6 +44,7 @@ struct GuiPopupState
     bool editing = false;        // false = adding a new entry
     int triggerIndex = 0;        // block being edited
     int entryIndex = 0;          // index in its list (-1 when adding)
+    int insertIndex = -1;        // adding: insert at this index (-1 = append at the end)
     char search[64] = "";        // lookup filter
     std::string selectedType;    // type key currently selected
     GuiEntry draft;              // working copy of the entry
@@ -279,7 +280,7 @@ class TriggerEditor
         std::string guiDescription(GuiKind kind, const std::string &type) const;
         std::string guiEntryValues(GuiKind kind, const GuiEntry &entry) const; // compact values summary
         const std::vector<TriggerTypeDef> &guiDefs(GuiKind kind) const;
-        void openGuiPopup(GuiKind kind, int triggerIndex, int entryIndex);
+        void openGuiPopup(GuiKind kind, int triggerIndex, int entryIndex, int insertIndex = -1);
         void renderGuiPopup();
         void commitGuiPopup();
 
@@ -293,7 +294,9 @@ class TriggerEditor
         void guiMiscAddArrayElement(json &value);
         void guiSyncText();                // guiToText + validate + dirty + log
         void guiMoveEntry(std::vector<GuiEntry> &entries, int index, int direction);
+        void guiDropEntry(std::vector<GuiEntry> &entries, int from, int to, bool insertBefore);
         void guiDeleteEntry(std::vector<GuiEntry> &entries, int index);
+        void guiDuplicateEntry(std::vector<GuiEntry> &entries, int index);
         std::vector<GuiEntry> &guiEntryList(GuiKind kind, GuiTrigger &trigger);
 
         // JSON editor widget

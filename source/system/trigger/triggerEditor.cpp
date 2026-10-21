@@ -2384,11 +2384,49 @@ void TriggerEditor::guiMoveEntry(std::vector<GuiEntry> &entries, int index, int 
     this->guiSyncText();
 }
 
+// Drag & drop reorder: moves the entry at "from" next to the entry at "to",
+// above or below it ("insertBefore"). Only entries of the same list are moved,
+// so the then/else and and/or groups of a list (which are just the "group"
+// field of the rows) follow their entries as usual.
+void TriggerEditor::guiDropEntry(std::vector<GuiEntry> &entries, int from, int to, bool insertBefore)
+{
+    int count = (int)entries.size();
+    if (from < 0 || from >= count || to < 0 || to >= count || from == to)
+        return;
+
+    GuiEntry moved = entries[from];
+    entries.erase(entries.begin() + from);
+
+    // The erase shifted every index above "from" down by one.
+    int target = (to > from) ? (to - 1) : to;
+    int insertAt = insertBefore ? target : target + 1;
+    if (insertAt < 0)
+        insertAt = 0;
+    if (insertAt > (int)entries.size())
+        insertAt = (int)entries.size();
+    entries.insert(entries.begin() + insertAt, moved);
+    this->guiSyncText();
+}
+
 void TriggerEditor::guiDeleteEntry(std::vector<GuiEntry> &entries, int index)
 {
     if (index < 0 || index >= (int)entries.size())
         return;
     entries.erase(entries.begin() + index);
+    this->guiSyncText();
+}
+
+// Inserts a copy of the entry right after the original. The copy keeps the
+// type, every parameter and the group (and/or, then/else), so duplicating an
+// "or" condition or an "else" action stays in the same branch of the list.
+void TriggerEditor::guiDuplicateEntry(std::vector<GuiEntry> &entries, int index)
+{
+    if (index < 0 || index >= (int)entries.size())
+        return;
+    // Copied before inserting: the reference would dangle if insert()
+    // reallocated the vector.
+    GuiEntry copy = entries[index];
+    entries.insert(entries.begin() + index + 1, copy);
     this->guiSyncText();
 }
 
@@ -2453,13 +2491,16 @@ static void guiPopulateBuffers(GuiPopupState &popup, const TriggerTypeDef *def)
     copyArray("booleans", popup.boolsBuf);
 }
 
-void TriggerEditor::openGuiPopup(GuiKind kind, int triggerIndex, int entryIndex)
+void TriggerEditor::openGuiPopup(GuiKind kind, int triggerIndex, int entryIndex, int insertIndex)
 {
     this->guiPopup.open = true;
     this->guiPopup.kind = kind;
     this->guiPopup.editing = (entryIndex >= 0);
     this->guiPopup.triggerIndex = triggerIndex;
     this->guiPopup.entryIndex = entryIndex;
+    // Only an add uses the insertion position: -1 keeps the default of
+    // appending the new entry at the end of the list.
+    this->guiPopup.insertIndex = this->guiPopup.editing ? -1 : insertIndex;
     this->guiPopup.search[0] = '\0';
     this->guiPopup.selectedType.clear();
     this->guiPopup.error.clear();
@@ -2482,6 +2523,18 @@ void TriggerEditor::openGuiPopup(GuiKind kind, int triggerIndex, int entryIndex)
         }
         this->guiPopup.editing = false;
         this->guiPopup.entryIndex = -1;
+    }
+
+    // Adding right below an existing row keeps that row's group (and/or,
+    // then/else), so a new condition next to an "or" one or a new action next
+    // to an "else" one stays in the same branch of the list.
+    if (this->guiPopup.insertIndex >= 0
+        && triggerIndex >= 0 && triggerIndex < (int)this->guiTriggers.size())
+    {
+        std::vector<GuiEntry> &list = this->guiEntryList(kind, this->guiTriggers[triggerIndex]);
+        int reference = this->guiPopup.insertIndex - 1;
+        if (reference >= 0 && reference < (int)list.size())
+            this->guiPopup.groupBuf = list[reference].group;
     }
 
     this->guiPopup.draft = GuiEntry();
@@ -2579,7 +2632,14 @@ void TriggerEditor::commitGuiPopup()
         if (this->guiPopup.editing && this->guiPopup.entryIndex >= 0 && this->guiPopup.entryIndex < (int)list.size())
             list[this->guiPopup.entryIndex] = e;
         else
-            list.push_back(e); // newest entries are appended at the bottom
+        {
+            // Adds opened from a row's context menu go right below that row;
+            // plain adds (the "+" buttons) append at the bottom of the list.
+            int insertAt = this->guiPopup.insertIndex;
+            if (insertAt < 0 || insertAt > (int)list.size())
+                insertAt = (int)list.size();
+            list.insert(list.begin() + insertAt, e);
+        }
     }
 
     this->guiPopup.open = false;
@@ -2858,10 +2918,17 @@ void TriggerEditor::renderGuiPopup()
         }
 
         ImGui::Separator();
-        // No hotkeys while a value is being edited: Enter only saves and
-        // Escape only cancels when no text field has focus, so typing a value
-        // never triggers the popup action (or loses the entered data).
+        // Enter only saves while no field is focused, so typing a value never
+        // commits it by accident. Escape always cancels, exactly like the
+        // Cancel button, even when a text field is being edited: the screen is
+        // a modal dialog and the user expects ESC to leave it from anywhere
+        // (the first ESC used to be swallowed by the focused input, which
+        // looked like the key did nothing).
         bool typing = ImGui::IsAnyItemActive();
+        // ImGui 1.85 (the vendored one) still uses IsKeyPressed(user_key_index),
+        // so the named key has to go through GetKeyIndex(); passing ImGuiKey_Escape
+        // directly read an unrelated slot of io.KeysDown and never saw Escape.
+        const bool escapePressed = ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape));
         bool saveClicked = ImGui::Button("Save", ImVec2(110.f * scale, 0))
                            || (ImGui::IsKeyPressed(ImGuiKey_Enter)
                                && !this->guiPopup.selectedType.empty() && !typing);
@@ -2874,8 +2941,7 @@ void TriggerEditor::renderGuiPopup()
         }
 
         ImGui::SameLine(0.f, 20.f * scale);
-        if (ImGui::Button("Cancel", ImVec2(110.f * scale, 0))
-            || (ImGui::IsKeyPressed(ImGuiKey_Escape) && !typing))
+        if (ImGui::Button("Cancel", ImVec2(110.f * scale, 0)) || escapePressed)
         {
             this->guiPopup.open = false;
             this->guiPopup.error.clear();
@@ -3151,6 +3217,16 @@ static float guiGroupContentHeight(const std::vector<GuiEntry> &entries)
          + padding;
 }
 
+// Payload of the row drag & drop of the visual editor. The kind makes a row
+// accept drops only from its own list (events, conditions or actions), so an
+// action can never land in the conditions memo.
+static const char *GUI_ENTRY_PAYLOAD = "TRIGGER-GUI-ENTRY";
+struct GuiDropPayload
+{
+    int kind = 0;   // GuiKind of the dragged list
+    int index = 0;  // row index inside that list
+};
+
 void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
 {
     
@@ -3250,6 +3326,9 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
             ImVec2 rowMin = ImGui::GetCursorScreenPos();
             if (ImGui::Selectable((desc + badge).c_str(), false))
                 this->openGuiPopup(kind, this->guiTriggerIndex, i);
+            // Rect of the row, used to place the values text and to know which
+            // half of the row the mouse is over while dropping another row.
+            ImVec2 rowMax = ImGui::GetItemRectMax();
             if (!values.empty())
             {
                 ImDrawList *drawList = ImGui::GetWindowDrawList();
@@ -3264,11 +3343,65 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
                 std::string tooltip = entry.type;
                 if (!values.empty())
                     tooltip += "\n" + values;
+                tooltip += "\nDrag to reorder";
                 ImGui::SetTooltip("%s", tooltip.c_str());
             }
 
+            // ---- drag & drop reordering ----
+            // Grab a row and drop it on another row of the same list: the entry
+            // moves above or below the hovered row depending on which half of
+            // it the mouse is over, with a yellow line previewing the spot.
+            if (ImGui::BeginDragDropSource())
+            {
+                GuiDropPayload payload;
+                payload.kind = (int)kind;
+                payload.index = i;
+                ImGui::SetDragDropPayload(GUI_ENTRY_PAYLOAD, &payload, sizeof(payload));
+                ImGui::Text("%s", (desc + badge).c_str());
+                ImGui::EndDragDropSource();
+            }
+            int dropFrom = -1;
+            bool dropBefore = false;
+            if (ImGui::BeginDragDropTarget())
+            {
+                // AcceptBeforeDelivery lets the drop line be drawn while the
+                // mouse still hovers the row; the move itself only runs on
+                // release (IsDelivery).
+                if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload(
+                        GUI_ENTRY_PAYLOAD, ImGuiDragDropFlags_AcceptBeforeDelivery))
+                {
+                    if (payload->DataSize == (int)sizeof(GuiDropPayload))
+                    {
+                        const GuiDropPayload *drop = (const GuiDropPayload *)payload->Data;
+                        if (drop->kind == (int)kind)
+                        {
+                            bool before = ImGui::GetMousePos().y < (rowMin.y + rowMax.y) * 0.5f;
+                            float lineY = before ? rowMin.y : rowMax.y;
+                            ImGui::GetWindowDrawList()->AddLine(
+                                ImVec2(rowMin.x, lineY), ImVec2(rowMax.x, lineY),
+                                IM_COL32(255, 215, 90, 255), 2.f * scale);
+                            if (payload->IsDelivery())
+                            {
+                                dropFrom = drop->index;
+                                dropBefore = before;
+                            }
+                        }
+                    }
+                }
+                ImGui::EndDragDropTarget();
+            }
+            // Applied after the drop target ended. The row reference is not
+            // touched anymore, so the vector reordering below is safe.
+            if (dropFrom >= 0 && dropFrom != i)
+                this->guiDropEntry(entries, dropFrom, i, dropBefore);
+
             if (ImGui::BeginPopupContextItem())
             {
+                // Insert a new entry right below the clicked row (the "+"
+                // buttons at the top of each memo still append at the end).
+                if (ImGui::MenuItem("Add"))
+                    this->openGuiPopup(kind, this->guiTriggerIndex, -1, i + 1);
+                ImGui::Separator();
                 if (ImGui::MenuItem("Move up"))
                     this->guiMoveEntry(entries, i, -1);
                 if (ImGui::MenuItem("Move down"))
@@ -3276,6 +3409,8 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
                 ImGui::Separator();
                 if (ImGui::MenuItem("Edit"))
                     this->openGuiPopup(kind, this->guiTriggerIndex, i);
+                if (ImGui::MenuItem("Duplicate"))
+                    this->guiDuplicateEntry(entries, i);
                 if (ImGui::MenuItem("Delete"))
                     this->guiDeleteEntry(entries, i);
                 ImGui::EndPopup();
