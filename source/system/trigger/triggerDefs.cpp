@@ -437,7 +437,7 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
     })),
     T("unit-move-region", "Make a unit move to a region", PT({
         P("strings", 0, "Unit name", "string", true),
-        P("integers", 0, "Region index", "int", true)
+        P("strings", 1, "Region index (name or number)", "string", true)
     })),
     T("spawn-item-region", "Spawn items inside a region", PT({
         P("strings", 0, "Item path", "string", true),
