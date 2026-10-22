@@ -642,7 +642,8 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
     T("daytime-unpause", "Resume the day/night cycle", PT({})),
     T("daytime-set", "Set the daytime hour (0-24)", PT({
         P("floatValue", -1, "Hour (0.0 - 23.99)", "float", true)
-    }))
+    })),
+    T("worldgraph-clear", "Clear the world map graph (rebuilt on the next map load)", PT({}))
 };
 
 // ---------------------------------------------------------------------------
