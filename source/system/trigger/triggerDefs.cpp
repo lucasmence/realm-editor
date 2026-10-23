@@ -55,7 +55,7 @@ const std::vector<TriggerTypeDef> GUI_EVENT_DEFS =
     T("call-event", "When triggered by the call-event action", PT({})),
     T("region-entered", "When a unit enters a region", PT({
         P("unitName", -1, "Unit name", "string", true),
-        P("integerValue", -1, "Region index", "int", true)
+        P("text", -1, "Region index (name or number)", "string", true)
     })),
     T("item-dropped", "When an item is dropped", PT({})),
     T("item-picked", "When an item is picked up", PT({})),
@@ -108,12 +108,12 @@ const std::vector<TriggerTypeDef> GUI_CONDITION_DEFS =
     })),
     T("region-check-item", "An item exists inside a region", PT({
         P("strings", 0, "Item name", "string", true),
-        P("integers", 0, "Region index", "int", true),
+        P("strings", 1, "Region index (name or number)", "string", true),
         P("booleans", 0, "Expected present", "bool", false)
     })),
     T("region-check-unit", "A unit exists inside a region", PT({
         P("strings", 0, "Unit name", "string", true),
-        P("integers", 0, "Region index", "int", true),
+        P("strings", 1, "Region index (name or number)", "string", true),
         P("booleans", 0, "Expected present", "bool", false)
     })),
     T("unit-player-check-item", "A unit or its storage has an item", PT({
@@ -272,11 +272,11 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
     T("spawn-unit-region", "Spawn a unit inside a region", PT({
         P("strings", 0, "Unit path", "string", true),
         P("strings", 1, "Alliance (enemy/neutral)", "string", true),
-        P("integers", 0, "Region index", "int", true),
-        P("integers", 1, "Group", "int", false),
+        P("strings", 2, "Region index (name or number)", "string", true),
+        P("integers", 0, "Group", "int", false),
         P("booleans", 0, "Summoned portal", "bool", false),
-        P("strings", 2, "Custom name", "string", false),
-        P("strings", 3, "Item drop", "string", false)
+        P("strings", 3, "Custom name", "string", false),
+        P("strings", 4, "Item drop", "string", false)
     })),
     T("unit-edit-exp", "Edit the experience of a unit", PT({
         P("strings", 0, "Unit name", "string", true),
@@ -360,7 +360,7 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
         P("strings", 0, "Effect path", "string", true),
         P("floats", 0, "Position X", "float", false),
         P("floats", 1, "Position Y", "float", false),
-        P("integers", 0, "Region index", "int", false),
+        P("strings", 1, "Region index (name or number)", "string", false),
         P("booleans", 0, "HUD canvas", "bool", false)
     })),
     T("play-animation", "Play an animation on a unit", PT({
@@ -390,7 +390,7 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
         P("floats", 0, "Duration (0 = instant)", "float", false)
     })),
     T("camera-move-region", "Move the camera to a region", PT({
-        P("integers", 0, "Region index", "int", true),
+        P("strings", 0, "Region index (name or number)", "string", true),
         P("floats", 0, "Duration (0 = instant)", "float", false)
     })),
     T("camera-shake", "Shake the camera", PT({
@@ -424,12 +424,12 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
     T("unit-cast-skill-region", "Make a unit cast a skill at a region", PT({
         P("strings", 0, "Unit name", "string", true),
         P("strings", 1, "Skill name", "string", true),
-        P("integers", 0, "Region index", "int", true),
-        P("strings", 2, "Animation", "string", false)
+        P("strings", 2, "Region index (name or number)", "string", true),
+        P("strings", 3, "Animation", "string", false)
     })),
     T("unit-teleport-region", "Teleport a unit to a region", PT({
         P("strings", 0, "Unit name", "string", true),
-        P("integers", 0, "Region index", "int", true)
+        P("strings", 1, "Region index (name or number)", "string", true)
     })),
     T("unit-move-unit", "Make a unit move to another unit", PT({
         P("strings", 0, "Unit name", "string", true),
@@ -443,14 +443,14 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
         P("strings", 0, "Item path", "string", true),
         P("strings", 1, "Item path (extra)", "string", false),
         P("integers", 0, "Stack", "int", false),
-        P("integers", 1, "Region index", "int", true)
+        P("strings", 2, "Region index (name or number)", "string", true)
     })),
     T("region-terrain-animation", "Play an animation on terrain in a region", PT({
-        P("integers", 0, "Region index", "int", true),
-        P("strings", 0, "Animation", "string", true)
+        P("strings", 0, "Region index (name or number)", "string", true),
+        P("strings", 1, "Animation", "string", true)
     })),
     T("region-terrain-remove", "Remove terrain inside a region", PT({
-        P("integers", 0, "Region index", "int", true)
+        P("strings", 0, "Region index (name or number)", "string", true)
     })),
     T("apply-map-fog", "Apply fog of war", PT({
         P("integers", 0, "Style", "int", true)
@@ -484,7 +484,7 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
         P("booleans", 0, "Shouting (keep the label on screen)", "bool", false)
     })),
     T("wall-remove", "Remove walls inside a region", PT({
-        P("integers", 0, "Region index", "int", true)
+        P("strings", 0, "Region index (name or number)", "string", true)
     })),
     T("change-map-particles", "Change the map particles", PT({
         P("strings", 0, "Particles name", "string", true)
@@ -515,7 +515,7 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
     T("add-environment-sfx-region", "Spawn an environment with particles in a region", PT({
         P("strings", 0, "Environment path", "string", true),
         P("strings", 1, "Variable", "string", false),
-        P("integers", 0, "Region index", "int", true),
+        P("strings", 2, "Region index (name or number)", "string", true),
         P("integers", 1, "Color R", "int", false),
         P("integers", 2, "Color G", "int", false),
         P("integers", 3, "Color B", "int", false),
@@ -543,11 +543,11 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
     })),
     T("minimap-disable", "Disable the minimap", PT({})),
     T("environment-play-animation-region", "Play an animation on environments in a region", PT({
-        P("integers", 0, "Region index", "int", true),
-        P("strings", 0, "Animation", "string", true)
+        P("strings", 0, "Region index (name or number)", "string", true),
+        P("strings", 1, "Animation", "string", true)
     })),
     T("add-wall", "Add a wall at a region", PT({
-        P("integers", 0, "Region index", "int", true)
+        P("strings", 0, "Region index (name or number)", "string", true)
     })),
     T("fog-toggle", "Toggle the fog setting", PT({
         P("booleans", 0, "Enabled", "bool", true)
@@ -558,12 +558,12 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
     })),
     T("play-intro-sound", "Play the current guardian intro sound", PT({})),
     T("erase-world", "Erase everything outside a region", PT({
-        P("integers", 0, "Region index", "int", true)
+        P("strings", 0, "Region index (name or number)", "string", true)
     })),
     T("exit", "Go to the exit map", PT({})),
     T("show-credits-label", "Show a credits label in a region", PT({
         P("strings", 0, "Credits frame", "string", true),
-        P("integers", 0, "Region index", "int", true)
+        P("strings", 1, "Region index (name or number)", "string", true)
     })),
     T("toggle-control", "Enable or disable player control", PT({
         P("booleans", 0, "Enabled", "bool", true)
