@@ -2430,6 +2430,32 @@ void TriggerEditor::guiDuplicateEntry(std::vector<GuiEntry> &entries, int index)
     this->guiSyncText();
 }
 
+// Copies the whole record (type, every parameter and the and/or - then/else
+// group) to the editor-wide clipboard. The kind is stored with it so Paste can
+// refuse an entry from another list; it also works across trigger blocks and
+// files, since the clipboard lives in the editor, not in the list.
+void TriggerEditor::guiCopyEntry(const GuiEntry &entry, GuiKind kind)
+{
+    this->guiClipboard = entry;
+    this->guiClipboardKind = kind;
+    this->guiClipboardValid = true;
+}
+
+// Inserts a copy of the clipboard entry into "entries" at "insertIndex"
+// (-1 appends at the end of the list). Does nothing when the clipboard is
+// empty or holds a type from another list (event / condition / action).
+void TriggerEditor::guiPasteEntry(std::vector<GuiEntry> &entries, GuiKind kind, int insertIndex)
+{
+    if (!this->guiClipboardValid || this->guiClipboardKind != kind)
+        return;
+
+    if (insertIndex < 0 || insertIndex > (int)entries.size())
+        insertIndex = (int)entries.size();
+
+    entries.insert(entries.begin() + insertIndex, this->guiClipboard);
+    this->guiSyncText();
+}
+
 // Populates the popup buffers from a raw record (sized to the metadata plus
 // any extra values already present in the file, so nothing is lost).
 static void guiPopulateBuffers(GuiPopupState &popup, const TriggerTypeDef *def)
@@ -3295,6 +3321,17 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
     // without an internal scrollbar (the user asked for no scrolling inside
     // the memos). When all three lists together exceed the available space,
     // the parent panel's own scrollbar keeps everything reachable.
+
+    // The list Paste item is shared by the two ways of pasting: right
+    // click on the empty area of the list (window popup below) and right click
+    // on the "No ... yet." placeholder of an empty list (item popup).
+    const auto pasteMenuItem = [&]()
+    {
+        if (ImGui::MenuItem("Paste", "Ctrl+V", false,
+                            this->guiClipboardValid && this->guiClipboardKind == kind))
+            this->guiPasteEntry(entries, kind);
+    };
+
     float listHeight = guiGroupContentHeight(entries);
     ImGui::BeginChild((std::string("##gui-list-") + title).c_str(), ImVec2(0, listHeight), true,
                       ImGuiWindowFlags_NoScrollbar);
@@ -3303,6 +3340,13 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
         ImGui::TextWrapped("No %s yet.", title);
         ImGui::PopStyleColor();
+        // An empty memo is only as tall as this line, so the whole component is
+        // that item: it gets the Paste menu itself.
+        if (ImGui::BeginPopupContextItem("##gui-list-empty-ctx"))
+        {
+            pasteMenuItem();
+            ImGui::EndPopup();
+        }
     }
     else
     {
@@ -3409,6 +3453,8 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
                 ImGui::Separator();
                 if (ImGui::MenuItem("Edit"))
                     this->openGuiPopup(kind, this->guiTriggerIndex, i);
+                if (ImGui::MenuItem("Copy"))
+                    this->guiCopyEntry(entry, kind);
                 if (ImGui::MenuItem("Duplicate"))
                     this->guiDuplicateEntry(entries, i);
                 if (ImGui::MenuItem("Delete"))
@@ -3419,7 +3465,29 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
             ImGui::PopID();
         }
     }
+
+    // Empty area of the list: right-click pastes the copied entry at the end of
+    // the list. NoOpenOverItems keeps this popup from opening over a row, so
+    // the rows keep their own context menu (Add/Edit/Copy/Duplicate/Delete).
+    bool listHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows);
+    bool listFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+    if (ImGui::BeginPopupContextWindow("##gui-list-ctx",
+                                       ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
+    {
+        pasteMenuItem();
+        ImGui::EndPopup();
+    }
     ImGui::EndChild();
+
+    // Ctrl+V pastes the last copied entry at the end of the list under the mouse
+    // pointer (or of the focused list), matching the list's Paste menu item.
+    // Text inputs and popups keep their own Ctrl+V, so the shortcut only fires
+    // while a list is hovered/focused and nothing else is being typed/opened.
+    const bool anyPopupOpen = ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopup);
+    if (!anyPopupOpen && (listHovered || listFocused) && !ImGui::GetIO().WantTextInput &&
+        ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_V)))
+        this->guiPasteEntry(entries, kind);
+
     ImGui::Separator();
 }
 

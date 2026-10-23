@@ -206,6 +206,13 @@ class TriggerEditor
         bool guiHideConditions = false;     // hide the Conditions memo only
         bool guiHideActions = false;        // hide the Actions memo only
 
+        // ---- entry clipboard (Copy / Paste in the GUI lists) ----
+        // One entry at a time, scoped to its group: an event is never pasted
+        // into the condition or action list (and vice versa).
+        bool guiClipboardValid = false;
+        GuiKind guiClipboardKind = GuiKind::Event;
+        GuiEntry guiClipboard;
+
         // ---- per-frame editor layout (computed in renderEditor) ----
         float editorCharW = 8.f;
         float editorLineH = 20.f;
@@ -297,6 +304,8 @@ class TriggerEditor
         void guiDropEntry(std::vector<GuiEntry> &entries, int from, int to, bool insertBefore);
         void guiDeleteEntry(std::vector<GuiEntry> &entries, int index);
         void guiDuplicateEntry(std::vector<GuiEntry> &entries, int index);
+        void guiCopyEntry(const GuiEntry &entry, GuiKind kind);
+        void guiPasteEntry(std::vector<GuiEntry> &entries, GuiKind kind, int insertIndex = -1);
         std::vector<GuiEntry> &guiEntryList(GuiKind kind, GuiTrigger &trigger);
 
         // JSON editor widget
