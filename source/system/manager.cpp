@@ -1675,7 +1675,7 @@ bool Manager::imguiRenderWelcome()
     std::string openRequest = "";
 
     ImGui::SetCursorPosY(128.f);
-    if (ImGui::BeginChild("##welcomeRecentList", ImVec2(0.f, -74.f), true))
+    if (ImGui::BeginChild("##welcomeRecentList", ImVec2(0.f, -84.f), true))
     {
         if (this->recentFiles.empty())
         {
@@ -1713,8 +1713,19 @@ bool Manager::imguiRenderWelcome()
     }
     ImGui::EndChild();
 
-    // Bottom action buttons.
-    ImGui::SetCursorPos(ImVec2(12.f, winSize.y - 48.f));
+    // Bottom action buttons. The standalone tools (Trigger Editor / Sprite
+    // Fusion) get their own row so the labels fit: each button spawns a
+    // second realm-editor process in that mode, exactly like the Tools menu,
+    // and the welcome popup stays open behind it.
+    ImGui::SetCursorPos(ImVec2(12.f, winSize.y - 78.f));
+    if (ImGui::Button("Trigger Editor", ImVec2(150.f, 30.f)))
+        this->hud->launchTool("--trigger-editor");
+
+    ImGui::SameLine();
+    if (ImGui::Button("Sprite Fusion", ImVec2(150.f, 30.f)))
+        this->hud->launchTool("--sprite-fusion");
+
+    ImGui::SetCursorPos(ImVec2(12.f, winSize.y - 44.f));
     if (ImGui::Button("New Map", ImVec2(110.f, 30.f)))
     {
         this->welcomeActive = false;
