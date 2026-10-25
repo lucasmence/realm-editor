@@ -187,19 +187,22 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
     })),
     T("text-messagebox", "Show a message box", PT({
         P("integers", 0, "Type (0 info / 1 warning)", "int", false),
-        P("strings", 0, "Caption category", "string", false),
-        P("strings", 1, "Caption key", "string", false),
-        P("strings", 2, "Text category", "string", false),
-        P("strings", 3, "Text key", "string", false)
+        P("strings", 0, "Caption category (4 strings) / icon (3, 5 or 6 strings)", "string", false),
+        P("strings", 1, "Caption key (4 strings) / caption category (5-6 strings) / title (3 strings)", "string", false),
+        P("strings", 2, "Text category (4 strings) / caption key (5-6 strings) / description (3 strings)", "string", false),
+        P("strings", 3, "Text key (4 strings) / text category (5-6 strings)", "string", false),
+        P("strings", 4, "Text key (5-6 strings)", "string", false),
+        P("strings", 5, "Slide (6 strings)", "string", false)
     })),
     T("text-dialogbox", "Open a dialog box with options", PT({
         P("unitName", -1, "Unit name", "string", true),
         P("integers", 0, "Dialog box ID", "int", false),
         P("strings", 0, "Portrait name", "string", false),
-        P("strings", 1, "Caption category", "string", false),
-        P("strings", 2, "Caption key", "string", false),
-        P("strings", 3, "Text category", "string", false),
-        P("strings", 4, "Text key", "string", false)
+        P("strings", 1, "Caption category (5 strings) / animation (4 or 6 strings)", "string", false),
+        P("strings", 2, "Caption key (5 strings) / caption category (6 strings) / title (4 strings)", "string", false),
+        P("strings", 3, "Text category (5 strings) / caption key (6 strings) / description (4 strings)", "string", false),
+        P("strings", 4, "Text key (5 strings) / text category (6 strings)", "string", false),
+        P("strings", 5, "Text key (6 strings)", "string", false)
     })),
     T("text-dialogquest", "Open a dialog box from the DIALOGUES.QUESTS pattern", PT({
         P("unitName", -1, "Speaker unit (portrait/caption)", "string", false),
@@ -290,19 +293,26 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
     T("unit-unpause", "Unpause a unit", PT({
         P("strings", 0, "Unit name", "string", true)
     })),
-    T("add-special-effect", "Add a special effect", PT({
+    T("add-special-effect", "Add a special effect (shape-rectangle / shape-circle draw a shape)", PT({
         P("strings", 0, "Texture", "string", true),
-        P("strings", 1, "Animation", "string", false),
-        P("strings", 2, "Attach type", "string", false),
-        P("strings", 3, "Unit name", "string", false),
+        P("strings", 1, "Sound", "string", false),
+        P("strings", 2, "Animation", "string", false),
+        P("strings", 3, "Unit name (attach to)", "string", false),
         P("floats", 0, "Position X", "float", false),
         P("floats", 1, "Position Y", "float", false),
-        P("floats", 2, "Duration", "float", false),
+        P("floats", 2, "Angle", "float", false),
         P("floats", 3, "Scale", "float", false),
+        P("floats", 4, "Duration", "float", false),
+        P("floats", 5, "Shape width / circle radius", "float", false),
+        P("floats", 6, "Shape height (rectangle)", "float", false),
         P("integers", 0, "Color R", "int", false),
         P("integers", 1, "Color G", "int", false),
         P("integers", 2, "Color B", "int", false),
-        P("integers", 3, "Color A", "int", false)
+        P("integers", 3, "Color A", "int", false),
+        P("booleans", 0, "Behind", "bool", false),
+        P("booleans", 1, "Fade", "bool", false),
+        P("booleans", 2, "Limited time", "bool", false),
+        P("booleans", 3, "HUD canvas", "bool", false)
     })),
     T("unit-teleport", "Teleport a unit to a position", PT({
         P("strings", 0, "Unit name", "string", true),
@@ -510,7 +520,10 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
         P("integers", 1, "Color G", "int", false),
         P("integers", 2, "Color B", "int", false),
         P("integers", 3, "Color A", "int", false),
-        P("integers", 4, "Particle count", "int", false)
+        P("integers", 4, "Particle count", "int", false),
+        P("floats", 2, "Particle duration", "float", false),
+        P("floats", 3, "Particle size", "float", false),
+        P("floats", 4, "Particle speed", "float", false)
     })),
     T("add-environment-sfx-region", "Spawn an environment with particles in a region", PT({
         P("strings", 0, "Environment path", "string", true),
@@ -520,7 +533,10 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
         P("integers", 2, "Color G", "int", false),
         P("integers", 3, "Color B", "int", false),
         P("integers", 4, "Color A", "int", false),
-        P("integers", 5, "Particle count", "int", false)
+        P("integers", 5, "Particle count", "int", false),
+        P("floats", 0, "Particle duration", "float", false),
+        P("floats", 1, "Particle size", "float", false),
+        P("floats", 2, "Particle speed", "float", false)
     })),
     T("enable-skill-tree", "Show or hide the skill tree", PT({
         P("booleans", 0, "Show", "bool", true)
@@ -640,8 +656,8 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
     })),
     T("daytime-pause", "Pause the day/night cycle", PT({})),
     T("daytime-unpause", "Resume the day/night cycle", PT({})),
-    T("daytime-set", "Set the daytime hour (0-24)", PT({
-        P("floatValue", -1, "Hour (0.0 - 23.99)", "float", true)
+    T("daytime-set", "Set the daytime hour (0-24). Reads floats[0]; integerValue is accepted as a fallback", PT({
+        P("floats", 0, "Hour (0.0 - 23.99)", "float", true)
     })),
     T("worldgraph-clear", "Clear the world map graph (rebuilt on the next map load)", PT({}))
 };
