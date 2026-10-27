@@ -493,6 +493,10 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
         P("strings", 0, "Floating text (FLOATING-TEXTS key or literal)", "string", false),
         P("booleans", 0, "Shouting (keep the label on screen)", "bool", false)
     })),
+    T("unit-set-movespeed", "Set a unit's movement speed and animation speed as a percentage", PT({
+        P("unitName", -1, "Unit name", "string", true),
+        P("floats", 0, "Speed percentage (1.00 = 100%)", "float", true)
+    })),
     T("wall-remove", "Remove walls inside a region", PT({
         P("strings", 0, "Region index (name or number)", "string", true)
     })),
@@ -597,11 +601,11 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
         P("strings", 0, "Category", "string", true),
         P("strings", 1, "Key", "string", true)
     })),
-    T("console-dialogbox", "Show a dialog in the console", PT({
-        P("unitName", -1, "Unit name", "string", false),
+    T("console-dialogbox", "Show a dialog in the console (per-character dialogue or DIALOGUES.QUESTS line)", PT({
+        P("unitName", -1, "Speaker unit (voice)", "string", false),
         P("strings", 0, "Portrait", "string", true),
-        P("strings", 1, "Category", "string", true),
-        P("strings", 2, "Key", "string", true)
+        P("strings", 1, "Quest name (ex: PROLOGUE-BARBARIAN-01) or dialogue group", "string", true),
+        P("strings", 2, "Line name (ex: LYRA-01) or dialogue key", "string", true)
     })),
     T("world-minimap-set", "Set the world minimap data", PT({
         P("strings", 0, "Minimap name", "string", true)
