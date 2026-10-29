@@ -4,6 +4,9 @@
 #include <sstream>
 #include <algorithm>
 #include <cctype>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
 
 namespace Json
 {
@@ -118,10 +121,56 @@ namespace Json
             return (value.is_object() || value.is_array()) && value.empty();
         }
 
+        // nlohmann::json stores every number as a double, so a value that
+        // came from a float carries its whole binary expansion when dumped
+        // (0.301f -> 0.3009999990463257). Print exact float values with the
+        // shortest text that reads back as the same float instead, keeping a
+        // decimal point so YAML still loads them as floats.
+        std::string floatText(double value)
+        {
+            if (!std::isfinite(value))
+                return "null";
+
+            const float target = (float)value;
+            char buffer[64] = {0};
+            bool found = false;
+
+            // Shortest plain decimal that reads back as the same float.
+            if (std::fabs(value) < 1.0e9)
+                for (int decimals = 0; decimals <= 9 && !found; ++decimals)
+                {
+                    std::snprintf(buffer, sizeof(buffer), "%.*f", decimals, value);
+                    found = (std::strtof(buffer, nullptr) == target);
+                }
+
+            // Very small or very large magnitudes: keep the exponent form.
+            if (!found)
+                for (int precision = 1; precision <= 9; ++precision)
+                {
+                    std::snprintf(buffer, sizeof(buffer), "%.*g", precision, value);
+                    if (std::strtof(buffer, nullptr) == target)
+                        break;
+                }
+
+            std::string text = buffer;
+            if (text.find_first_of(".eE") == std::string::npos)
+                text += ".0";
+            return text;
+        }
+
         // Scalars use JSON syntax, which YAML accepts as double-quoted strings,
         // numbers, booleans and null.
         std::string scalarText(const json &value)
         {
+            if (value.is_number_float())
+            {
+                const double number = value.get<double>();
+                // Only compact values a float can hold exactly: everything the
+                // trigger editor edits is one, while a hand-written double
+                // keeps its full precision.
+                if (std::isfinite(number) && (double)(float)number == number)
+                    return floatText(number);
+            }
             return value.dump();
         }
 
