@@ -38,6 +38,7 @@ namespace
 const std::vector<TriggerTypeDef> GUI_EVENT_DEFS =
 {
     T("initialization", "When the map is initialized", PT({})),
+    T("on-exit", "When the map is closing", PT({})),
     T("unit-kill", "When a unit dies", PT({
         P("unitName", -1, "Unit name", "string", true)
     })),
@@ -445,6 +446,13 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
         P("strings", 0, "Unit name", "string", true),
         P("strings", 1, "Target unit", "string", true)
     })),
+    T("unit-set-follower", "Make a unit become the follower of another unit", PT({
+        P("strings", 0, "Unit to follow (variable or name)", "string", true),
+        P("strings", 1, "Follower unit (variable or name)", "string", true)
+    })),
+    T("unit-stop-follower", "Stop a unit from following the unit it is bound to", PT({
+        P("strings", 0, "Follower unit (variable or name)", "string", true)
+    })),
     T("unit-move-region", "Make a unit move to a region", PT({
         P("strings", 0, "Unit name", "string", true),
         P("strings", 1, "Region index (name or number)", "string", true)
@@ -492,6 +500,9 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
         P("unitName", -1, "Unit name", "string", true),
         P("strings", 0, "Floating text (FLOATING-TEXTS key or literal)", "string", false),
         P("booleans", 0, "Shouting (keep the label on screen)", "bool", false)
+    })),
+    T("unit-clear-floating-text", "Remove a unit's floating text", PT({
+        P("unitName", -1, "Unit name", "string", true)
     })),
     T("unit-set-movespeed", "Set a unit's movement speed and animation speed as a percentage", PT({
         P("unitName", -1, "Unit name", "string", true),
