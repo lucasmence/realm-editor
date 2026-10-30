@@ -492,7 +492,7 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
         P("strings", 0, "Unit name", "string", true),
         P("integers", 0, "Value", "int", true)
     })),
-    T("uni-set-angle", "Set the facing angle of a unit", PT({
+    T("unit-set-angle", "Set the facing angle of a unit", PT({
         P("strings", 0, "Unit variable (or unit name)", "string", true),
         P("floats", 0, "Angle (degrees, 0-360)", "float", true)
     })),
