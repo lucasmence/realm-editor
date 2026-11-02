@@ -1577,7 +1577,7 @@ void Manager::renderSplash()
     
     sf::Text creditText;
     creditText.setFont(*this->font);
-    creditText.setString("https://mence.dev");
+    creditText.setString("https://pleroma-studios.mence.dev");
     creditText.setCharacterSize(14);
     creditText.setFillColor(sf::Color(110, 110, 150));
     sf::FloatRect creditBounds = creditText.getLocalBounds();

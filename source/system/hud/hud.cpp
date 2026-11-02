@@ -3763,10 +3763,10 @@ void Hud::imguiRenderAboutWindow()
 		IM_COL32(60, 60, 85, 255));
 
 	
-	float creditW = ImGui::CalcTextSize("https://mence.dev").x;
+	float creditW = ImGui::CalcTextSize("https://pleroma-studios.mence.dev").x;
 	ImGui::SetCursorPos(ImVec2((winSize.x - creditW) / 2.f, 215.f));
 	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-	ImGui::Text("https://mence.dev");
+	ImGui::Text("https://pleroma-studios.mence.dev");
 	ImGui::PopStyleColor();
 
 	
