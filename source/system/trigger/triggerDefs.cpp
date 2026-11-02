@@ -509,7 +509,8 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
         P("floats", 0, "Speed percentage (1.00 = 100%)", "float", true)
     })),
     T("unit-bounce", "Make a unit hop in place", PT({
-        P("unitName", -1, "Unit name", "string", true)
+        P("unitName", -1, "Unit name", "string", true),
+        P("booleans", 0, "Muted (skip the jump sound)", "bool", false)
     })),
     T("wall-remove", "Remove walls inside a region", PT({
         P("strings", 0, "Region index (name or number)", "string", true)
