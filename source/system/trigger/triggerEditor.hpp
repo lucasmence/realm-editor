@@ -27,6 +27,9 @@ struct GuiEntry
     std::string type;  // type key, e.g. "unit-kill"
     json raw;          // original record object (preserves unknown fields)
     int group = 0;     // conditions: 0 = and, 1 = or ; actions: 0 = then, 1 = else
+    bool disabled = false;   // declaration is commented out in the YAML ("# - ...")
+    bool isComment = false;  // row is a free "# ..." comment line, not a declaration
+    std::string comment;     // text of the comment row (lines separated by '\n')
 };
 
 struct GuiTrigger
@@ -206,6 +209,14 @@ class TriggerEditor
         bool guiHideConditions = false;     // hide the Conditions memo only
         bool guiHideActions = false;        // hide the Actions memo only
 
+        // ---- comment row popup (right-click -> Add comment / Edit comment) ----
+        bool guiCommentPopupOpen = false;
+        GuiKind guiCommentKind = GuiKind::Event;
+        int guiCommentTriggerIndex = 0;
+        int guiCommentEntryIndex = -1;   // comment row being edited (-1 = adding)
+        int guiCommentInsertIndex = -1;  // adding: insert at this index (-1 = end)
+        char guiCommentBuf[512] = "";
+
         // ---- entry clipboard (Copy / Paste in the GUI lists) ----
         // One entry at a time, scoped to its group: an event is never pasted
         // into the condition or action list (and vice versa).
@@ -284,12 +295,16 @@ class TriggerEditor
         void renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries);
         bool textToGui();                  // parse this->text into guiTriggers
         void guiToText();                  // regenerate this->text from guiTriggers
+        void guiAnnotateFromText();        // restore "# ..." comment / disabled rows from this->text
         std::string guiDescription(GuiKind kind, const std::string &type) const;
         std::string guiEntryValues(GuiKind kind, const GuiEntry &entry) const; // compact values summary
         const std::vector<TriggerTypeDef> &guiDefs(GuiKind kind) const;
         void openGuiPopup(GuiKind kind, int triggerIndex, int entryIndex, int insertIndex = -1);
         void renderGuiPopup();
         void commitGuiPopup();
+        void guiOpenCommentPopup(GuiKind kind, int triggerIndex, int entryIndex, int insertIndex = -1);
+        void renderGuiCommentPopup();
+        void commitGuiCommentPopup();
 
         // Misc tab: generic editor for the non-trigger top-level fields of the
         // file (item-drop, item-drop-list, environments-drop, environments-

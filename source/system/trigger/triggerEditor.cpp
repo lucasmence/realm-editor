@@ -616,6 +616,9 @@ void TriggerEditor::resetSession()
     this->guiConvertible = true;
     this->guiConvertError.clear();
     this->guiPopup = GuiPopupState();
+    this->guiCommentPopupOpen = false;
+    this->guiCommentEntryIndex = -1;
+    this->guiCommentInsertIndex = -1;
     this->guiDeleteBlockOpen = false;
 
     // Without a map the sidebar only offers the game folders (interactions and
@@ -1257,9 +1260,17 @@ void TriggerEditor::formatYaml()
 
     try
     {
-        json parsed = Json::parseYaml(this->text);
         this->snapshotUndo();
-        this->text = Json::dumpYaml(parsed);
+        // Formatting through the visual model keeps the comment rows and the
+        // disabled declarations, which a plain YAML re-dump would drop (they
+        // only exist as comments in the text).
+        if (this->textToGui())
+            this->guiToText();
+        else
+        {
+            json parsed = Json::parseYaml(this->text);
+            this->text = Json::dumpYaml(parsed);
+        }
         this->cursorPos = 0;
         this->selectionStart = -1;
         this->dirty = true;
@@ -2289,6 +2300,9 @@ bool TriggerEditor::textToGui()
 
         if (this->guiTriggers.empty())
             this->guiTriggers.push_back(GuiTrigger());
+        // Comments and disabled declarations are lost by the YAML parse: they
+        // are restored from the raw text so reopening a file keeps them.
+        this->guiAnnotateFromText();
         return true;
     }
     catch (const std::exception &e)
@@ -2304,14 +2318,97 @@ bool TriggerEditor::textToGui()
     return false;
 }
 
+namespace
+{
+    // YAML lines of one list item, de-indented so the first line starts with
+    // "- " (the item marker) and the following lines keep their relative
+    // indentation. The formatting comes from Json::dumpYaml, so a regenerated
+    // file looks exactly like a formatted one.
+    std::vector<std::string> guiItemYamlLines(const json &item)
+    {
+        json items = json::array();
+        items.push_back(item);
+
+        json document = json::object();
+        document["k"] = items;
+
+        std::vector<std::string> lines;
+        std::istringstream stream(Json::dumpYaml(document));
+        std::string line;
+        bool header = true;
+        while (std::getline(stream, line))
+        {
+            if (header)
+            {
+                // The "k:" wrapper key emitted by dumpYaml.
+                header = false;
+                continue;
+            }
+            if (line.size() >= 2 && line[0] == ' ' && line[1] == ' ')
+                lines.push_back(line.substr(2));
+            else if (!line.empty())
+                lines.push_back(line);
+        }
+        return lines;
+    }
+
+    // Lines of a comment row: "#" optionally followed by the text, one line of
+    // `text` per output line (so a multi-line comment stays valid YAML).
+    std::vector<std::string> guiCommentYamlLines(const std::string &text)
+    {
+        std::vector<std::string> lines;
+        std::string current;
+        for (char c : text)
+        {
+            if (c == '\n')
+            {
+                lines.push_back(current);
+                current.clear();
+            }
+            else if (c != '\r')
+                current += c;
+        }
+        lines.push_back(current);
+
+        for (auto &line : lines)
+        {
+            while (!line.empty() && (line.back() == ' ' || line.back() == '\t'))
+                line.pop_back();
+            line = line.empty() ? std::string("#") : ("# " + line);
+        }
+        return lines;
+    }
+
+    // Prefixes every line of a declaration with "#" after its indentation, so
+    // the row is disabled (the engine no longer reads it) while uncommenting
+    // it by hand restores the exact YAML.
+    void guiDisableYamlLines(std::vector<std::string> &lines)
+    {
+        for (auto &line : lines)
+        {
+            size_t indent = line.find_first_not_of(' ');
+            if (indent == std::string::npos)
+                line = "#";
+            else
+                line = line.substr(0, indent) + "# " + line.substr(indent);
+        }
+    }
+}
+
 // Regenerates this->text from the GUI model, keeping every non-trigger field
 // of the document (item-drop, environments-drop, player-characters, ...).
+//
+// The document is dumped by Json::dumpYaml and the "trigger" section is then
+// rewritten by hand, because the comment rows and the disabled declarations
+// only exist as YAML comments: they have no JSON counterpart to dump.
 void TriggerEditor::guiToText()
 {
     json root = this->guiRoot;
     if (!root.is_object())
         root = json::object();
 
+    // Live declarations only: the fallback document keeps a valid trigger list
+    // even if the section splice below ever fails to find its chunk.
     json triggers = json::array();
 
     for (const auto &trigger : this->guiTriggers)
@@ -2321,6 +2418,8 @@ void TriggerEditor::guiToText()
         json events = json::array();
         for (const auto &e : trigger.events)
         {
+            if (e.isComment)
+                continue;
             json j = e.raw;
             j["event"] = e.type;
             events.push_back(j);
@@ -2331,6 +2430,8 @@ void TriggerEditor::guiToText()
         json conditionsOr = json::array();
         for (const auto &c : trigger.conditions)
         {
+            if (c.isComment)
+                continue;
             json j = c.raw;
             j["condition"] = c.type;
             if (c.group == 0)
@@ -2346,6 +2447,8 @@ void TriggerEditor::guiToText()
         json elseActions = json::array();
         for (const auto &a : trigger.actions)
         {
+            if (a.isComment)
+                continue;
             json j = a.raw;
             j["action"] = a.type;
             if (a.group == 0)
@@ -2361,8 +2464,389 @@ void TriggerEditor::guiToText()
     }
 
     root["trigger"] = triggers;
+    std::string dumped = Json::dumpYaml(root);
+
+    // ---- trigger section, with the comment and disabled rows ----
+    std::vector<std::string> triggerLines;
+    triggerLines.push_back("trigger:");
+
+    for (const auto &trigger : this->guiTriggers)
+    {
+        // Same key order dumpYaml writes (the JSON object is sorted), so an
+        // untouched file keeps its layout.
+        struct Section
+        {
+            const char *key;
+            bool always;   // written even when the list is empty
+        };
+        const Section sections[] = {
+            { "conditions",    true  },
+            { "conditions-or", false },
+            { "else",          false },
+            { "events",        true  },
+            { "then",          true  }
+        };
+        const int sectionCount = 5;
+        std::vector<std::vector<std::string>> sectionLines(sectionCount);
+
+        const auto appendList = [&](int section, const std::vector<GuiEntry> &list,
+                                    int group, const char *typeKey)
+        {
+            for (const auto &entry : list)
+            {
+                if (entry.group != group)
+                    continue;
+
+                if (entry.isComment)
+                {
+                    for (const auto &line : guiCommentYamlLines(entry.comment))
+                        sectionLines[section].push_back("  " + line);
+                    continue;
+                }
+
+                json record = entry.raw.is_object() ? entry.raw : json::object();
+                record[typeKey] = entry.type;
+
+                std::vector<std::string> lines = guiItemYamlLines(record);
+                if (entry.disabled)
+                    guiDisableYamlLines(lines);
+                for (const auto &line : lines)
+                    sectionLines[section].push_back("  " + line);
+            }
+        };
+
+        appendList(0, trigger.conditions, 0, "condition");
+        appendList(1, trigger.conditions, 1, "condition");
+        appendList(2, trigger.actions, 1, "action");
+        appendList(3, trigger.events, 0, "event");
+        appendList(4, trigger.actions, 0, "action");
+
+        std::vector<std::string> blockLines;
+        for (int index = 0; index < sectionCount; ++index)
+        {
+            if (sectionLines[index].empty() && !sections[index].always)
+                continue;
+            if (sectionLines[index].empty())
+            {
+                blockLines.push_back(std::string(sections[index].key) + ": []");
+                continue;
+            }
+            blockLines.push_back(std::string(sections[index].key) + ":");
+            for (const auto &line : sectionLines[index])
+                blockLines.push_back(line);
+        }
+
+        // The first block line shares the "- " sequence marker; the rest of the
+        // block is indented under it (keys at 4 spaces, items at 6).
+        triggerLines.push_back("  - " + blockLines.front());
+        for (size_t index = 1; index < blockLines.size(); ++index)
+            triggerLines.push_back("    " + blockLines[index]);
+    }
+
+    // ---- splice the section into the dumped document ----
+    std::vector<std::vector<std::string>> chunks;
+    {
+        std::istringstream stream(dumped);
+        std::string line;
+        while (std::getline(stream, line))
+        {
+            // A top-level key line (column 0) starts a new chunk.
+            if (chunks.empty() || (!line.empty() && line[0] != ' '))
+                chunks.push_back(std::vector<std::string>());
+            chunks.back().push_back(line);
+        }
+    }
+
+    bool replaced = false;
+    for (auto &chunk : chunks)
+        if (!chunk.empty() && (chunk.front() == "trigger:" || chunk.front() == "trigger: []"))
+        {
+            chunk = triggerLines;
+            replaced = true;
+            break;
+        }
+    if (!replaced)
+        chunks.push_back(triggerLines);
+
+    std::string text;
+    for (const auto &chunk : chunks)
+        for (const auto &line : chunk)
+            text += line + "\n";
+
     this->guiRoot = root;
-    this->text = Json::dumpYaml(root);
+    this->text = text;
+}
+
+// Restores the editor-only rows from the raw text: the "# ..." comment rows
+// and the declarations that were disabled with the right-click menu (written
+// commented out in the file). YAML parsing drops comments, so they are read
+// line by line, following the layout Json::dumpYaml writes: "trigger:" at
+// column 0, a block at 2, its list keys at 4 and the items at 6.
+void TriggerEditor::guiAnnotateFromText()
+{
+    if (this->guiTriggers.empty() || this->text.empty())
+        return;
+
+    std::vector<std::string> lines;
+    {
+        std::istringstream stream(this->text);
+        std::string line;
+        while (std::getline(stream, line))
+        {
+            while (!line.empty() && line.back() == '\r')
+                line.pop_back();
+            lines.push_back(line);
+        }
+    }
+
+    int triggerIndent = -1;
+    for (const auto &line : lines)
+    {
+        std::string trimmed = line;
+        while (!trimmed.empty() && trimmed.back() == ' ')
+            trimmed.pop_back();
+        if (trimmed == "trigger:")
+        {
+            triggerIndent = (int)line.find_first_not_of(' ');
+            break;
+        }
+    }
+    if (triggerIndent < 0)
+        return;
+
+    const size_t blockIndent = (size_t)triggerIndent + 2;
+    const size_t keyIndent = blockIndent + 2;
+    const size_t itemIndent = blockIndent + 4;
+
+    struct ScannedItem
+    {
+        bool live = false;          // a declaration already in the JSON model
+        bool comment = false;       // a free comment row
+        std::string commentText;
+        std::string yaml;           // reconstructed YAML of a disabled declaration
+    };
+
+    struct ScannedList
+    {
+        std::string key;
+        std::vector<ScannedItem> items;
+    };
+
+    std::vector<std::vector<ScannedList>> blocks;
+    int blockIndex = -1;
+    int listIndex = -1;
+    int disabledIndex = -1;   // item being collected (disabled declaration)
+
+    const auto stripCommentMarker = [](const std::string &content) -> std::string
+    {
+        std::string body = content.substr(1);
+        if (!body.empty() && body[0] == ' ')
+            body = body.substr(1);
+        return body;
+    };
+
+    for (const auto &line : lines)
+    {
+        size_t indent = line.find_first_not_of(' ');
+        if (indent == std::string::npos)
+        {
+            disabledIndex = -1;
+            continue;
+        }
+
+        std::string content = line.substr(indent);
+
+        // Continuation of a disabled declaration (an indented "#" line).
+        if (disabledIndex >= 0 && indent > itemIndent && content[0] == '#'
+            && blockIndex >= 0 && listIndex >= 0
+            && disabledIndex < (int)blocks[blockIndex][listIndex].items.size())
+        {
+            ScannedItem &item = blocks[blockIndex][listIndex].items[disabledIndex];
+            item.yaml += std::string(indent - itemIndent, ' ') + stripCommentMarker(content) + "\n";
+            continue;
+        }
+        disabledIndex = -1;
+
+        // Block start: "- events:" / "- conditions: []" / ...
+        if (indent == blockIndent && content.rfind("- ", 0) == 0)
+        {
+            std::string rest = content.substr(2);
+            size_t colon = rest.find(':');
+            ScannedList list;
+            list.key = (colon == std::string::npos) ? rest : rest.substr(0, colon);
+
+            blocks.push_back(std::vector<ScannedList>());
+            blocks.back().push_back(list);
+            blockIndex = (int)blocks.size() - 1;
+            listIndex = 0;
+            continue;
+        }
+
+        // List key inside the block.
+        if (indent == keyIndent && blockIndex >= 0)
+        {
+            size_t colon = content.find(':');
+            std::string key = (colon == std::string::npos) ? content : content.substr(0, colon);
+            bool known = (key == "events" || key == "conditions" || key == "conditions-or"
+                          || key == "then" || key == "else");
+            if (!known)
+            {
+                listIndex = -1;
+                continue;
+            }
+
+            ScannedList list;
+            list.key = key;
+            blocks[blockIndex].push_back(list);
+            listIndex = (int)blocks[blockIndex].size() - 1;
+            continue;
+        }
+
+        // Item row of the current list.
+        if (indent == itemIndent && blockIndex >= 0 && listIndex >= 0)
+        {
+            ScannedItem item;
+            if (content.rfind("- ", 0) == 0)
+            {
+                item.live = true;
+            }
+            else if (content[0] == '#')
+            {
+                std::string body = stripCommentMarker(content);
+                if (body.rfind("- ", 0) == 0)
+                {
+                    ScannedItem disabledItem;
+                    disabledItem.yaml = body + "\n";
+                    blocks[blockIndex][listIndex].items.push_back(disabledItem);
+                    disabledIndex = (int)blocks[blockIndex][listIndex].items.size() - 1;
+                    continue;
+                }
+                item.comment = true;
+                item.commentText = body;
+            }
+            else
+            {
+                continue;
+            }
+            blocks[blockIndex][listIndex].items.push_back(item);
+        }
+    }
+
+    for (int block = 0; block < (int)this->guiTriggers.size() && block < (int)blocks.size(); ++block)
+    {
+        GuiTrigger &trigger = this->guiTriggers[block];
+
+        // The parsed declarations of one list, consumed in file order while the
+        // scan walks the items (so comments/disabled rows land between them).
+        struct Pending
+        {
+            std::vector<GuiEntry> entries;
+            size_t cursor = 0;
+            std::vector<GuiEntry> *target = nullptr;
+            int group = 0;
+        };
+
+        const auto filterGroup = [](const std::vector<GuiEntry> &source, int group)
+        {
+            std::vector<GuiEntry> out;
+            for (const auto &entry : source)
+                if (entry.group == group && !entry.isComment)
+                    out.push_back(entry);
+            return out;
+        };
+
+        std::vector<GuiEntry> newEvents;
+        std::vector<GuiEntry> newConditions;
+        std::vector<GuiEntry> newActions;
+
+        std::vector<Pending> pending(5);
+        pending[0].entries = filterGroup(trigger.events, 0);
+        pending[0].target = &newEvents;
+        pending[0].group = 0;
+        pending[1].entries = filterGroup(trigger.conditions, 0);
+        pending[1].target = &newConditions;
+        pending[1].group = 0;
+        pending[2].entries = filterGroup(trigger.conditions, 1);
+        pending[2].target = &newConditions;
+        pending[2].group = 1;
+        pending[3].entries = filterGroup(trigger.actions, 0);
+        pending[3].target = &newActions;
+        pending[3].group = 0;
+        pending[4].entries = filterGroup(trigger.actions, 1);
+        pending[4].target = &newActions;
+        pending[4].group = 1;
+
+        for (const auto &list : blocks[block])
+        {
+            int index = -1;
+            if (list.key == "events")        index = 0;
+            else if (list.key == "conditions")    index = 1;
+            else if (list.key == "conditions-or") index = 2;
+            else if (list.key == "then")          index = 3;
+            else if (list.key == "else")          index = 4;
+            if (index < 0)
+                continue;
+
+            Pending &current = pending[index];
+            const char *typeKey = (index == 0) ? "event" : (index <= 2 ? "condition" : "action");
+
+            for (const auto &item : list.items)
+            {
+                if (item.live)
+                {
+                    if (current.cursor < current.entries.size())
+                        current.target->push_back(current.entries[current.cursor++]);
+                    continue;
+                }
+
+                GuiEntry entry;
+                entry.group = current.group;
+
+                if (item.comment)
+                {
+                    entry.isComment = true;
+                    entry.comment = item.commentText;
+                    current.target->push_back(entry);
+                    continue;
+                }
+
+                // Disabled declaration: parse the text that was commented out.
+                try
+                {
+                    json parsed = Json::parseYaml(item.yaml);
+                    if (!parsed.is_array() || parsed.empty() || !parsed[0].is_object())
+                        continue;
+                    entry.raw = parsed[0];
+                    entry.type = entry.raw.value(typeKey, "");
+                    entry.disabled = true;
+                    current.target->push_back(entry);
+                }
+                catch (...)
+                {
+                    // A commented block that no longer parses stays a plain
+                    // comment in the file and is skipped here.
+                }
+            }
+        }
+
+        // Anything the scan did not place (a hand-written file with another
+        // indentation) keeps its original order at the end of its list.
+        for (auto &list : pending)
+            while (list.cursor < list.entries.size())
+                list.target->push_back(list.entries[list.cursor++]);
+
+        // The file groups the branches (conditions before conditions-or, then
+        // before else), so the merged lists get the same order back; without
+        // this the else actions would sit above the then ones after a reload.
+        std::stable_sort(newConditions.begin(), newConditions.end(),
+                         [](const GuiEntry &a, const GuiEntry &b) { return a.group < b.group; });
+        std::stable_sort(newActions.begin(), newActions.end(),
+                         [](const GuiEntry &a, const GuiEntry &b) { return a.group < b.group; });
+
+        trigger.events = newEvents;
+        trigger.conditions = newConditions;
+        trigger.actions = newActions;
+    }
 }
 
 // Called after every GUI mutation: keeps the raw JSON text in sync with the
@@ -2670,6 +3154,117 @@ void TriggerEditor::commitGuiPopup()
 
     this->guiPopup.open = false;
     this->guiSyncText();
+}
+
+// Opens the small comment editor for a new comment row (entryIndex < 0, placed
+// at insertIndex) or for an existing one (entryIndex >= 0).
+void TriggerEditor::guiOpenCommentPopup(GuiKind kind, int triggerIndex, int entryIndex, int insertIndex)
+{
+    this->guiCommentPopupOpen = true;
+    this->guiCommentKind = kind;
+    this->guiCommentTriggerIndex = triggerIndex;
+    this->guiCommentEntryIndex = entryIndex;
+    this->guiCommentInsertIndex = (entryIndex >= 0) ? -1 : insertIndex;
+    this->guiCommentBuf[0] = '\0';
+
+    if (entryIndex >= 0 && triggerIndex >= 0 && triggerIndex < (int)this->guiTriggers.size())
+    {
+        std::vector<GuiEntry> &list = this->guiEntryList(kind, this->guiTriggers[triggerIndex]);
+        if (entryIndex < (int)list.size() && list[entryIndex].isComment)
+            std::strncpy(this->guiCommentBuf, list[entryIndex].comment.c_str(),
+                         sizeof(this->guiCommentBuf) - 1);
+    }
+    this->guiCommentBuf[sizeof(this->guiCommentBuf) - 1] = '\0';
+}
+
+void TriggerEditor::commitGuiCommentPopup()
+{
+    if (this->guiCommentTriggerIndex < 0
+        || this->guiCommentTriggerIndex >= (int)this->guiTriggers.size())
+    {
+        this->guiCommentPopupOpen = false;
+        return;
+    }
+
+    std::vector<GuiEntry> &list = this->guiEntryList(this->guiCommentKind,
+                                                     this->guiTriggers[this->guiCommentTriggerIndex]);
+
+    // One comment row is one YAML line: line breaks become spaces.
+    std::string text = this->guiCommentBuf;
+    std::replace(text.begin(), text.end(), '\r', ' ');
+    std::replace(text.begin(), text.end(), '\n', ' ');
+
+    if (this->guiCommentEntryIndex >= 0 && this->guiCommentEntryIndex < (int)list.size()
+        && list[this->guiCommentEntryIndex].isComment)
+    {
+        list[this->guiCommentEntryIndex].comment = text;
+    }
+    else
+    {
+        GuiEntry entry;
+        entry.isComment = true;
+        entry.comment = text;
+
+        int insertAt = this->guiCommentInsertIndex;
+        if (insertAt < 0 || insertAt > (int)list.size())
+            insertAt = (int)list.size();
+        // The new row joins the branch (and/or, then/else) of the row above it.
+        int reference = insertAt - 1;
+        if (reference >= 0 && reference < (int)list.size())
+            entry.group = list[reference].group;
+        list.insert(list.begin() + insertAt, entry);
+    }
+
+    this->guiCommentPopupOpen = false;
+    this->guiCommentEntryIndex = -1;
+    this->guiCommentInsertIndex = -1;
+    this->guiSyncText();
+}
+
+void TriggerEditor::renderGuiCommentPopup()
+{
+    if (!this->guiCommentPopupOpen)
+        return;
+
+    float scale = this->imguiScale;
+
+    ImGui::OpenPopup("##trigger-gui-comment");
+    if (ImGui::BeginPopupModal("##trigger-gui-comment", nullptr,
+                               ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings))
+    {
+        ImGui::TextUnformatted(this->guiCommentEntryIndex >= 0 ? "Edit comment" : "Add comment");
+        ImGui::Separator();
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.75f, 0.85f, 1.0f, 1.0f));
+        ImGui::TextWrapped("The comment is written as a \"# ...\" line in the YAML file, at the "
+                           "position of the row in the list.");
+        ImGui::PopStyleColor();
+        ImGui::Spacing();
+
+        ImGui::SetNextItemWidth(520.f * scale);
+        bool submitted = ImGui::InputText("##gui-comment-text", this->guiCommentBuf,
+                                         sizeof(this->guiCommentBuf),
+                                         ImGuiInputTextFlags_EnterReturnsTrue);
+
+        ImGui::Spacing();
+        if (ImGui::Button("Save", ImVec2(110.f * scale, 0)) || submitted)
+        {
+            this->commitGuiCommentPopup();
+            ImGui::EndPopup();
+            return;
+        }
+
+        ImGui::SameLine(0.f, 20.f * scale);
+        if (ImGui::Button("Cancel", ImVec2(110.f * scale, 0))
+            || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
+        {
+            this->guiCommentPopupOpen = false;
+            this->guiCommentEntryIndex = -1;
+            this->guiCommentInsertIndex = -1;
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::EndPopup();
+    }
 }
 
 void TriggerEditor::renderGuiPopup()
@@ -3355,21 +3950,55 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
             GuiEntry &entry = entries[i];
             ImGui::PushID((title + std::to_string(i)).c_str());
 
-            std::string desc = this->guiDescription(kind, entry.type);
+            // Two row kinds exist besides the live declarations: a comment row
+            // ("# ..." line, no declaration) and a disabled declaration
+            // (written commented out in the YAML, so the engine skips it).
+            std::string desc;
             std::string badge;
-            if (kind == GuiKind::Condition && entry.group == 1)
-                badge = "  [OR]";
-            else if (kind == GuiKind::Action && entry.group == 1)
-                badge = "  [ELSE]";
+            std::string values;
+            if (entry.isComment)
+            {
+                std::string text = entry.comment;
+                std::replace(text.begin(), text.end(), '\n', ' ');
+                desc = "# " + text;
+                badge = "  [COMMENT]";
+            }
+            else
+            {
+                desc = this->guiDescription(kind, entry.type);
+                if (entry.disabled)
+                    badge += "  [DISABLED]";
+                if (kind == GuiKind::Condition && entry.group == 1)
+                    badge += "  [OR]";
+                else if (kind == GuiKind::Action && entry.group == 1)
+                    badge += "  [ELSE]";
+                // Parameter values are drawn right after the description (via
+                // the draw list so the Selectable still spans the whole row for
+                // clicks and the context menu). Long summaries are clipped at
+                // the list edge; the tooltip shows the full type + values.
+                values = this->guiEntryValues(kind, entry);
+            }
 
-            // Parameter values are drawn in yellow right after the description
-            // (via the draw list so the Selectable still spans the whole row
-            // for clicks and the context menu). Long summaries are clipped at
-            // the list edge; the tooltip shows the full type + values.
-            std::string values = this->guiEntryValues(kind, entry);
+            const bool dimmed = entry.isComment || entry.disabled;
+            if (dimmed)
+            {
+                ImVec4 color = entry.isComment ? ImVec4(0.52f, 0.76f, 0.52f, 1.0f)
+                                               : ImVec4(0.55f, 0.55f, 0.62f, 1.0f);
+                ImGui::PushStyleColor(ImGuiCol_Text, color);
+            }
+
             ImVec2 rowMin = ImGui::GetCursorScreenPos();
             if (ImGui::Selectable((desc + badge).c_str(), false))
-                this->openGuiPopup(kind, this->guiTriggerIndex, i);
+            {
+                if (entry.isComment)
+                    this->guiOpenCommentPopup(kind, this->guiTriggerIndex, i);
+                else
+                    this->openGuiPopup(kind, this->guiTriggerIndex, i);
+            }
+
+            if (dimmed)
+                ImGui::PopStyleColor();
+
             // Rect of the row, used to place the values text and to know which
             // half of the row the mouse is over while dropping another row.
             ImVec2 rowMax = ImGui::GetItemRectMax();
@@ -3380,13 +4009,17 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
                 // Vertically aligned with the Selectable text (which starts at
                 // the row top, not at FramePadding.y).
                 ImVec2 valuesPos(rowMin.x + descW + 12.f * scale, rowMin.y);
-                drawList->AddText(valuesPos, IM_COL32(255, 215, 90, 255), values.c_str());
+                drawList->AddText(valuesPos, entry.disabled ? IM_COL32(150, 150, 160, 255)
+                                                            : IM_COL32(255, 215, 90, 255),
+                                  values.c_str());
             }
             if (ImGui::IsItemHovered())
             {
-                std::string tooltip = entry.type;
+                std::string tooltip = entry.isComment ? std::string("Comment row") : entry.type;
                 if (!values.empty())
                     tooltip += "\n" + values;
+                if (entry.disabled)
+                    tooltip += "\nDisabled: commented out in the YAML (the game ignores it)";
                 tooltip += "\nDrag to reorder";
                 ImGui::SetTooltip("%s", tooltip.c_str());
             }
@@ -3443,8 +4076,25 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
             {
                 // Insert a new entry right below the clicked row (the "+"
                 // buttons at the top of each memo still append at the end).
-                if (ImGui::MenuItem("Add"))
+                if (!entry.isComment && ImGui::MenuItem("Add"))
                     this->openGuiPopup(kind, this->guiTriggerIndex, -1, i + 1);
+                if (!entry.isComment)
+                {
+                    // Comments the declaration out in the YAML (or restores
+                    // it): the engine stops / starts reading that entry.
+                    if (ImGui::MenuItem(entry.disabled ? "Enable" : "Disable",
+                                        entry.disabled ? "(off)" : "(on)"))
+                    {
+                        entry.disabled = !entry.disabled;
+                        this->guiSyncText();
+                    }
+                }
+                if (entry.isComment && ImGui::MenuItem("Edit comment"))
+                    this->guiOpenCommentPopup(kind, this->guiTriggerIndex, i);
+                // New comment row right below the clicked one; it behaves like
+                // any other row (draggable, movable, deletable).
+                if (ImGui::MenuItem("Add comment"))
+                    this->guiOpenCommentPopup(kind, this->guiTriggerIndex, -1, i + 1);
                 ImGui::Separator();
                 if (ImGui::MenuItem("Move up"))
                     this->guiMoveEntry(entries, i, -1);
@@ -3606,6 +4256,9 @@ void TriggerEditor::renderGuiEditor()
 
     // ---- add/edit entry popup (searchable lookup + parameter editors) ----
     this->renderGuiPopup();
+
+    // ---- add/edit comment row popup ----
+    this->renderGuiCommentPopup();
 }
 
 // ---------------------------------------------------------------------------

@@ -488,6 +488,9 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
     T("travel-block", "Block or allow map travel", PT({
         P("booleans", 0, "Blocked", "bool", true)
     })),
+    T("player-interactions-block", "Block or allow player interactions and portals (map travel)", PT({
+        P("booleans", 0, "Blocked", "bool", true)
+    })),
     T("unit-set-dialog-value", "Set the dialog value of a unit", PT({
         P("strings", 0, "Unit name", "string", true),
         P("integers", 0, "Value", "int", true)
