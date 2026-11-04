@@ -34,6 +34,10 @@ struct GuiEntry
 
 struct GuiTrigger
 {
+    // Optional label of the block ("name:" in the YAML). It exists only for
+    // the visual editor: the engine does not read it, and an empty name keeps
+    // the default "Trigger N" label.
+    std::string name;
     std::vector<GuiEntry> events;
     std::vector<GuiEntry> conditions;
     std::vector<GuiEntry> actions;
@@ -204,6 +208,8 @@ class TriggerEditor
         std::string guiConvertError;
         GuiPopupState guiPopup;
         bool guiDeleteBlockOpen = false;    // confirm removing the selected block
+        bool guiNamePopupOpen = false;      // edit the name of the selected block
+        char guiNameBuf[256] = "";          // working copy of that name
         bool guiHideMemos = false;          // hide the event/condition/action list panels
         bool guiHideEvents = false;         // hide the Events memo only
         bool guiHideConditions = false;     // hide the Conditions memo only
@@ -304,6 +310,7 @@ class TriggerEditor
         void commitGuiPopup();
         void guiOpenCommentPopup(GuiKind kind, int triggerIndex, int entryIndex, int insertIndex = -1);
         void renderGuiCommentPopup();
+        void renderGuiNamePopup();         // edit the optional block name (visual only)
         void commitGuiCommentPopup();
 
         // Misc tab: generic editor for the non-trigger top-level fields of the

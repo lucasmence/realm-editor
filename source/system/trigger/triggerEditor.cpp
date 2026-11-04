@@ -1097,7 +1097,8 @@ void TriggerEditor::checkTriggerSyntax(const json &root)
         return;
     }
 
-    const std::vector<std::string> blockKeys = { "events", "conditions", "conditions-or", "then", "else" };
+    // "name" is the optional editor-only label of a block, so it is accepted.
+    const std::vector<std::string> blockKeys = { "events", "conditions", "conditions-or", "then", "else", "name" };
     const std::vector<std::string> fieldNames = { "floatValue", "integerValue", "unitName", "text",
                                                   "strings", "integers", "floats", "booleans" };
     const std::vector<std::string> listFields = { "strings", "integers", "floats", "booleans" };
@@ -1468,67 +1469,70 @@ void TriggerEditor::handleEditorKeys()
         this->caretVisible = true;
     };
 
-    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_A))
+    // ImGui 1.85 takes a user key index here, not an ImGuiKey value: passing
+    // the enum directly read io.KeysDown[enum], i.e. an unrelated letter
+    // (Escape -> "O", Enter -> "N", LeftArrow -> "B").
+    if (ctrl && ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_A)))
     {
         this->selectionStart = 0;
         this->cursorPos = (int)this->text.size();
         this->caretTimer = 0.f;
     }
-    else if (ctrl && ImGui::IsKeyPressed(ImGuiKey_C))
+    else if (ctrl && ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_C)))
     {
         ImGui::SetClipboardText(this->getSelectedText().c_str());
     }
-    else if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow, true))
+    else if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_LeftArrow), true))
     {
         int pos = ctrl ? wordLeft(this->text, this->cursorPos) : this->utf8Back(this->cursorPos);
         moveCursor(pos);
     }
-    else if (ImGui::IsKeyPressed(ImGuiKey_RightArrow, true))
+    else if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_RightArrow), true))
     {
         int pos = ctrl ? wordRight(this->text, this->cursorPos) : this->utf8Advance(this->cursorPos);
         moveCursor(pos);
     }
-    else if (ImGui::IsKeyPressed(ImGuiKey_UpArrow, true))
+    else if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_UpArrow), true))
     {
         int line = this->lineOfOffset(this->cursorPos);
         int column = this->utf8Columns(this->cursorPos);
         int newLine = std::max(0, line - 1);
         moveCursor(this->visualToByte(newLine, column));
     }
-    else if (ImGui::IsKeyPressed(ImGuiKey_DownArrow, true))
+    else if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_DownArrow), true))
     {
         int line = this->lineOfOffset(this->cursorPos);
         int column = this->utf8Columns(this->cursorPos);
         int newLine = std::min(this->countLines() - 1, line + 1);
         moveCursor(this->visualToByte(newLine, column));
     }
-    else if (ImGui::IsKeyPressed(ImGuiKey_Home, true))
+    else if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Home), true))
     {
         int line = this->lineOfOffset(this->cursorPos);
         int target = ctrl ? 0 : this->lineStartOffset(line);
         moveCursor(target);
     }
-    else if (ImGui::IsKeyPressed(ImGuiKey_End, true))
+    else if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_End), true))
     {
         int line = this->lineOfOffset(this->cursorPos);
         int target = ctrl ? (int)this->text.size() : this->lineEndOffset(line);
         moveCursor(target);
     }
-    else if (ImGui::IsKeyPressed(ImGuiKey_PageUp, true))
+    else if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_PageUp), true))
     {
         int line = this->lineOfOffset(this->cursorPos);
         int column = this->utf8Columns(this->cursorPos);
         int newLine = std::max(0, line - std::max(1, this->editorVisibleLines - 1));
         moveCursor(this->visualToByte(newLine, column));
     }
-    else if (ImGui::IsKeyPressed(ImGuiKey_PageDown, true))
+    else if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_PageDown), true))
     {
         int line = this->lineOfOffset(this->cursorPos);
         int column = this->utf8Columns(this->cursorPos);
         int newLine = std::min(this->countLines() - 1, line + std::max(1, this->editorVisibleLines - 1));
         moveCursor(this->visualToByte(newLine, column));
     }
-    else if (ImGui::IsKeyPressed(ImGuiKey_Escape))
+    else if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
     {
         this->selectionStart = -1;
     }
@@ -2242,6 +2246,12 @@ bool TriggerEditor::textToGui()
 
             GuiTrigger trigger;
 
+            // Optional visual label written by the trigger editor. The engine
+            // only reads events / conditions / then / else, so "name" is
+            // ignored by Grimsolf and a block without it behaves as before.
+            if (block.contains("name") && block["name"].is_string())
+                trigger.name = block["name"].get<std::string>();
+
             // `typeKey` is the JSON field that carries the entry type for this
             // list ("event" / "condition" / "action"); `group` only selects the
             // and/or and then/else grouping. Reading the type from the wrong
@@ -2414,6 +2424,8 @@ void TriggerEditor::guiToText()
     for (const auto &trigger : this->guiTriggers)
     {
         json block = json::object();
+        if (!trigger.name.empty())
+            block["name"] = trigger.name;
 
         json events = json::array();
         for (const auto &e : trigger.events)
@@ -2522,6 +2534,10 @@ void TriggerEditor::guiToText()
         appendList(4, trigger.actions, 0, "action");
 
         std::vector<std::string> blockLines;
+        // Optional block label, written first so it shows at the top of the
+        // "- " block. It is editor metadata only (the engine ignores it).
+        if (!trigger.name.empty())
+            blockLines.push_back("name: " + json(trigger.name).dump());
         for (int index = 0; index < sectionCount; ++index)
         {
             if (sectionLines[index].empty() && !sections[index].always)
@@ -3551,7 +3567,7 @@ void TriggerEditor::renderGuiPopup()
         // directly read an unrelated slot of io.KeysDown and never saw Escape.
         const bool escapePressed = ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape));
         bool saveClicked = ImGui::Button("Save", ImVec2(110.f * scale, 0))
-                           || (ImGui::IsKeyPressed(ImGuiKey_Enter)
+                           || (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter))
                                && !this->guiPopup.selectedType.empty() && !typing);
         if (saveClicked)
         {
@@ -4154,15 +4170,36 @@ void TriggerEditor::renderGuiEditor()
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
     ImGui::TextUnformatted("Trigger block");
     ImGui::PopStyleColor();
+    // The block keeps "Trigger N" unless the user named it; the name is a
+    // visual label only (the engine ignores it).
+    const auto blockLabel = [this](int index) -> std::string
+    {
+        const std::string &name = this->guiTriggers[index].name;
+        return name.empty() ? ("Trigger " + toStr(index + 1)) : name;
+    };
+
     ImGui::SameLine(90.f * scale);
-    if (ImGui::BeginCombo("##trigger-block",
-                          ("Trigger " + toStr(this->guiTriggerIndex + 1)).c_str()))
+    if (ImGui::BeginCombo("##trigger-block", blockLabel(this->guiTriggerIndex).c_str()))
     {
         for (int i = 0; i < (int)this->guiTriggers.size(); ++i)
-            if (ImGui::Selectable(("Trigger " + toStr(i + 1)).c_str(), i == this->guiTriggerIndex))
+        {
+            // Distinct IDs: two blocks may share a name.
+            ImGui::PushID(i);
+            if (ImGui::Selectable(blockLabel(i).c_str(), i == this->guiTriggerIndex))
                 this->guiTriggerIndex = i;
+            ImGui::PopID();
+        }
         ImGui::EndCombo();
     }
+    ImGui::SameLine();
+    if (ImGui::SmallButton("Name..."))
+    {
+        std::snprintf(this->guiNameBuf, sizeof(this->guiNameBuf), "%s",
+                      this->guiTriggers[this->guiTriggerIndex].name.c_str());
+        this->guiNamePopupOpen = true;
+    }
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Edit the name of this trigger block (editor only, the game ignores it)");
     ImGui::SameLine();
     if (ImGui::SmallButton("+ Add block"))
     {
@@ -4245,7 +4282,7 @@ void TriggerEditor::renderGuiEditor()
             }
             ImGui::SameLine(0.f, 20.f * scale);
             if (ImGui::Button("Cancel", ImVec2(100.f * scale, 0))
-                || ImGui::IsKeyPressed(ImGuiKey_Escape))
+                || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
             {
                 this->guiDeleteBlockOpen = false;
                 ImGui::CloseCurrentPopup();
@@ -4259,6 +4296,75 @@ void TriggerEditor::renderGuiEditor()
 
     // ---- add/edit comment row popup ----
     this->renderGuiCommentPopup();
+
+    // ---- trigger block name popup ----
+    this->renderGuiNamePopup();
+}
+
+// Popup that edits the optional name of the selected trigger block. The name
+// is written as "name:" in the block (so it survives reopening the file) but
+// is never read by the engine: it only changes the label in this editor.
+void TriggerEditor::renderGuiNamePopup()
+{
+    float scale = this->imguiScale;
+
+    if (this->guiNamePopupOpen)
+    {
+        ImGui::OpenPopup("##trigger-gui-name");
+        this->guiNamePopupOpen = false;
+    }
+
+    if (!ImGui::BeginPopupModal("##trigger-gui-name", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        return;
+
+    if (this->guiTriggerIndex < 0 || this->guiTriggerIndex >= (int)this->guiTriggers.size())
+    {
+        ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+        return;
+    }
+
+    GuiTrigger &trigger = this->guiTriggers[this->guiTriggerIndex];
+
+    ImGui::TextUnformatted("Trigger block name");
+    ImGui::Separator();
+    ImGui::TextUnformatted("Visual label of this block, used only in the trigger editor.");
+    ImGui::TextUnformatted("Leave it empty to keep the default \"Trigger N\" name.");
+    ImGui::Spacing();
+    ImGui::SetNextItemWidth(340.f * scale);
+    const bool submitted = ImGui::InputText("##gui-block-name", this->guiNameBuf,
+                                            sizeof(this->guiNameBuf),
+                                            ImGuiInputTextFlags_EnterReturnsTrue);
+    ImGui::Spacing();
+
+    const auto applyName = [&](const char *value)
+    {
+        std::string name = value;
+        while (!name.empty() && std::isspace((unsigned char)name.front()))
+            name.erase(name.begin());
+        while (!name.empty() && std::isspace((unsigned char)name.back()))
+            name.pop_back();
+        trigger.name = name;
+        this->guiSyncText();
+    };
+
+    if (ImGui::Button("Save", ImVec2(100.f * scale, 0)) || submitted)
+    {
+        applyName(this->guiNameBuf);
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::SameLine(0.f, 20.f * scale);
+    if (ImGui::Button("Clear", ImVec2(100.f * scale, 0)))
+    {
+        applyName("");
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::SameLine(0.f, 20.f * scale);
+    if (ImGui::Button("Cancel", ImVec2(100.f * scale, 0))
+        || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
+        ImGui::CloseCurrentPopup();
+
+    ImGui::EndPopup();
 }
 
 // ---------------------------------------------------------------------------
@@ -4412,7 +4518,7 @@ void TriggerEditor::renderErrorPopup()
 
         ImGui::Separator();
         bool closed = ImGui::Button(this->getLanguage("CLOSE").c_str(), ImVec2(140 * scale, 0))
-                      || ImGui::IsKeyPressed(ImGuiKey_Escape);
+                      || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape));
         if (closed)
         {
             this->errorPopupOpen = false;
@@ -4548,7 +4654,7 @@ bool TriggerEditor::updateImpl()
 
             ImGui::Spacing();
             if (ImGui::Button(this->getLanguage("CREATE").c_str(), ImVec2(110.f * this->imguiScale, 0))
-                || ImGui::IsKeyPressed(ImGuiKey_Enter))
+                || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter)))
             {
                 // Validate inline so an invalid/existing name keeps the popup
                 // open with the error message; only close when the file can
@@ -4587,7 +4693,7 @@ bool TriggerEditor::updateImpl()
 
             ImGui::SameLine(0.f, 20.f * this->imguiScale);
             if (ImGui::Button(this->getLanguage("CANCEL").c_str(), ImVec2(110.f * this->imguiScale, 0))
-                || ImGui::IsKeyPressed(ImGuiKey_Escape))
+                || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
             {
                 this->createPopupOpen = false;
                 this->createError.clear();
@@ -4627,7 +4733,7 @@ bool TriggerEditor::updateImpl()
 
             ImGui::SameLine(0.f, 20.f * this->imguiScale);
             if (ImGui::Button(this->getLanguage("NO").c_str(), ImVec2(100.f * this->imguiScale, 0))
-                || ImGui::IsKeyPressed(ImGuiKey_Escape))
+                || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
             {
                 this->deletePopupOpen = false;
                 this->deleteTarget.clear();
@@ -4663,7 +4769,7 @@ bool TriggerEditor::updateImpl()
 
             ImGui::SameLine(0.f, 20.f * this->imguiScale);
             if (ImGui::Button(this->getLanguage("NO").c_str(), ImVec2(100.f * this->imguiScale, 0))
-                || ImGui::IsKeyPressed(ImGuiKey_Escape))
+                || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
             {
                 this->discardPopupOpen = false;
                 this->discardAction.clear();
