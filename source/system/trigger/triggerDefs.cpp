@@ -216,6 +216,7 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
         P("strings", 1, "Key", "string", true),
         P("strings", 2, "Portrait icon", "string", false)
     })),
+    T("console-clear", "Clear the in-game console messages", PT({})),
     T("add-gold-all-players", "Add gold to all players", PT({
         P("integerValue", -1, "Gold", "int", true)
     })),
