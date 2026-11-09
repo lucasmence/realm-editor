@@ -59,6 +59,7 @@ Hud::Hud(Manager* manager)
 	this->particles = "none";
 	this->mapName = "map";
 	this->mapMusic = "none";
+	this->mapMusicNight = "";
 	this->mapVersion = "1.00";
 	this->bgTexture = "";
 	this->notificationText = "";
@@ -94,6 +95,7 @@ Hud::Hud(Manager* manager)
 
 	memset(imguiMapName, 0, sizeof(imguiMapName));
 	memset(imguiMapMusic, 0, sizeof(imguiMapMusic));
+	memset(imguiMapMusicNight, 0, sizeof(imguiMapMusicNight));
 	memset(imguiMapVersion, 0, sizeof(imguiMapVersion));
 	memset(imguiWeatherName, 0, sizeof(imguiWeatherName));
 	memset(imguiParticles, 0, sizeof(imguiParticles));
@@ -498,6 +500,12 @@ bool Hud::setEditValue(std::string editName, std::string value)
 		if (!this->locked)
 			this->manager->map->data.music = value;
 		strncpy(imguiMapMusic, value.c_str(), sizeof(imguiMapMusic) - 1);
+	}
+	else if (editName == "edtMapMusicNight") {
+		this->mapMusicNight = value;
+		if (!this->locked)
+			this->manager->map->data.musicNight = value;
+		strncpy(imguiMapMusicNight, value.c_str(), sizeof(imguiMapMusicNight) - 1);
 	}
 	else if (editName == "edtMapVersion") {
 		this->mapVersion = value;
@@ -3558,6 +3566,7 @@ void Hud::imguiRenderPreferencesWindow()
 	
 	strncpy(imguiMapName, this->manager->map->data.name.c_str(), sizeof(imguiMapName) - 1);
 	strncpy(imguiMapMusic, this->manager->map->data.music.c_str(), sizeof(imguiMapMusic) - 1);
+	strncpy(imguiMapMusicNight, this->manager->map->data.musicNight.c_str(), sizeof(imguiMapMusicNight) - 1);
 	strncpy(imguiMapVersion, this->manager->map->data.version.c_str(), sizeof(imguiMapVersion) - 1);
 	strncpy(imguiWeatherName, this->manager->map->data.weatherName.c_str(), sizeof(imguiWeatherName) - 1);
 	strncpy(imguiParticles, this->manager->map->data.particles.c_str(), sizeof(imguiParticles) - 1);
@@ -3588,6 +3597,13 @@ void Hud::imguiRenderPreferencesWindow()
 	if (ImGui::InputText("##prefMapMusic", imguiMapMusic, sizeof(imguiMapMusic)))
 		this->manager->map->data.music = imguiMapMusic;
 	ImGui::PopItemWidth();
+
+	ImGui::Text("Night Music (optional)");
+	ImGui::PushItemWidth(280);
+	if (ImGui::InputText("##prefMapMusicNight", imguiMapMusicNight, sizeof(imguiMapMusicNight)))
+		this->manager->map->data.musicNight = imguiMapMusicNight;
+	ImGui::PopItemWidth();
+	ImGui::TextDisabled("Empty: uses the default Music track");
 
 	
 	ImGui::Separator();

@@ -39,6 +39,7 @@ bool Map::updateMapInfo()
 	this->manager->hud->setEditValue("edtMapSizeY", boost::lexical_cast<std::string>(this->data.size.y));
 	this->manager->hud->setEditValue("edtMapName", boost::lexical_cast<std::string>(this->data.name));
 	this->manager->hud->setEditValue("edtMapMusic", boost::lexical_cast<std::string>(this->data.music));
+	this->manager->hud->setEditValue("edtMapMusicNight", boost::lexical_cast<std::string>(this->data.musicNight));
 	this->manager->hud->setEditValue("edtMapVersion", boost::lexical_cast<std::string>(this->data.version));
 	this->manager->hud->setEditValue("edtWeatherChance", boost::lexical_cast<std::string>(this->data.weatherChance));
 	this->manager->hud->setEditValue("edtWeatherName", boost::lexical_cast<std::string>(this->data.weatherName));
@@ -496,6 +497,10 @@ bool Map::renderMap(bool showNotification)
 	this->file["map-size-x"] = this->data.size.x;
 	this->file["map-size-y"] = this->data.size.y;
 	this->file["music"] = this->data.music;
+	if (this->data.musicNight != "")
+		this->file["music-night"] = this->data.musicNight;
+	else
+		this->file.erase("music-night");
 	this->file["map"]["name"] = this->data.name;
 	this->file["map"]["version"] = this->data.version;
 	this->file["particles"] = this->data.particles;
@@ -749,6 +754,7 @@ bool Map::loadMapAfter()
 	this->data.size.x = this->file.value("map-size-x", 3000);
 	this->data.size.y = this->file.value("map-size-y", 3000);
 	this->data.music = this->file.value("music", "entrance");
+	this->data.musicNight = this->file.contains("music-night") && this->file["music-night"].is_string() ? this->file["music-night"].get<std::string>() : "";
 	this->data.particles = this->file.value("particles", "");
 
 	if (this->file["map"].size() > 0)
@@ -919,6 +925,7 @@ bool Map::newMap()
 	this->data.size = sf::Vector2i(3000, 3000);
 	this->data.name = "map";
 	this->data.music = "none";
+	this->data.musicNight = "";
 	this->data.version = "1.00";
 	this->data.weatherName = "";
 	this->data.particles = "none";

@@ -90,6 +90,7 @@ class Hud
 		std::string particles;
 		std::string mapName;
 		std::string mapMusic;
+		std::string mapMusicNight;
 		std::string mapVersion;
 		std::string bgTexture;
 		float autoSaveTimer;
@@ -279,6 +280,7 @@ class Hud
 		
 		char imguiMapName[128];
 		char imguiMapMusic[128];
+		char imguiMapMusicNight[128];
 		char imguiMapVersion[128];
 		char imguiWeatherName[128];
 		char imguiParticles[128];
