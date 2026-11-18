@@ -19,15 +19,17 @@ class TriggerEditor;
 // soon as the editor reports that the user left it (BACK button), so the
 // game can restore its own window (Menu::updateWorldEditor).
 //
-// The game folder (--game-path) is where the maps and language files are
-// read from; the working directory stays the realm-editor folder, so the
-// editor's own runtime data (data/options/realm-editor.json, font, icon)
-// resolves like in the map editor.
+// The game folder (--game-path) is where the maps are read from; the working
+// directory stays the realm-editor folder, so the editor's own runtime data
+// (data/options/realm-editor.json, font, icon) resolves like in the map
+// editor.
 // ---------------------------------------------------------------------------
 class TriggerApp
 {
     public:
-        TriggerApp(const std::string &gamePath);
+        // hudTheme: theme selected in the World Editor (--hud-theme). Empty
+        // means "read the theme saved in data/options/realm-editor.json".
+        TriggerApp(const std::string &gamePath, const std::string &hudTheme = "");
         ~TriggerApp();
 
         // Runs the editor loop until the window is closed or the user leaves

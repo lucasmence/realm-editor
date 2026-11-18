@@ -1,6 +1,7 @@
 #include "triggerEditor.hpp"
 #include "../external/imgui/imgui.h"
 #include "../external/imgui/imgui-SFML.h"
+#include "../grimsolfTheme.hpp"
 
 #include <fstream>
 #include <sstream>
@@ -21,17 +22,22 @@ template <typename T> static std::string toStr(const T &value)
 }
 
 // ---------------------------------------------------------------------------
-// JSON syntax colors (monokai-ish)
+// JSON syntax colors
+//
+// They keep the monokai-ish brightness order of the original palette but go
+// through GrimsolfTheme, so the editor follows the theme picked in the World
+// Editor (dark text on the light theme). They are functions, not constants,
+// because the theme can only be read at runtime.
 // ---------------------------------------------------------------------------
-static const ImU32 COLOR_KEY         = IM_COL32(166, 226,  46, 255); // green
-static const ImU32 COLOR_STRING      = IM_COL32(230, 219, 116, 255); // yellow
-static const ImU32 COLOR_NUMBER      = IM_COL32(174, 129, 255, 255); // purple
-static const ImU32 COLOR_BOOLEAN     = IM_COL32(102, 217, 239, 255); // cyan
-static const ImU32 COLOR_PUNCT       = IM_COL32(215, 215, 215, 255); // light gray
-static const ImU32 COLOR_BROKEN      = IM_COL32(249,  38, 114, 255); // red (invalid construct)
-static const ImU32 COLOR_LINE_NUMBER = IM_COL32(110, 110, 122, 255);
-static const ImU32 COLOR_SELECTION   = IM_COL32( 38,  79, 120, 110);
-static const ImU32 COLOR_CARET       = IM_COL32(235, 235, 235, 255);
+static ImU32 colorKey()         { return GrimsolfTheme::u32(0.85f); }
+static ImU32 colorString()      { return GrimsolfTheme::u32(0.92f); }
+static ImU32 colorNumber()      { return GrimsolfTheme::u32(0.75f); }
+static ImU32 colorBoolean()     { return GrimsolfTheme::u32(0.80f); }
+static ImU32 colorPunctuation() { return GrimsolfTheme::u32(0.65f); }
+static ImU32 colorBroken()      { return GrimsolfTheme::u32(0.58f); }
+static ImU32 colorLineNumber()  { return GrimsolfTheme::u32(0.42f); }
+static ImU32 colorSelection()   { return GrimsolfTheme::u32(0.50f, 0.35f); }
+static ImU32 colorCaret()       { return GrimsolfTheme::textU32(); }
 
 // Indentation unit used by auto-indent and the Format button (matches the
 // 2-space layout written by Json::dumpYaml).
@@ -63,12 +69,12 @@ static const float GUI_PARAMS_MIN_PX = 150.f;
 struct ExtraSourceDef
 {
     const char *folder;  // folder inside data/
-    const char *label;   // language field used as the sidebar button label
+    const char *label;   // sidebar button label (fixed English)
 };
 
 static const ExtraSourceDef EXTRA_SOURCES[] = {
-    { "interactions", "INTERACTIONS" },
-    { "cutscenes",    "CUTSCENES" }
+    { "interactions", "Interactions" },
+    { "cutscenes",    "Cutscenes" }
 };
 
 // ---------------------------------------------------------------------------
@@ -273,14 +279,14 @@ static ImU32 yamlTokenColor(YamlTokenType type)
 {
     switch (type)
     {
-        case YamlTokenType::Key:         return COLOR_KEY;
-        case YamlTokenType::String:      return COLOR_STRING;
-        case YamlTokenType::Number:      return COLOR_NUMBER;
-        case YamlTokenType::Boolean:     return COLOR_BOOLEAN;
-        case YamlTokenType::Null:        return COLOR_BOOLEAN;
-        case YamlTokenType::Punctuation: return COLOR_PUNCT;
-        case YamlTokenType::Comment:     return COLOR_LINE_NUMBER;
-        default:                         return COLOR_BROKEN;
+        case YamlTokenType::Key:         return colorKey();
+        case YamlTokenType::String:      return colorString();
+        case YamlTokenType::Number:      return colorNumber();
+        case YamlTokenType::Boolean:     return colorBoolean();
+        case YamlTokenType::Null:        return colorBoolean();
+        case YamlTokenType::Punctuation: return colorPunctuation();
+        case YamlTokenType::Comment:     return colorLineNumber();
+        default:                         return colorBroken();
     }
 }
 
@@ -348,29 +354,13 @@ TriggerEditor::~TriggerEditor()
     this->redoStack.clear();
 }
 
-std::string TriggerEditor::getLanguage(const std::string &field) const
-{
-    if (!this->languageLoaded)
-    {
-        // Load the game's configured language file once (the realm-editor has
-        // no Language class of its own). The field name is the fallback when
-        // the file or the "TRIGGER-EDITOR" section cannot be read.
-        this->languageLoaded = true;
-        json options = this->loadJsonFile(this->gamePath + "/data/options/options.json");
-        std::string language = "English";
-        if (options.is_object())
-            language = options.value("misc-language", "English");
-        this->languageFile = this->loadJsonFile(this->gamePath + "/data/text/" + language + ".json");
-    }
-
-    if (!this->languageFile.is_object())
-        return field;
-    return this->languageFile["TRIGGER-EDITOR"].value(field, field);
-}
-
 void TriggerEditor::addLog(const std::string &text, unsigned int color)
 {
-    this->logLines.push_back(LogLine{ text, color });
+    // Log entries arrive in packed colors; toGray keeps their brightness while
+    // fitting the active theme (light themes need dark text).
+    const unsigned int themed = ImGui::ColorConvertFloat4ToU32(
+        GrimsolfTheme::toGray(ImGui::ColorConvertU32ToFloat4(color)));
+    this->logLines.push_back(LogLine{ text, themed });
     if (this->logLines.size() > 500)
         this->logLines.erase(this->logLines.begin());
     this->logDirty = true;
@@ -535,7 +525,7 @@ bool TriggerEditor::openMapSession(const std::string &ref)
     json mapJson = this->loadJsonFile(this->mapPath);
     if (!mapJson.is_object())
     {
-        this->showError("[erro] " + this->getLanguage("FAILED-LOAD") + ": " + this->mapPath);
+        this->showError("[error] Failed to load: " + this->mapPath);
         return false;
     }
 
@@ -549,7 +539,7 @@ bool TriggerEditor::openMapSession(const std::string &ref)
         scriptRef = this->ensureTriggerLink(mapJson, ref);
         if (scriptRef.empty())
         {
-            this->showError("[erro] " + this->getLanguage("FAILED-MAP-LINK") + ": " + this->mapPath);
+            this->showError("[error] could not link the map to its trigger file: " + this->mapPath);
             return false;
         }
         created = true;
@@ -569,21 +559,21 @@ bool TriggerEditor::openMapSession(const std::string &ref)
     {
         if (!this->saveTextFile(mainPath, this->defaultTriggerTemplate()))
         {
-            this->showError("[erro] " + this->getLanguage("FAILED-CREATE") + ": " + mainPath);
+            this->showError("[error] Failed to create: " + mainPath);
             return false;
         }
         created = true;
     }
 
     if (created)
-        this->addLog("[info] " + this->getLanguage("MAP-LINKED") + ": " + scriptRef, 0x88CCFFFF);
+        this->addLog("[info] map linked to trigger: " + scriptRef, 0x88CCFFFF);
 
     // The map's trigger folder is the first browsable folder of the session.
     this->sourceIndex = 0;
     this->refreshSources();
     this->openTriggerFile(this->mainTriggerFile);
     this->stage = Stage::Editor;
-    this->addLog("[info] " + this->getLanguage("MAP") + ": " + ref, 0x88CCFFFF);
+    this->addLog("[info] Map: " + ref, 0x88CCFFFF);
     return true;
 }
 
@@ -642,7 +632,7 @@ void TriggerEditor::refreshSources()
         if (!this->triggerFolderPath.empty())
         {
             BrowseSource source;
-            source.label = "TRIGGERS";
+            source.label = "Triggers";
             source.ref = "data/maps/" + this->triggerFolderRef;
             source.folder = this->triggerFolderPath;
             source.editable = true;
@@ -727,7 +717,7 @@ void TriggerEditor::switchSource(int index)
 
     this->sourceIndex = index;
     this->refreshSourceFiles(index);
-    this->addLog("[info] " + this->getLanguage("FOLDER") + ": " + this->sources[index].ref, 0x88CCFFFF);
+    this->addLog("[info] Folder: " + this->sources[index].ref, 0x88CCFFFF);
 }
 
 void TriggerEditor::openFileInSource(int index, const std::string &filename)
@@ -769,7 +759,7 @@ void TriggerEditor::openTriggerFile(const std::string &filename)
     std::string path = this->sources[this->sourceIndex].folder + filename;
     if (!boost::filesystem::exists(path))
     {
-        this->showError("[erro] " + this->getLanguage("FAILED-LOAD") + ": " + path);
+        this->showError("[error] Failed to load: " + path);
         return;
     }
 
@@ -786,7 +776,7 @@ void TriggerEditor::openTriggerFile(const std::string &filename)
     this->validateYaml();
     this->openTriggerFileGui();
     this->logSyntaxWarnings();
-    this->addLog("[info] " + this->getLanguage("OPENED") + ": " + path, 0x88CCFFFF);
+    this->addLog("[info] Opened: " + path, 0x88CCFFFF);
 }
 
 // Builds the GUI model from the just-opened file and selects the active tab.
@@ -811,7 +801,7 @@ void TriggerEditor::openTriggerFileGui()
         // The JSON tab is a read-only viewer: it always shows the raw text.
         this->guiTab = GuiTab::Json;
         this->guiConvertible = false;
-        this->addLog("[erro] " + this->guiConvertError, 0xFF6060FF);
+        this->addLog("[error] " + this->guiConvertError, 0xFF6060FF);
     }
 }
 
@@ -821,7 +811,7 @@ void TriggerEditor::createTriggerFile(const std::string &name)
     // and cutscene folders belong to the game and are edited here, not created.
     if (!this->sourceIsEditable(this->sourceIndex))
     {
-        this->showError("[erro] " + this->getLanguage("FOLDER-LOCKED"));
+        this->showError("[error] Only files inside the map's trigger folder can be created or deleted.");
         return;
     }
 
@@ -843,7 +833,7 @@ void TriggerEditor::createTriggerFile(const std::string &name)
 
     if (!valid)
     {
-        this->createError = this->getLanguage("INVALID-NAME");
+        this->createError = "Invalid name. Use only letters, numbers, \"-\" and \"_\".";
         return;
     }
 
@@ -852,18 +842,18 @@ void TriggerEditor::createTriggerFile(const std::string &name)
 
     if (boost::filesystem::exists(path))
     {
-        this->createError = this->getLanguage("NAME-EXISTS");
+        this->createError = "A file with this name already exists in this folder.";
         return;
     }
 
     if (!this->saveTextFile(path, this->defaultTriggerTemplate()))
     {
-        this->showError("[erro] " + this->getLanguage("FAILED-CREATE") + ": " + path);
+        this->showError("[error] Failed to create: " + path);
         return;
     }
 
     this->refreshSourceFiles(this->sourceIndex);
-    this->addLog("[ok] " + this->getLanguage("CREATED") + ": " + path, 0x55FF88FF);
+    this->addLog("[ok] Created: " + path, 0x55FF88FF);
     this->openTriggerFile(filename);
 }
 
@@ -874,7 +864,7 @@ void TriggerEditor::deleteTriggerFile(const std::string &filename)
     // saved here but never deleted.
     if (!this->sourceIsEditable(this->currentFileSource))
     {
-        this->showError("[erro] " + this->getLanguage("FOLDER-LOCKED"));
+        this->showError("[error] Only files inside the map's trigger folder can be created or deleted.");
         return;
     }
 
@@ -882,7 +872,7 @@ void TriggerEditor::deleteTriggerFile(const std::string &filename)
     // structure: it is never allowed to be deleted.
     if (filename == this->mainTriggerFile)
     {
-        this->showError("[erro] " + this->getLanguage("DELETE-MAIN-FORBIDDEN"));
+        this->showError("[error] The main trigger file of the map cannot be deleted.");
         return;
     }
 
@@ -892,7 +882,7 @@ void TriggerEditor::deleteTriggerFile(const std::string &filename)
 
     if (!boost::filesystem::remove(path))
     {
-        this->showError("[erro] " + this->getLanguage("FAILED-DELETE") + ": " + path);
+        this->showError("[error] Failed to delete: " + path);
         return;
     }
 
@@ -912,7 +902,7 @@ void TriggerEditor::deleteTriggerFile(const std::string &filename)
     }
 
     this->refreshSourceFiles(source);
-    this->addLog("[ok] " + this->getLanguage("DELETED") + ": " + path, 0x55FF88FF);
+    this->addLog("[ok] Deleted: " + path, 0x55FF88FF);
 }
 
 bool TriggerEditor::saveCurrentFile()
@@ -926,14 +916,14 @@ bool TriggerEditor::saveCurrentFile()
 
     if (!this->saveTextFile(this->currentFilePath, content))
     {
-        this->showError("[erro] " + this->getLanguage("FAILED-SAVE") + ": " + this->currentFilePath);
+        this->showError("[error] Failed to save: " + this->currentFilePath);
         return false;
     }
 
     this->dirty = false;
-    this->addLog("[ok] " + this->getLanguage("SAVED") + ": " + this->currentFilePath, 0x55FF88FF);
+    this->addLog("[ok] Saved: " + this->currentFilePath, 0x55FF88FF);
     if (!this->yamlValid)
-        this->addLog("[erro] " + this->getLanguage("INVALID") + ": " + this->parseError, 0xFF6060FF);
+        this->addLog("[error] Invalid JSON: " + this->parseError, 0xFF6060FF);
     this->logSyntaxWarnings();
     return true;
 }
@@ -1255,7 +1245,7 @@ void TriggerEditor::formatYaml()
     this->validateYaml();
     if (!this->yamlValid)
     {
-        this->showError("[erro] " + this->getLanguage("INVALID") + ": " + this->parseError);
+        this->showError("[error] Invalid JSON: " + this->parseError);
         return;
     }
 
@@ -1276,11 +1266,11 @@ void TriggerEditor::formatYaml()
         this->selectionStart = -1;
         this->dirty = true;
         this->validateYaml();
-        this->addLog("[info] " + this->getLanguage("FORMATTED"), 0x88CCFFFF);
+        this->addLog("[info] JSON formatted", 0x88CCFFFF);
     }
     catch (...)
     {
-        this->showError("[erro] " + this->getLanguage("INVALID"));
+        this->showError("[error] Invalid JSON");
     }
 }
 
@@ -1608,7 +1598,7 @@ void TriggerEditor::renderEditorText(ImVec2 base)
         char number[16];
         std::snprintf(number, sizeof(number), "%d", line + 1);
         drawList->AddText(ImGui::GetFont(), ImGui::GetFontSize(),
-                          ImVec2(base.x + 4.f, y), COLOR_LINE_NUMBER, number);
+                          ImVec2(base.x + 4.f, y), colorLineNumber(), number);
 
         // Tokens that intersect this line.
         for (const auto &token : tokens)
@@ -1652,7 +1642,7 @@ void TriggerEditor::renderEditorText(ImVec2 base)
                        + (float)this->utf8Columns(e) * this->editorCharW;
             float y = base.y - this->scrollY + (float)line * this->editorLineH;
 
-            drawList->AddRectFilled(ImVec2(x1, y), ImVec2(x2, y + this->editorLineH), COLOR_SELECTION);
+            drawList->AddRectFilled(ImVec2(x1, y), ImVec2(x2, y + this->editorLineH), colorSelection());
         }
     }
 }
@@ -1670,7 +1660,7 @@ void TriggerEditor::drawCaret(ImVec2 base)
     ImDrawList *drawList = ImGui::GetWindowDrawList();
     drawList->AddRectFilled(ImVec2(x, y),
                             ImVec2(x + std::max(1.f, this->editorCharW * 0.16f), y + this->editorLineH),
-                            COLOR_CARET);
+                            colorCaret());
 }
 
 void TriggerEditor::ensureCaretVisible()
@@ -1702,20 +1692,19 @@ void TriggerEditor::renderEditorStatus()
     // Left: JSON validity.
     if (this->yamlValid)
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.45f, 0.85f, 0.45f, 1.0f));
-        ImGui::TextUnformatted(this->getLanguage("VALID").c_str());
+        ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::gray(0.85f));
+        ImGui::TextUnformatted("Valid JSON");
         ImGui::PopStyleColor();
     }
     else
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.45f, 0.45f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::gray(0.62f));
         if (this->parseErrorLine > 0)
-            ImGui::TextUnformatted((this->getLanguage("INVALID")
-                                    + " (" + this->getLanguage("LINE") + " " + toStr(this->parseErrorLine)
-                                    + ", " + this->getLanguage("COL") + " " + toStr(this->parseErrorCol) + ")")
+            ImGui::TextUnformatted(("Invalid JSON (Line " + toStr(this->parseErrorLine)
+                                    + ", Col " + toStr(this->parseErrorCol) + ")")
                                        .c_str());
         else
-            ImGui::TextUnformatted(this->getLanguage("INVALID").c_str());
+            ImGui::TextUnformatted("Invalid JSON");
         ImGui::PopStyleColor();
     }
 
@@ -1723,7 +1712,7 @@ void TriggerEditor::renderEditorStatus()
     if (!this->syntaxWarnings.empty())
     {
         ImGui::SameLine(0.f, 24.f * scale);
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.8f, 0.4f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::gray(0.80f));
         ImGui::TextUnformatted((std::to_string(this->syntaxWarnings.size()) + " warning(s) - see log").c_str());
         ImGui::PopStyleColor();
     }
@@ -1731,16 +1720,16 @@ void TriggerEditor::renderEditorStatus()
     // Right: cursor position + dirty marker.
     int line = this->lineOfOffset(this->cursorPos) + 1;
     int column = this->utf8Columns(this->cursorPos) + 1;
-    std::string status = this->getLanguage("LINE") + " " + toStr(line)
-                         + "  " + this->getLanguage("COL") + " " + toStr(column);
+    std::string status = "Line " + toStr(line)
+                         + "  Col " + toStr(column);
 
     float rightEdge = ImGui::GetWindowWidth();
     if (this->dirty)
     {
         ImGui::SameLine();
         ImGui::SetCursorPosX(rightEdge - 300.f * scale);
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.85f, 0.3f, 1.0f));
-        ImGui::TextUnformatted(("[!] " + this->getLanguage("UNSAVED")).c_str());
+        ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::gray(0.85f));
+        ImGui::TextUnformatted("[!] Unsaved changes");
         ImGui::PopStyleColor();
         ImGui::SameLine();
         ImGui::SetCursorPosX(rightEdge - 150.f * scale);
@@ -1751,7 +1740,7 @@ void TriggerEditor::renderEditorStatus()
         ImGui::SetCursorPosX(rightEdge - 150.f * scale);
     }
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
     ImGui::TextUnformatted(status.c_str());
     ImGui::PopStyleColor();
 }
@@ -1774,7 +1763,7 @@ void TriggerEditor::renderYamlBody()
         ++lineDigits;
     this->editorGutterW = (float)(lineDigits + 1) * this->editorCharW + 8.f * scale;
 
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.06f, 0.06f, 0.09f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, GrimsolfTheme::gray(0.04f));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
     // The negative height leaves room below for the log panel.
     ImGui::BeginChild("##trigger-editor-code", ImVec2(0, -150.f * this->imguiScale), true,
@@ -1826,10 +1815,10 @@ void TriggerEditor::renderYamlBody()
     }
     else
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
         ImGui::SetCursorScreenPos(ImVec2(base.x + this->editorGutterW + 8.f * this->imguiScale,
                                           base.y + 10.f * this->imguiScale));
-        ImGui::TextUnformatted(this->getLanguage("NO-FILE").c_str());
+        ImGui::TextUnformatted("No trigger file open");
         ImGui::PopStyleColor();
     }
 
@@ -1841,11 +1830,11 @@ void TriggerEditor::renderEditor()
     float scale = this->imguiScale;
 
     // ---- header: current file ----
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
     if (this->fileLoaded)
         ImGui::TextUnformatted((this->currentFile + "  (" + this->currentFilePath + ")").c_str());
     else
-        ImGui::TextUnformatted(this->getLanguage("NO-FILE").c_str());
+        ImGui::TextUnformatted("No trigger file open");
     ImGui::PopStyleColor();
     ImGui::Separator();
 
@@ -1880,7 +1869,7 @@ void TriggerEditor::renderEditor()
             else
             {
                 this->guiConvertible = false;
-                this->showError("[erro] " + this->guiConvertError);
+                this->showError("[error] " + this->guiConvertError);
             }
         }
         if (tab)
@@ -1917,7 +1906,7 @@ void TriggerEditor::renderSidebar()
     // The map's trigger folder plus the game folders whose files are trigger
     // documents too (interactions / cutscenes). The active folder is the one
     // whose files are listed below.
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
     for (int index = 0; index < (int)this->sources.size(); ++index)
     {
         if (index > 0)
@@ -1926,12 +1915,12 @@ void TriggerEditor::renderSidebar()
         bool active = (index == this->sourceIndex);
         if (active)
         {
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.20f, 0.42f, 0.62f, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.24f, 0.48f, 0.70f, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.17f, 0.36f, 0.54f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Button, GrimsolfTheme::gray(0.30f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, GrimsolfTheme::gray(0.38f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, GrimsolfTheme::gray(0.24f));
         }
 
-        if (ImGui::SmallButton(this->getLanguage(this->sources[index].label).c_str()) && !active)
+        if (ImGui::SmallButton(this->sources[index].label.c_str()) && !active)
             this->switchSource(index);
 
         if (active)
@@ -1953,10 +1942,11 @@ void TriggerEditor::renderSidebar()
     if (!canCreate)
         ImGui::EndDisabled();
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("%s", this->getLanguage(canCreate ? "NEW-TRIGGER" : "FOLDER-LOCKED").c_str());
+        ImGui::SetTooltip("%s", canCreate ? "New trigger file"
+                                          : "Only files inside the map's trigger folder can be created or deleted.");
 
     if (!this->sources.empty())
-        ImGui::TextWrapped("%s: %s", this->getLanguage("FOLDER").c_str(), this->sources[this->sourceIndex].ref.c_str());
+        ImGui::TextWrapped("%s: %s", "Folder", this->sources[this->sourceIndex].ref.c_str());
     ImGui::PopStyleColor();
 
     ImGui::Separator();
@@ -1965,8 +1955,8 @@ void TriggerEditor::renderSidebar()
 
     if (source == nullptr || source->files.empty())
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-        ImGui::TextWrapped("%s", this->getLanguage("NO-TRIGGER-FILES").c_str());
+        ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
+        ImGui::TextWrapped("%s", "This folder has no trigger files yet.");
         ImGui::PopStyleColor();
     }
     else
@@ -1991,18 +1981,18 @@ void TriggerEditor::renderSidebar()
                 ImVec2 itemMax = ImGui::GetItemRectMax();
                 ImDrawList *drawList = ImGui::GetWindowDrawList();
                 ImFont *font = ImGui::GetFont();
-                std::string tag = this->getLanguage("MAIN");
+                std::string tag = "main";
                 float tagW = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.f, tag.c_str()).x + 10.f * scale;
                 float x = itemMax.x - tagW - 6.f * scale;
                 float cy = itemMin.y + (itemMax.y - itemMin.y) * 0.5f;
                 drawList->AddRectFilled(ImVec2(x, itemMin.y + 2.f * scale),
                                         ImVec2(itemMax.x - 4.f * scale, itemMax.y - 2.f * scale),
-                                        IM_COL32(90, 170, 90, 130));
+                                        GrimsolfTheme::u32(0.55f, 0.5f));
                 drawList->AddText(font, font->FontSize,
                                   ImVec2(x + 5.f * scale, cy - font->FontSize * 0.5f),
-                                  IM_COL32(235, 255, 235, 255), tag.c_str());
+                                  GrimsolfTheme::textU32(), tag.c_str());
                 if (ImGui::IsItemHovered())
-                    ImGui::SetTooltip("%s", this->getLanguage("MAIN-TRIGGER-HINT").c_str());
+                    ImGui::SetTooltip("%s", "Main trigger file (linked to the map). It cannot be deleted.");
             }
             ImGui::PopID();
         }
@@ -2017,7 +2007,7 @@ void TriggerEditor::renderSidebar()
                      && this->currentFile != this->mainTriggerFile;
     if (canDelete)
     {
-        if (ImGui::Button(this->getLanguage("DELETE").c_str(), ImVec2(-1.f, 34.f * scale)))
+        if (ImGui::Button("Delete", ImVec2(-1.f, 34.f * scale)))
         {
             this->deleteTarget = this->currentFile;
             this->deletePopupOpen = true;
@@ -2025,19 +2015,20 @@ void TriggerEditor::renderSidebar()
     }
     else
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-        ImGui::Button(this->getLanguage("DELETE").c_str(), ImVec2(-1.f, 34.f * scale));
+        ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
+        ImGui::Button("Delete", ImVec2(-1.f, 34.f * scale));
         ImGui::PopStyleColor();
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("%s", this->getLanguage(currentEditable ? "DELETE-MAIN-FORBIDDEN" : "FOLDER-LOCKED").c_str());
+            ImGui::SetTooltip("%s", currentEditable ? "The main trigger file of the map cannot be deleted."
+                                                     : "Only files inside the map's trigger folder can be created or deleted.");
     }
 
     ImGui::Spacing();
 
-    if (ImGui::Button(this->getLanguage("CHANGE-MAP").c_str(), ImVec2(-1.f, 34.f * scale)))
+    if (ImGui::Button("Change map", ImVec2(-1.f, 34.f * scale)))
         this->requestAction("map", "");
 
-    if (ImGui::Button(this->getLanguage("BACK").c_str(), ImVec2(-1.f, 34.f * scale)))
+    if (ImGui::Button("Back to Studio", ImVec2(-1.f, 34.f * scale)))
         this->requestAction("back", "");
 }
 
@@ -2046,10 +2037,10 @@ void TriggerEditor::renderToolbar()
     
     float scale = this->imguiScale;
 
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.14f, 0.58f, 0.32f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18f, 0.68f, 0.38f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.11f, 0.48f, 0.27f, 1.0f));
-    bool saveClicked = ImGui::Button(this->getLanguage("SAVE").c_str(), ImVec2(130.f * scale, 32.f * scale));
+    ImGui::PushStyleColor(ImGuiCol_Button, GrimsolfTheme::gray(0.34f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, GrimsolfTheme::gray(0.42f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, GrimsolfTheme::gray(0.26f));
+    bool saveClicked = ImGui::Button("Save", ImVec2(130.f * scale, 32.f * scale));
     ImGui::PopStyleColor(3);
     if (saveClicked && this->fileLoaded)
         this->saveCurrentFile();
@@ -2060,7 +2051,7 @@ void TriggerEditor::renderToolbar()
     bool formatEnabled = (this->guiTab != GuiTab::Json);
     if (!formatEnabled)
         ImGui::BeginDisabled();
-    if (ImGui::Button(this->getLanguage("FORMAT").c_str(), ImVec2(130.f * scale, 32.f * scale)))
+    if (ImGui::Button("Format", ImVec2(130.f * scale, 32.f * scale)))
         this->formatYaml();
     if (!formatEnabled)
         ImGui::EndDisabled();
@@ -2073,12 +2064,12 @@ void TriggerEditor::renderLog()
 {
     float scale = this->imguiScale;
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-    ImGui::TextUnformatted(this->getLanguage("LOG").c_str());
+    ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
+    ImGui::TextUnformatted("Log");
     ImGui::PopStyleColor();
     ImGui::SameLine();
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10.f * scale);
-    if (ImGui::SmallButton(this->getLanguage("CLEAR-LOG").c_str()))
+    if (ImGui::SmallButton("Clear"))
         this->logLines.clear();
     ImGui::Separator();
 
@@ -2106,9 +2097,8 @@ void TriggerEditor::renderLog()
 // ---------------------------------------------------------------------------
 
 // The visual editor shows each type through its metadata definition. Its
-// chrome strings are intentionally hardcoded in English (see the feature
-// note: descriptions are kept in English for now, regardless of the game
-// language, to speed up the initial implementation).
+// chrome strings are intentionally hardcoded in English: the tools do not use
+// Grimsolf's language files (realm-editor will grow its own strings later).
 
 const std::vector<TriggerTypeDef> &TriggerEditor::guiDefs(GuiKind kind) const
 {
@@ -3250,7 +3240,7 @@ void TriggerEditor::renderGuiCommentPopup()
     {
         ImGui::TextUnformatted(this->guiCommentEntryIndex >= 0 ? "Edit comment" : "Add comment");
         ImGui::Separator();
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.75f, 0.85f, 1.0f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::gray(0.90f));
         ImGui::TextWrapped("The comment is written as a \"# ...\" line in the YAML file, at the "
                            "position of the row in the list.");
         ImGui::PopStyleColor();
@@ -3389,7 +3379,7 @@ void TriggerEditor::renderGuiPopup()
         if (def != nullptr)
         {
             ImGui::Spacing();
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.8f, 1.0f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::gray(0.85f));
             ImGui::TextWrapped("%s", def->description.c_str());
             ImGui::PopStyleColor();
             ImGui::Separator();
@@ -3541,7 +3531,7 @@ void TriggerEditor::renderGuiPopup()
         else if (!this->guiPopup.selectedType.empty())
         {
             ImGui::Spacing();
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.6f, 0.4f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::gray(0.80f));
             ImGui::TextWrapped("Unknown type \"%s\" has no editor metadata.\nIt will be kept as-is in the JSON.",
                                this->guiPopup.selectedType.c_str());
             ImGui::PopStyleColor();
@@ -3549,7 +3539,7 @@ void TriggerEditor::renderGuiPopup()
 
         if (!this->guiPopup.error.empty())
         {
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.5f, 0.5f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::gray(0.62f));
             ImGui::TextWrapped("%s", this->guiPopup.error.c_str());
             ImGui::PopStyleColor();
         }
@@ -3604,7 +3594,7 @@ void TriggerEditor::renderGuiMiscEditor()
     
     float scale = this->imguiScale;
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
     ImGui::TextUnformatted("Other fields (item-drop, environments-drop, player-characters, config, exit, ...)");
     ImGui::PopStyleColor();
     ImGui::Separator();
@@ -3625,7 +3615,7 @@ void TriggerEditor::renderGuiMiscEditor()
 
     if (keys.empty())
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
         ImGui::TextWrapped("This file has no extra fields besides the trigger blocks.");
         ImGui::PopStyleColor();
     }
@@ -3636,7 +3626,7 @@ void TriggerEditor::renderGuiMiscEditor()
         const json &value = this->guiRoot[key];
         if (value.is_array() || value.is_object())
         {
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.75f, 0.85f, 1.0f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::gray(0.90f));
             ImGui::TextUnformatted(key.c_str());
             ImGui::PopStyleColor();
             ImGui::Separator();
@@ -3906,7 +3896,7 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
         ImGui::SetTooltip(hideMemo ? "Show the %s list" : "Hide the %s list", title);
 
     ImGui::SameLine();
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
     ImGui::TextUnformatted((std::string(title) + "  (" + toStr((int)entries.size()) + ")").c_str());
     ImGui::PopStyleColor();
     // Compact square "+" button in the corner of each group list (the previous
@@ -3948,7 +3938,7 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
                       ImGuiWindowFlags_NoScrollbar);
     if (entries.empty())
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
         ImGui::TextWrapped("No %s yet.", title);
         ImGui::PopStyleColor();
         // An empty memo is only as tall as this line, so the whole component is
@@ -3998,8 +3988,8 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
             const bool dimmed = entry.isComment || entry.disabled;
             if (dimmed)
             {
-                ImVec4 color = entry.isComment ? ImVec4(0.52f, 0.76f, 0.52f, 1.0f)
-                                               : ImVec4(0.55f, 0.55f, 0.62f, 1.0f);
+                ImVec4 color = entry.isComment ? GrimsolfTheme::gray(0.78f)
+                                               : GrimsolfTheme::gray(0.55f);
                 ImGui::PushStyleColor(ImGuiCol_Text, color);
             }
 
@@ -4025,8 +4015,8 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
                 // Vertically aligned with the Selectable text (which starts at
                 // the row top, not at FramePadding.y).
                 ImVec2 valuesPos(rowMin.x + descW + 12.f * scale, rowMin.y);
-                drawList->AddText(valuesPos, entry.disabled ? IM_COL32(150, 150, 160, 255)
-                                                            : IM_COL32(255, 215, 90, 255),
+                drawList->AddText(valuesPos, entry.disabled ? GrimsolfTheme::u32(0.55f)
+                                                            : GrimsolfTheme::u32(0.95f),
                                   values.c_str());
             }
             if (ImGui::IsItemHovered())
@@ -4072,7 +4062,7 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
                             float lineY = before ? rowMin.y : rowMax.y;
                             ImGui::GetWindowDrawList()->AddLine(
                                 ImVec2(rowMin.x, lineY), ImVec2(rowMax.x, lineY),
-                                IM_COL32(255, 215, 90, 255), 2.f * scale);
+                                GrimsolfTheme::u32(0.95f), 2.f * scale);
                             if (payload->IsDelivery())
                             {
                                 dropFrom = drop->index;
@@ -4167,7 +4157,7 @@ void TriggerEditor::renderGuiEditor()
         this->guiTriggerIndex = 0;
 
     // ---- trigger block selector ----
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
     ImGui::TextUnformatted("Trigger block");
     ImGui::PopStyleColor();
     // The block keeps "Trigger N" unless the user named it; the name is a
@@ -4215,7 +4205,7 @@ void TriggerEditor::renderGuiEditor()
     }
     else
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
         ImGui::SmallButton("- Remove block");
         ImGui::PopStyleColor();
     }
@@ -4376,19 +4366,19 @@ void TriggerEditor::renderMapSelect()
     
     float scale = this->imguiScale;
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-    ImGui::TextUnformatted(this->getLanguage("TITLE").c_str());
+    ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
+    ImGui::TextUnformatted("Trigger Editor");
     ImGui::PopStyleColor();
     ImGui::SameLine();
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10.f * scale);
-    if (ImGui::SmallButton(this->getLanguage("REFRESH").c_str()))
+    if (ImGui::SmallButton("Refresh"))
     {
         this->refreshMapList();
         this->refreshSources();
     }
 
     ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - 220.f * scale);
-    if (ImGui::Button(this->getLanguage("BACK").c_str(), ImVec2(200.f * scale, 34.f * scale)))
+    if (ImGui::Button("Back to Studio", ImVec2(200.f * scale, 34.f * scale)))
     {
         if (this->performAction("back", ""))
             this->pendingLeave = true;
@@ -4398,15 +4388,15 @@ void TriggerEditor::renderMapSelect()
 
     // ---- map list (left) ----
     ImGui::BeginChild("##trigger-map-list", ImVec2(380.f * scale, 0), true);
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-    ImGui::TextUnformatted(this->getLanguage("MAPS").c_str());
+    ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
+    ImGui::TextUnformatted("Maps");
     ImGui::PopStyleColor();
     ImGui::Separator();
 
     if (this->mapList.empty())
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-        ImGui::TextWrapped("%s", this->getLanguage("NO-MAPS").c_str());
+        ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
+        ImGui::TextWrapped("%s", "No maps found under data/maps/. Create a map with the World Editor first.");
         ImGui::PopStyleColor();
     }
     else
@@ -4433,8 +4423,8 @@ void TriggerEditor::renderMapSelect()
     {
         ImGui::Spacing();
         ImGui::Separator();
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-        ImGui::TextUnformatted(this->getLanguage("OTHER-FOLDERS").c_str());
+        ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
+        ImGui::TextUnformatted("Other folders");
         ImGui::PopStyleColor();
         ImGui::Separator();
 
@@ -4464,25 +4454,27 @@ void TriggerEditor::renderMapSelect()
 
     // ---- details (right) ----
     ImGui::BeginChild("##trigger-map-info", ImVec2(0, 0), true);
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-    ImGui::TextUnformatted(this->getLanguage("SELECT-MAP").c_str());
+    ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
+    ImGui::TextUnformatted("Select a map");
     ImGui::PopStyleColor();
     ImGui::Separator();
 
     if (this->selectedMap.empty())
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-        ImGui::TextWrapped("%s", this->getLanguage("SELECT-MAP-HINT").c_str());
+        ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
+        ImGui::TextWrapped("%s", "Pick a map on the left and click Edit Triggers. If the map has no trigger yet, "
+                                 "the editor creates and links it automatically (data/maps/<folder>/trigger/<map>.json). "
+                                 "Interaction and cutscene files can be opened right away, without a map.");
         ImGui::PopStyleColor();
     }
     else
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.8f, 1.0f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::gray(0.80f));
         ImGui::TextWrapped("%s", this->selectedMap.c_str());
         ImGui::PopStyleColor();
         ImGui::Spacing();
 
-        if (ImGui::Button(this->getLanguage("EDIT-TRIGGERS").c_str(), ImVec2(240.f * scale, 40.f * scale)))
+        if (ImGui::Button("Edit Triggers", ImVec2(240.f * scale, 40.f * scale)))
             this->openMapSession(this->selectedMap);
     }
     ImGui::EndChild();
@@ -4506,18 +4498,18 @@ void TriggerEditor::renderErrorPopup()
     if (ImGui::BeginPopupModal("##trigger-editor-error", nullptr,
                                ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings))
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.55f, 0.55f, 1.0f));
-        ImGui::TextUnformatted(this->getLanguage("ERROR").c_str());
+        ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::gray(0.62f));
+        ImGui::TextUnformatted("Error");
         ImGui::PopStyleColor();
         ImGui::Separator();
 
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
         for (auto &line : this->errorPopupLines)
             ImGui::TextWrapped("%s", line.c_str());
         ImGui::PopStyleColor();
 
         ImGui::Separator();
-        bool closed = ImGui::Button(this->getLanguage("CLOSE").c_str(), ImVec2(140 * scale, 0))
+        bool closed = ImGui::Button("Close", ImVec2(140 * scale, 0))
                       || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape));
         if (closed)
         {
@@ -4548,11 +4540,11 @@ bool TriggerEditor::update(float timer)
     }
     catch (const std::exception &e)
     {
-        this->showError(std::string("[erro] exceção no Trigger Editor: ") + e.what());
+        this->showError(std::string("[error] exceção no Trigger Editor: ") + e.what());
     }
     catch (...)
     {
-        this->showError("[erro] exceção desconhecida no Trigger Editor");
+        this->showError("[error] exceção desconhecida no Trigger Editor");
     }
 
     if (this->errorPopupOpen)
@@ -4587,15 +4579,15 @@ bool TriggerEditor::updateImpl()
         ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings);
 
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.08f, 0.08f, 0.11f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.3f, 0.3f, 0.35f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.15f, 0.20f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.25f, 0.35f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.30f, 0.30f, 0.40f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.12f, 0.12f, 0.16f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.20f, 0.20f, 0.26f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.50f, 0.85f, 1.0f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, GrimsolfTheme::gray(0.05f));
+    ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
+    ImGui::PushStyleColor(ImGuiCol_Border, GrimsolfTheme::gray(0.35f));
+    ImGui::PushStyleColor(ImGuiCol_Button, GrimsolfTheme::gray(0.16f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, GrimsolfTheme::gray(0.27f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, GrimsolfTheme::gray(0.32f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, GrimsolfTheme::gray(0.12f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, GrimsolfTheme::gray(0.20f));
+    ImGui::PushStyleColor(ImGuiCol_CheckMark, GrimsolfTheme::gray(1.0f));
 
     if (this->stage == Stage::MapSelect)
     {
@@ -4605,10 +4597,10 @@ bool TriggerEditor::updateImpl()
     {
         // ---- editor layout ----
         ImGui::PushFont(this->fontBig);
-        ImGui::TextUnformatted(this->getLanguage("TITLE").c_str());
+        ImGui::TextUnformatted("Trigger Editor");
         ImGui::PopFont();
         ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - 180.f * this->imguiScale);
-        if (ImGui::Button(this->getLanguage("BACK").c_str(), ImVec2(160.f * this->imguiScale, 34.f * this->imguiScale)))
+        if (ImGui::Button("Back to Studio", ImVec2(160.f * this->imguiScale, 34.f * this->imguiScale)))
             this->requestAction("back", "");
         ImGui::Separator();
 
@@ -4637,9 +4629,9 @@ bool TriggerEditor::updateImpl()
         ImGui::OpenPopup("##trigger-create");
         if (ImGui::BeginPopupModal("##trigger-create", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
-            ImGui::TextUnformatted(this->getLanguage("CREATE-TRIGGER-CAPTION").c_str());
+            ImGui::TextUnformatted("New trigger file");
             ImGui::Separator();
-            ImGui::TextUnformatted(this->getLanguage("CREATE-TRIGGER-MESSAGE").c_str());
+            ImGui::TextUnformatted("File name (without .json):");
             ImGui::SetNextItemWidth(260.f * this->imguiScale);
             if (ImGui::InputText("##trigger-new-name", this->newFileName, sizeof(this->newFileName),
                                  ImGuiInputTextFlags_EnterReturnsTrue))
@@ -4647,13 +4639,13 @@ bool TriggerEditor::updateImpl()
 
             if (!this->createError.empty())
             {
-                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.5f, 0.5f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::gray(0.62f));
                 ImGui::TextWrapped("%s", this->createError.c_str());
                 ImGui::PopStyleColor();
             }
 
             ImGui::Spacing();
-            if (ImGui::Button(this->getLanguage("CREATE").c_str(), ImVec2(110.f * this->imguiScale, 0))
+            if (ImGui::Button("Create", ImVec2(110.f * this->imguiScale, 0))
                 || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter)))
             {
                 // Validate inline so an invalid/existing name keeps the popup
@@ -4678,9 +4670,9 @@ bool TriggerEditor::updateImpl()
                               && boost::filesystem::exists(this->sources[this->sourceIndex].folder + trimmed + ".yaml");
 
                 if (!valid)
-                    this->createError = this->getLanguage("INVALID-NAME");
+                    this->createError = "Invalid name. Use only letters, numbers, \"-\" and \"_\".";
                 else if (exists)
-                    this->createError = this->getLanguage("NAME-EXISTS");
+                    this->createError = "A file with this name already exists in this folder.";
                 else
                 {
                     this->createError.clear();
@@ -4692,7 +4684,7 @@ bool TriggerEditor::updateImpl()
             }
 
             ImGui::SameLine(0.f, 20.f * this->imguiScale);
-            if (ImGui::Button(this->getLanguage("CANCEL").c_str(), ImVec2(110.f * this->imguiScale, 0))
+            if (ImGui::Button("Cancel", ImVec2(110.f * this->imguiScale, 0))
                 || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
             {
                 this->createPopupOpen = false;
@@ -4710,20 +4702,20 @@ bool TriggerEditor::updateImpl()
         ImGui::OpenPopup("##trigger-delete");
         if (ImGui::BeginPopupModal("##trigger-delete", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
-            ImGui::TextUnformatted(this->getLanguage("DELETE-TRIGGER-CAPTION").c_str());
+            ImGui::TextUnformatted("Delete trigger file");
             ImGui::Separator();
-            ImGui::TextWrapped("%s \"%s\"?", this->getLanguage("DELETE-TRIGGER-MESSAGE").c_str(),
+            ImGui::TextWrapped("%s \"%s\"?", "Are you sure you want to delete",
                                this->deleteTarget.c_str());
 
             if (this->deleteTarget == this->mainTriggerFile)
             {
-                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.5f, 0.5f, 1.0f));
-                ImGui::TextWrapped("%s", this->getLanguage("DELETE-MAIN-FORBIDDEN").c_str());
+                ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::gray(0.62f));
+                ImGui::TextWrapped("%s", "The main trigger file of the map cannot be deleted.");
                 ImGui::PopStyleColor();
             }
 
             ImGui::Spacing();
-            if (ImGui::Button(this->getLanguage("YES").c_str(), ImVec2(100.f * this->imguiScale, 0)))
+            if (ImGui::Button("Yes", ImVec2(100.f * this->imguiScale, 0)))
             {
                 this->deletePopupOpen = false;
                 ImGui::CloseCurrentPopup();
@@ -4732,7 +4724,7 @@ bool TriggerEditor::updateImpl()
             }
 
             ImGui::SameLine(0.f, 20.f * this->imguiScale);
-            if (ImGui::Button(this->getLanguage("NO").c_str(), ImVec2(100.f * this->imguiScale, 0))
+            if (ImGui::Button("No", ImVec2(100.f * this->imguiScale, 0))
                 || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
             {
                 this->deletePopupOpen = false;
@@ -4750,12 +4742,12 @@ bool TriggerEditor::updateImpl()
         ImGui::OpenPopup("##trigger-discard");
         if (ImGui::BeginPopupModal("##trigger-discard", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
-            ImGui::TextUnformatted(this->getLanguage("DISCARD-CAPTION").c_str());
+            ImGui::TextUnformatted("Unsaved changes");
             ImGui::Separator();
-            ImGui::TextWrapped("%s", this->getLanguage("DISCARD-MESSAGE").c_str());
+            ImGui::TextWrapped("%s", "The current file has unsaved changes. Discard them?");
 
             ImGui::Spacing();
-            if (ImGui::Button(this->getLanguage("YES").c_str(), ImVec2(100.f * this->imguiScale, 0)))
+            if (ImGui::Button("Yes", ImVec2(100.f * this->imguiScale, 0)))
             {
                 std::string action = this->discardAction;
                 std::string target = this->discardTarget;
@@ -4768,7 +4760,7 @@ bool TriggerEditor::updateImpl()
             }
 
             ImGui::SameLine(0.f, 20.f * this->imguiScale);
-            if (ImGui::Button(this->getLanguage("NO").c_str(), ImVec2(100.f * this->imguiScale, 0))
+            if (ImGui::Button("No", ImVec2(100.f * this->imguiScale, 0))
                 || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape)))
             {
                 this->discardPopupOpen = false;

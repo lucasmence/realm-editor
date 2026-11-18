@@ -3,6 +3,7 @@
 #include "../external/imgui/imgui.h"
 #include "../external/imgui/imgui-SFML.h"
 #include "../library/json.hpp"
+#include "../grimsolfTheme.hpp"
 
 #include <cstdlib>
 
@@ -18,13 +19,20 @@ static std::string getConstantValue(const json &file, const std::string &key)
     return "";
 }
 
-TriggerApp::TriggerApp(const std::string &gamePath)
+TriggerApp::TriggerApp(const std::string &gamePath, const std::string &hudTheme)
 {
     // The editor was designed for a 1920x1080 window; opening it at desktop
     // size gives it room to breathe (the UI scales with the viewport width).
     sf::VideoMode desktop = sf::VideoMode::getDesktopMode();
     this->window = std::make_shared<sf::RenderWindow>(desktop, "realm-editor - Trigger Editor", sf::Style::Default);
     ImGui::SFML::Init(*this->window);
+    // Follow the theme picked in the World Editor's Options window. The tool
+    // runs as a separate process: the theme comes from --hud-theme when the
+    // World Editor spawned it, otherwise from the saved choice.
+    if (hudTheme.empty())
+        GrimsolfTheme::applySaved();
+    else
+        GrimsolfTheme::apply(hudTheme);
 
     // Optional icon (realm-editor.png sits next to the executable folder
     // layout; skip it when missing or 0x0 to avoid X server crashes).
@@ -88,11 +96,11 @@ int TriggerApp::run()
 
         ImGui::SFML::Update(*this->window, this->clock.restart());
 
-        // Keep the ImGui text color white on every frame (see Manager::imguiUpdate).
-        ImGui::GetStyle().Colors[ImGuiCol_Text] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-        ImGui::GetStyle().Colors[ImGuiCol_TextDisabled] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+        // Restore the theme text colors on every frame (see Manager::imguiUpdate).
+        ImGui::GetStyle().Colors[ImGuiCol_Text] = GrimsolfTheme::textColor();
+        ImGui::GetStyle().Colors[ImGuiCol_TextDisabled] = GrimsolfTheme::textDisabledColor();
 
-        this->window->clear(sf::Color(20, 20, 28));
+        this->window->clear(sf::Color(12, 12, 12));
 
         // update() returns true when the user left the editor (BACK button or
         // map-select stage): close the process so Grimsolf restores its own

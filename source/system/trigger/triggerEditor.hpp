@@ -124,7 +124,7 @@ class TriggerEditor
             Editor       // trigger JSON editor for the selected map
         };
 
-        std::string gamePath;       // game folder (data/maps, data/text, ...)
+        std::string gamePath;       // game folder (data/maps, data/options, ...)
         ImFont *fontNormal = nullptr;
         ImFont *fontBig = nullptr;
         float imguiScale = 1.f;
@@ -133,12 +133,6 @@ class TriggerEditor
         // <gamePath>/data/options/options.json). The editor UI was designed
         // against it, so this keeps the old look regardless of the window size.
         float designWidth = 1920.f;
-
-        // Language strings are loaded once from the game's configured language
-        // file (<gamePath>/data/text/<misc-language>.json, "TRIGGER-EDITOR"
-        // section); the field name is the fallback when the file is missing.
-        mutable json languageFile;
-        mutable bool languageLoaded = false;
 
         // ---- stage ----
         Stage stage = Stage::MapSelect;
@@ -159,7 +153,7 @@ class TriggerEditor
         // and cutscenes) follow, so the same visual editor can open them.
         struct BrowseSource
         {
-            std::string label;              // language field with the button label
+            std::string label;              // sidebar button label (fixed English)
             std::string ref;                // folder relative to the game ("data/cutscenes")
             std::string folder;             // full folder path, with a trailing '/'
             bool editable = false;          // create/delete allowed (map trigger folder)
@@ -262,7 +256,6 @@ class TriggerEditor
         void showError(const std::string &text);
 
         // ---- internals ----
-        std::string getLanguage(const std::string &field) const;
         void addLog(const std::string &text, unsigned int color);
         bool updateImpl();
         void renderErrorPopup();
