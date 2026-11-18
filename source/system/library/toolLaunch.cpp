@@ -45,7 +45,8 @@ std::string ToolLaunch::getExecutablePath()
 // The spawned tool is the same realm-editor binary: it resolves its own
 // runtime data (data/options/realm-editor.json, font, icon) from the working
 // directory, which here is the folder that contains the running executable.
-int ToolLaunch::launchTool(const std::string &gamePath, const std::string &toolFlag)
+int ToolLaunch::launchTool(const std::string &gamePath, const std::string &toolFlag,
+                           const std::string &hudTheme)
 {
     boost::filesystem::path exePath(getExecutablePath());
     if (exePath.empty())
@@ -59,8 +60,11 @@ int ToolLaunch::launchTool(const std::string &gamePath, const std::string &toolF
     const std::string workingDirectory = exePath.parent_path().string();
 
 #ifdef _WIN32
-    // --game-path is quoted so paths containing spaces survive.
+    // --game-path and --hud-theme are quoted so values containing spaces
+    // survive (theme names like "Navy Green" included).
     std::string commandLine = "\"" + exePath.string() + "\" --no-splash " + toolFlag
+                              + (hudTheme.empty() ? std::string()
+                                                  : " --hud-theme \"" + hudTheme + "\"")
                               + " --game-path \"" + gamePath + "\"";
     std::vector<char> commandBuffer(commandLine.begin(), commandLine.end());
     commandBuffer.push_back('\0');
@@ -87,6 +91,8 @@ int ToolLaunch::launchTool(const std::string &gamePath, const std::string &toolF
     std::string exeArg = exePath.string();
     std::string noSplash = "--no-splash";
     std::string flag = toolFlag;
+    std::string themeOption = "--hud-theme";
+    std::string themeValue = hudTheme;
     std::string pathOption = "--game-path";
     std::string pathValue = gamePath;
 
@@ -94,6 +100,11 @@ int ToolLaunch::launchTool(const std::string &gamePath, const std::string &toolF
     argv.push_back(&exeArg[0]);
     argv.push_back(&noSplash[0]);
     argv.push_back(&flag[0]);
+    if (!hudTheme.empty())
+    {
+        argv.push_back(&themeOption[0]);
+        argv.push_back(&themeValue[0]);
+    }
     argv.push_back(&pathOption[0]);
     argv.push_back(&pathValue[0]);
     argv.push_back(nullptr);

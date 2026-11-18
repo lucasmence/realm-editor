@@ -24,13 +24,19 @@ namespace ToolLaunch
 {
     // Spawns a new realm-editor process running the requested standalone
     // tool:
-    //   toolFlag: "--trigger-editor" -> Trigger Editor
-    //             "--sprite-fusion"  -> Sprite Fusion
+    //   toolFlag:  "--trigger-editor" -> Trigger Editor
+    //              "--sprite-fusion"  -> Sprite Fusion
+    //   hudTheme:  theme the tool should use (the World Editor passes the one
+    //              selected in its Options window, since the child process'
+    //              working directory is the executable folder and may not hold
+    //              data/options/realm-editor.json). Empty leaves the tool on
+    //              the theme saved in that file.
     // Return values:
     //   1  process started successfully
     //   0  the executable could not be located next to the running one
     //  -1  the process could not be spawned (CreateProcess/fork/exec failed)
-    int launchTool(const std::string &gamePath, const std::string &toolFlag);
+    int launchTool(const std::string &gamePath, const std::string &toolFlag,
+                   const std::string &hudTheme = "");
 
     // Returns "" when the running executable's path could not be determined.
     std::string getExecutablePath();
