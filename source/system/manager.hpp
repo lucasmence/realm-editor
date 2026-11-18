@@ -119,6 +119,8 @@ class Manager
 		ImguiMiscData imguiMiscData;
 		ImguiDialogBoxData imguiDialogBoxData;
 		std::list<std::string> recentFiles;
+		// ImGui HUD theme selected in Options (one of GrimsolfTheme::names()).
+		std::string hudTheme;
 
 		Manager(bool noSplash = false, const std::string &gamePath = "");
 		~Manager();
@@ -147,6 +149,8 @@ class Manager
 		bool loadGamepathAfter();
 		bool loadConfigTxt();
 		bool saveConfigTxt();
+		bool loadHudTheme();
+		bool saveHudTheme();
 		bool loadAutoSaveConfig(int& seconds, bool& message);
 		bool applyAutoSaveConfigFromFile();
 		std::string loadConfigMapFolder();

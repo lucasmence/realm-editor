@@ -11,6 +11,7 @@
 #include "../external/imgui/imgui.h"
 #include "../external/imgui/imgui-SFML.h"
 #include "../external/imgui/imgui_internal.h"
+#include "../grimsolfTheme.hpp"
 
 Hud::Hud(Manager* manager)
 {
@@ -2142,8 +2143,8 @@ void Hud::imguiRenderCommandPalette()
 
 	
 	ImGui::PushItemWidth(-1);
-	ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.12f, 0.12f, 0.18f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_FrameBg, GrimsolfTheme::gray(0.12f));
+	ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
 
 	bool enterPressed = ImGui::InputTextWithHint("##cmdSearch", "Type a command...",
 		this->commandPaletteSearch, sizeof(this->commandPaletteSearch),
@@ -2198,7 +2199,7 @@ void Hud::imguiRenderCommandPalette()
 	{
 		if (this->commandPaletteFilteredIndices.empty())
 		{
-			ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "No matching commands");
+			ImGui::TextColored(GrimsolfTheme::textColor(), "No matching commands");
 		}
 		else
 		{
@@ -2212,7 +2213,7 @@ void Hud::imguiRenderCommandPalette()
 				if (entry.category != lastCategory)
 				{
 					lastCategory = entry.category;
-					ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+					ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
 					ImGui::Text("-- %s --", entry.category.c_str());
 					ImGui::PopStyleColor();
 				}
@@ -2220,7 +2221,7 @@ void Hud::imguiRenderCommandPalette()
 				
 				bool isSelected = (i == this->commandPaletteSelectedIndex);
 				if (isSelected)
-					ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.2f, 0.4f, 0.7f, 0.6f));
+					ImGui::PushStyleColor(ImGuiCol_Header, GrimsolfTheme::gray(0.30f, 0.6f));
 
 				ImGuiSelectableFlags selFlags = ImGuiSelectableFlags_AllowDoubleClick;
 				if (ImGui::Selectable(entry.name.c_str(), isSelected, selFlags))
@@ -2291,13 +2292,15 @@ bool Hud::imguiRender()
 // ---------------------------------------------------------------------------
 void Hud::launchTool(std::string toolFlag)
 {
-	// The tools read maps / resources / language files from the game folder
+	// The tools read maps / resources / options from the game folder
 	// selected when opening the map (fallback: working directory).
 	std::string gamePath = this->manager->constant.gamePath;
 	if (gamePath.empty())
 		gamePath = boost::filesystem::current_path().string();
 
-	const int launched = ToolLaunch::launchTool(gamePath, toolFlag);
+	// The tool process starts in the executable folder, which may not hold
+	// data/options/realm-editor.json, so the active theme is passed along.
+	const int launched = ToolLaunch::launchTool(gamePath, toolFlag, this->manager->hudTheme);
 	if (launched == 0)
 		this->showMessage("Could not open " + ToolLaunch::toolName(toolFlag)
 						  + ": the realm-editor executable was not found.");
@@ -2399,7 +2402,7 @@ void Hud::imguiRenderTerrainLayers()
 		this->manager->map->updateTerrainLayers();
 
 	if (this->locked)
-		ImGui::TextColored(ImVec4(1.f, 0.55f, 0.45f, 1.f), "Map is locked - layer order is read only (press K to unlock)");
+		ImGui::TextColored(GrimsolfTheme::gray(0.75f), "Map is locked - layer order is read only (press K to unlock)");
 	ImGui::TextWrapped("The layer at the top is drawn in front of (on top of) the ones below. Use the arrows or drag a row to change which terrain comes first.");
 	ImGui::Separator();
 
@@ -2505,17 +2508,17 @@ void Hud::imguiRenderToolPanel()
 	// Lock toggle: while locked the map is read-only. Hotkey: K.
 	if (this->locked)
 	{
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.65f, 0.2f, 0.15f, 0.9f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8f, 0.3f, 0.2f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_Button, GrimsolfTheme::gray(0.22f, 0.9f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, GrimsolfTheme::gray(0.32f));
 	}
 	if (ImGui::Button(this->locked ? "UNLOCK [K]" : "LOCK [K]", ImVec2(120, 0)))
 		this->toggleLock();
 	if (this->locked) ImGui::PopStyleColor(2);
 	ImGui::SameLine();
 	if (this->locked)
-		ImGui::TextColored(ImVec4(1.f, 0.55f, 0.45f, 1.f), "Locked - map is read only");
+		ImGui::TextColored(GrimsolfTheme::gray(0.75f), "Locked - map is read only");
 	else
-		ImGui::TextColored(ImVec4(0.45f, 0.9f, 0.5f, 1.f), "Unlocked - editing enabled");
+		ImGui::TextColored(GrimsolfTheme::gray(0.90f), "Unlocked - editing enabled");
 
 	
 	ImGui::Separator();
@@ -2546,8 +2549,8 @@ void Hud::imguiRenderToolPanel()
 	auto renderToggleBtn = [&](const char* label, bool& state) {
 		bool wasActive = state;
 		if (wasActive) {
-			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.6f, 0.8f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.7f, 0.7f, 1.0f));
+			ImGui::PushStyleColor(ImGuiCol_Button, GrimsolfTheme::gray(0.24f, 0.8f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, GrimsolfTheme::gray(0.32f));
 		}
 		if (ImGui::Button(label)) { state = !state; }
 		if (wasActive) ImGui::PopStyleColor(2);
@@ -2601,7 +2604,7 @@ void Hud::imguiRenderToolPanel()
 	{
 		bool isSquare = (this->formShapeSelected == "square");
 		if (isSquare) {
-			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.6f, 0.8f));
+			ImGui::PushStyleColor(ImGuiCol_Button, GrimsolfTheme::gray(0.24f, 0.8f));
 		}
 		if (ImGui::Button("Square")) { this->formShapeClick("square"); }
 		if (isSquare) ImGui::PopStyleColor();
@@ -2610,7 +2613,7 @@ void Hud::imguiRenderToolPanel()
 	{
 		bool isCircle = (this->formShapeSelected == "circle");
 		if (isCircle) {
-			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.6f, 0.8f));
+			ImGui::PushStyleColor(ImGuiCol_Button, GrimsolfTheme::gray(0.24f, 0.8f));
 		}
 		if (ImGui::Button("Circle")) { this->formShapeClick("circle"); }
 		if (isCircle) ImGui::PopStyleColor();
@@ -2619,7 +2622,7 @@ void Hud::imguiRenderToolPanel()
 	{
 		bool isNone = (this->formShapeSelected == "none");
 		if (isNone) {
-			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.6f, 0.8f));
+			ImGui::PushStyleColor(ImGuiCol_Button, GrimsolfTheme::gray(0.24f, 0.8f));
 		}
 		if (ImGui::Button("None")) { this->formShapeClick("none"); }
 		if (isNone) ImGui::PopStyleColor();
@@ -3273,7 +3276,7 @@ void Hud::imguiRenderPropertiesEditWindow()
 				break;
 			}
 
-		ImGui::TextColored(ImVec4(0.2f, 0.6f, 1.f, 1.f), "Edit %s properties", typeName.c_str());
+		ImGui::TextColored(GrimsolfTheme::gray(1.0f), "Edit %s properties", typeName.c_str());
 		if (!itemName.empty())
 			ImGui::TextDisabled("%s", itemName.c_str());
 		ImGui::Separator();
@@ -3352,14 +3355,14 @@ void Hud::imguiRenderPalettePanel()
 	// Locked maps are read-only: surface the state prominently here so the
 	// palette never looks like painting is possible.
 	if (this->locked)
-		ImGui::TextColored(ImVec4(1.f, 0.45f, 0.35f, 1.f), "MAP LOCKED - READ ONLY (press K to unlock)");
+		ImGui::TextColored(GrimsolfTheme::gray(0.75f), "MAP LOCKED - READ ONLY (press K to unlock)");
 	else
 		switch (this->manager->palette->status)
 		{
 			case PaletteStatus::psInsert:
-				ImGui::TextColored(ImVec4(0,1,0,1), "INSERTING"); break;
+				ImGui::TextColored(GrimsolfTheme::gray(1.0f), "INSERTING"); break;
 			case PaletteStatus::psDelete:
-				ImGui::TextColored(ImVec4(1,0,0,1), "DELETING"); break;
+				ImGui::TextColored(GrimsolfTheme::gray(0.75f), "DELETING"); break;
 			default:
 				ImGui::Text(this->itemSelect ? "SELECT" : "- - -");
 		}
@@ -3368,7 +3371,7 @@ void Hud::imguiRenderPalettePanel()
 	ImGui::Text("Palette Types:");
 	auto renderPaletteBtn = [&](const char* label, PaletteType type) {
 		bool selected = (this->manager->palette->type == type);
-		if (selected) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.5f, 0.8f, 0.8f));
+		if (selected) ImGui::PushStyleColor(ImGuiCol_Button, GrimsolfTheme::gray(0.35f, 0.8f));
 		if (ImGui::Button(label)) { this->manager->palette->selectPalette(type); }
 		if (selected) ImGui::PopStyleColor();
 	};
@@ -3441,7 +3444,7 @@ void Hud::imguiRenderNotification()
 		ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize |
 		ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoInputs;
 
-	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 1.0f, 0.0f, alpha));
+	ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::gray(1.0f, alpha));
 	ImGui::Begin("##notification", NULL, flags);
 	ImGui::TextUnformatted(this->notificationText.c_str());
 	ImGui::End();
@@ -3452,7 +3455,7 @@ void Hud::imguiRenderPaletteItems()
 {
 	if (this->manager->palette->paletteItems.empty())
 	{
-		ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "No items loaded");
+		ImGui::TextColored(GrimsolfTheme::textColor(), "No items loaded");
 		return;
 	}
 
@@ -3488,14 +3491,14 @@ void Hud::imguiRenderPaletteItems()
 		
 		if (isSelected)
 		{
-			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.9f, 1.0f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.7f, 1.0f, 1.0f));
+			ImGui::PushStyleColor(ImGuiCol_Button, GrimsolfTheme::gray(0.30f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, GrimsolfTheme::gray(0.38f));
 		}
 		else if (item.model->sprite && !textureValid)
 		{
 			
-			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.2f, 0.2f, 0.8f));
-			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+			ImGui::PushStyleColor(ImGuiCol_Button, GrimsolfTheme::gray(0.18f, 0.8f));
+			ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
 		}
 		else if (item.model->shape)
 		{
@@ -3554,7 +3557,7 @@ void Hud::imguiRenderPreferencesWindow()
 	if (!this->showPreferencesWindow)
 		return;
 
-	ImGui::SetNextWindowSize(ImVec2(400, 450), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSize(ImVec2(400, 550), ImGuiCond_FirstUseEver);
 	ImGui::SetNextWindowPos(
 		ImVec2(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f),
 		ImGuiCond_FirstUseEver,
@@ -3573,7 +3576,7 @@ void Hud::imguiRenderPreferencesWindow()
 
 	// Map data (identity, dimensions, weather) is read-only while locked.
 	if (this->locked)
-		ImGui::TextColored(ImVec4(1.f, 0.55f, 0.45f, 1.f), "Map is locked - properties are read only (press K to unlock)");
+		ImGui::TextColored(GrimsolfTheme::gray(0.75f), "Map is locked - properties are read only (press K to unlock)");
 	ImGui::BeginDisabled(this->locked);
 
 	
@@ -3613,13 +3616,16 @@ void Hud::imguiRenderPreferencesWindow()
 	int mapSizeY = this->manager->map->data.size.y;
 
 	ImGui::Text("Width");
-	ImGui::PushItemWidth(120);
+	ImGui::SameLine();
+	ImGui::PushItemWidth(100);
 	if (ImGui::InputInt("##prefMapSx", &mapSizeX, 0, 0))
 		this->manager->map->data.size.x = std::max(0, std::min(99999, mapSizeX));
 	ImGui::PopItemWidth();
 
+	ImGui::SameLine();
 	ImGui::Text("Height");
-	ImGui::PushItemWidth(120);
+	ImGui::SameLine();
+	ImGui::PushItemWidth(100);
 	if (ImGui::InputInt("##prefMapSy", &mapSizeY, 0, 0))
 		this->manager->map->data.size.y = std::max(0, std::min(99999, mapSizeY));
 	ImGui::PopItemWidth();
@@ -3664,6 +3670,36 @@ void Hud::imguiRenderOptionsWindow()
 	);
 
 	ImGui::Begin("Options", &this->showOptionsWindow, ImGuiWindowFlags_NoCollapse);
+
+	ImGui::Text("--- Appearance ---");
+
+	ImGui::Text("Theme");
+	ImGui::PushItemWidth(220);
+	const std::vector<std::string>& themeNames = GrimsolfTheme::names();
+	int themeIndex = 0;
+	for (int index = 0; index < (int)themeNames.size(); index++)
+		if (themeNames[index] == this->manager->hudTheme)
+		{
+			themeIndex = index;
+			break;
+		}
+	if (ImGui::BeginCombo("##optTheme", themeNames[themeIndex].c_str()))
+	{
+		for (int index = 0; index < (int)themeNames.size(); index++)
+		{
+			bool selected = (index == themeIndex);
+			if (ImGui::Selectable(themeNames[index].c_str(), selected))
+			{
+				this->manager->hudTheme = themeNames[index];
+				GrimsolfTheme::apply(this->manager->hudTheme);
+				this->manager->saveHudTheme();
+			}
+			if (selected)
+				ImGui::SetItemDefaultFocus();
+		}
+		ImGui::EndCombo();
+	}
+	ImGui::PopItemWidth();
 
 	ImGui::Separator();
 	ImGui::Text("--- Auto Save ---");
@@ -3726,8 +3762,8 @@ void Hud::imguiRenderAboutWindow()
 	ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
 		ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse;
 
-	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(24 / 255.f, 24 / 255.f, 36 / 255.f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(50 / 255.f, 50 / 255.f, 70 / 255.f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(18 / 255.f, 18 / 255.f, 18 / 255.f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(70 / 255.f, 70 / 255.f, 70 / 255.f, 1.0f));
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
 
@@ -3741,7 +3777,7 @@ void Hud::imguiRenderAboutWindow()
 	drawList->AddRectFilled(
 		ImVec2(winPos.x, winPos.y),
 		ImVec2(winPos.x + winSize.x, winPos.y + 3.f),
-		IM_COL32(70, 130, 200, 255));
+		IM_COL32(235, 235, 235, 255));
 
 	
 	sf::Vector2u logoSize = this->manager->splashLogoTexture.getSize();
@@ -3776,7 +3812,7 @@ void Hud::imguiRenderAboutWindow()
 	drawList->AddRectFilled(
 		ImVec2(winPos.x + winSize.x / 2.f - 100.f, winPos.y + 205.f),
 		ImVec2(winPos.x + winSize.x / 2.f + 100.f, winPos.y + 206.f),
-		IM_COL32(60, 60, 85, 255));
+		IM_COL32(100, 100, 100, 255));
 
 	
 	float creditW = ImGui::CalcTextSize("https://pleroma-studios.mence.dev").x;

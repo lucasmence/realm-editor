@@ -8,6 +8,7 @@
 #include "manager.hpp"
 #include "external/imgui/imgui.h"
 #include "external/imgui/imgui-SFML.h"
+#include "grimsolfTheme.hpp"
 
 Manager::Manager(bool noSplash, const std::string &gamePath)
 {
@@ -22,6 +23,7 @@ Manager::Manager(bool noSplash, const std::string &gamePath)
     this->canvas = std::make_shared<sf::View>();
     this->minimapView = std::make_shared<sf::View>();
     ImGui::SFML::Init(*this->window);
+    GrimsolfTheme::apply();
 
     this->font = std::shared_ptr<sf::Font>(new sf::Font);
     this->font->loadFromFile(this->constant.fontFilePath);
@@ -198,12 +200,11 @@ bool Manager::imguiUpdate()
 {
     ImGui::SFML::Update(*this->window, deltaClock.restart());
 
-    // Keep the ImGui text color white on every frame. Some UI code pushes
-    // dark text colors (missing pops or dark gray shades) which made labels
-    // hard to read against the dark background. Resetting the base style here
-    // guarantees the text is always white again.
-    ImGui::GetStyle().Colors[ImGuiCol_Text] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-    ImGui::GetStyle().Colors[ImGuiCol_TextDisabled] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    // Restore the text colors of the active theme on every frame: some UI code
+    // pushes text colors and never pops them. The colors come from the theme
+    // (not hardcoded white) so the light theme keeps its dark text.
+    ImGui::GetStyle().Colors[ImGuiCol_Text] = GrimsolfTheme::textColor();
+    ImGui::GetStyle().Colors[ImGuiCol_TextDisabled] = GrimsolfTheme::textDisabledColor();
 
     if (this->hudLoaded)
         this->hud->imguiRender();
@@ -424,6 +425,47 @@ bool Manager::imguiUpdatePath()
     return true;
 }
 
+// ImGui HUD theme: persisted in the editor's own data/options/realm-editor.json
+// so the choice survives restarts. Falls back to Grimsolf when the file or key
+// is missing or holds an unknown name.
+bool Manager::loadHudTheme()
+{
+    this->hudTheme = "Grimsolf";
+
+    json file = Json::loadFromFile("data/options/realm-editor.json");
+    if (file.is_object())
+    {
+        std::string saved = file.value("hud-theme", "Grimsolf");
+        for (const auto &name : GrimsolfTheme::names())
+        {
+            if (name == saved)
+            {
+                this->hudTheme = saved;
+                break;
+            }
+        }
+    }
+
+    GrimsolfTheme::apply(this->hudTheme);
+    return true;
+}
+
+bool Manager::saveHudTheme()
+{
+    json file = Json::loadFromFile("data/options/realm-editor.json");
+    if (!file.is_object())
+        return false;
+
+    file["hud-theme"] = this->hudTheme;
+
+    std::ofstream stream("data/options/realm-editor.json", std::ios::trunc);
+    if (!stream.is_open())
+        return false;
+
+    stream << file.dump(4);
+    return !stream.fail();
+}
+
 bool Manager::loadGamepathAfter()
 {
     this->hud = std::make_shared<Hud>(this);
@@ -433,6 +475,9 @@ bool Manager::loadGamepathAfter()
     this->minimapViewArea = sf::FloatRect(0.f, 0.f, 0.f, 0.f);
 
     this->map->newMap();
+
+    // Restore the HUD theme picked in Options (Grimsolf when nothing is saved).
+    this->loadHudTheme();
 
     
     boost::filesystem::path tempPath = boost::filesystem::path(this->constant.gamePath) / "temp" / "temp.json";
@@ -1064,7 +1109,7 @@ bool Manager::updatePathImgui()
         for (const auto& entry : fileList)
         {
             std::string label = entry.isFolder ? "[ " + entry.name + " ]" : entry.name;
-            if (entry.isFolder) ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
+            if (entry.isFolder) ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::gray(0.90f));
 
             if (ImGui::Selectable(label.c_str(), false, ImGuiSelectableFlags_AllowDoubleClick)) 
             {
@@ -1186,7 +1231,7 @@ bool Manager::updatePathImgui()
         float margin = 10.0f;
 
         ImGui::SetCursorPos(ImVec2(margin, windowHeight - textHeight - margin));
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::gray(0.90f));
         ImGui::Text(this->filePathData.currentEntry.name.c_str());
         ImGui::PopStyleColor();
     }
@@ -1517,12 +1562,12 @@ void Manager::renderSplash()
 
     
     sf::RectangleShape background(sf::Vector2f(w, h));
-    background.setFillColor(sf::Color(18, 18, 28));
+    background.setFillColor(sf::Color(18, 18, 18));
     this->window->draw(background);
 
     
     sf::RectangleShape accentLine(sf::Vector2f(w, 3.f));
-    accentLine.setFillColor(sf::Color(70, 130, 200));
+    accentLine.setFillColor(sf::Color(235, 235, 235));
     this->window->draw(accentLine);
 
     
@@ -1530,9 +1575,9 @@ void Manager::renderSplash()
     float cardHeight = 320.f;
     sf::RectangleShape card(sf::Vector2f(cardWidth, cardHeight));
     card.setPosition(w / 2.f - cardWidth / 2.f, h / 2.f - cardHeight / 2.f);
-    card.setFillColor(sf::Color(24, 24, 36));
+    card.setFillColor(sf::Color(24, 24, 24));
     card.setOutlineThickness(1.f);
-    card.setOutlineColor(sf::Color(50, 50, 70));
+    card.setOutlineColor(sf::Color(70, 70, 70));
     this->window->draw(card);
 
     
@@ -1551,7 +1596,7 @@ void Manager::renderSplash()
     titleText.setString("realm-editor");
     titleText.setCharacterSize(32);
     titleText.setStyle(sf::Text::Bold);
-    titleText.setFillColor(sf::Color(220, 220, 245));
+    titleText.setFillColor(sf::Color(255, 255, 255));
     sf::FloatRect titleBounds = titleText.getLocalBounds();
     titleText.setOrigin(titleBounds.left + titleBounds.width / 2.f, titleBounds.top + titleBounds.height / 2.f);
     titleText.setPosition(w / 2.f, h / 2.f - 25.f);
@@ -1562,7 +1607,7 @@ void Manager::renderSplash()
     versionText.setFont(*this->font);
     versionText.setString(this->buildVersion);
     versionText.setCharacterSize(16);
-    versionText.setFillColor(sf::Color(130, 130, 170));
+    versionText.setFillColor(sf::Color(140, 140, 140));
     sf::FloatRect verBounds = versionText.getLocalBounds();
     versionText.setOrigin(verBounds.left + verBounds.width / 2.f, verBounds.top + verBounds.height / 2.f);
     versionText.setPosition(w / 2.f, h / 2.f + 10.f);
@@ -1570,7 +1615,7 @@ void Manager::renderSplash()
 
     
     sf::RectangleShape divider(sf::Vector2f(200.f, 1.f));
-    divider.setFillColor(sf::Color(60, 60, 85));
+    divider.setFillColor(sf::Color(100, 100, 100));
     divider.setPosition(w / 2.f - 100.f, h / 2.f + 40.f);
     this->window->draw(divider);
 
@@ -1579,7 +1624,7 @@ void Manager::renderSplash()
     creditText.setFont(*this->font);
     creditText.setString("https://pleroma-studios.mence.dev");
     creditText.setCharacterSize(14);
-    creditText.setFillColor(sf::Color(110, 110, 150));
+    creditText.setFillColor(sf::Color(140, 140, 140));
     sf::FloatRect creditBounds = creditText.getLocalBounds();
     creditText.setOrigin(creditBounds.left + creditBounds.width / 2.f, creditBounds.top + creditBounds.height / 2.f);
     creditText.setPosition(w / 2.f, h / 2.f + 65.f);
@@ -1593,7 +1638,7 @@ void Manager::renderSplash()
     loadingText.setFont(*this->font);
     loadingText.setString("Loading...");
     loadingText.setCharacterSize(12);
-    loadingText.setFillColor(sf::Color(90, 90, 130));
+    loadingText.setFillColor(sf::Color(120, 120, 120));
     sf::FloatRect loadBounds = loadingText.getLocalBounds();
     loadingText.setOrigin(loadBounds.left + loadBounds.width / 2.f, loadBounds.top + loadBounds.height / 2.f);
     loadingText.setPosition(w / 2.f, h / 2.f + 105.f);
@@ -1601,13 +1646,13 @@ void Manager::renderSplash()
 
     
     sf::RectangleShape progressBg(sf::Vector2f(200.f, 4.f));
-    progressBg.setFillColor(sf::Color(40, 40, 55));
+    progressBg.setFillColor(sf::Color(45, 45, 45));
     progressBg.setPosition(w / 2.f - 100.f, h / 2.f + 120.f);
     this->window->draw(progressBg);
 
     
     sf::RectangleShape progressFill(sf::Vector2f(200.f * progress, 4.f));
-    progressFill.setFillColor(sf::Color(70, 130, 200));
+    progressFill.setFillColor(sf::Color(235, 235, 235));
     progressFill.setPosition(w / 2.f - 100.f, h / 2.f + 120.f);
     this->window->draw(progressFill);
 }
@@ -1627,8 +1672,8 @@ bool Manager::imguiRenderWelcome()
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
         ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse;
 
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(24.f / 255.f, 24.f / 255.f, 36.f / 255.f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(50.f / 255.f, 50.f / 255.f, 70.f / 255.f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(18.f / 255.f, 18.f / 255.f, 18.f / 255.f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(70.f / 255.f, 70.f / 255.f, 70.f / 255.f, 1.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
 
@@ -1642,7 +1687,7 @@ bool Manager::imguiRenderWelcome()
     drawList->AddRectFilled(
         ImVec2(winPos.x, winPos.y),
         ImVec2(winPos.x + winSize.x, winPos.y + 3.f),
-        IM_COL32(70, 130, 200, 255));
+        IM_COL32(235, 235, 235, 255));
 
     // Close (X) button in the top-right corner.
     ImGui::SetCursorPos(ImVec2(winSize.x - 40.f, 10.f));
