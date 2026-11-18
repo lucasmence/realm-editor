@@ -422,6 +422,10 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
         P("integers", 0, "Portal index", "int", true),
         P("booleans", 0, "Locked", "bool", true)
     })),
+    T("change-map", "Change the current map, as if the player entered a portal", PT({
+        P("strings", 0, "Map name", "string", true),
+        P("strings", 1, "Spawner index (empty = default)", "string", true)
+    })),
     T("set-global-variable", "Set a global variable's boolean and/or string list", PT({
         P("strings", 0, "Variable name", "string", true),
         P("booleans", 0, "Value", "bool", false),
