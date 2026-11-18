@@ -1,6 +1,7 @@
 #include "spriteFusion.hpp"
 #include "../external/imgui/imgui.h"
 #include "../external/imgui/imgui-SFML.h"
+#include "../grimsolfTheme.hpp"
 
 #include <fstream>
 #include <cstring>
@@ -28,13 +29,9 @@ SpriteFusion::SpriteFusion(const std::string &gamePath, ImFont *fontNormal, ImFo
     this->fontBig = fontBig;
     this->dropSupported = dropSupported;
 
-    // Language: the same files the game uses (data/text/<lang>.json), with
-    // the "SPRITE-FUSION" section. Mirrors the Trigger Editor behavior.
-    std::string language = "English";
+    // Labels of this tool are fixed in English on purpose: the tool belongs to
+    // realm-editor, which does not use Grimsolf's language files.
     json options = this->loadJsonFile(gamePath + "/data/options/options.json");
-    if (options.is_object())
-        language = options.value("misc-language", "English");
-    this->languageFile = this->loadJsonFile(gamePath + "/data/text/" + language + ".json");
 
     this->refreshDirectory();
 
@@ -70,15 +67,6 @@ SpriteFusion::~SpriteFusion()
     this->logLines.clear();
 }
 
-std::string SpriteFusion::getLanguage(const std::string &field) const
-{
-    if (!this->languageFile.is_object()
-        || !this->languageFile.contains("SPRITE-FUSION")
-        || !this->languageFile["SPRITE-FUSION"].is_object())
-        return field;
-    return this->languageFile["SPRITE-FUSION"].value(field, field);
-}
-
 json SpriteFusion::loadJsonFile(const std::string &path) const
 {
     std::ifstream stream(path);
@@ -98,7 +86,11 @@ json SpriteFusion::loadJsonFile(const std::string &path) const
 
 void SpriteFusion::addLog(const std::string &text, unsigned int color)
 {
-    this->logLines.push_back(LogLine{ text, color });
+    // Log entries arrive in packed colors; toGray keeps their brightness while
+    // fitting the active theme (light themes need dark text).
+    const unsigned int themed = ImGui::ColorConvertFloat4ToU32(
+        GrimsolfTheme::toGray(ImGui::ColorConvertU32ToFloat4(color)));
+    this->logLines.push_back(LogLine{ text, themed });
     if (this->logLines.size() > 500)
         this->logLines.erase(this->logLines.begin());
     this->logDirty = true;
@@ -154,7 +146,7 @@ void SpriteFusion::refreshDirectory()
     }
     catch (...)
     {
-        this->addLog("[erro] could not read the folder", 0xFF6060FF);
+        this->addLog("[error] could not read the folder", 0xFF6060FF);
     }
 
     std::sort(this->folderList.begin(), this->folderList.end());
@@ -201,7 +193,7 @@ void SpriteFusion::addSelectedToStack()
 {
     if (this->selectedFile.empty())
     {
-        this->addLog("[aviso] " + this->getLanguage("NO-SELECTED"), 0xFFD070FF);
+        this->addLog("[warn] select a PNG file in the browser first", 0xFFD070FF);
         return;
     }
     this->addToStack(this->selectedFile);
@@ -232,14 +224,14 @@ void SpriteFusion::addImageFromPath(const std::string &fullPath)
                    [](unsigned char c) { return (char)std::tolower(c); });
     if (lower.size() < 4 || lower.compare(lower.size() - 4, 4, ".png") != 0)
     {
-        this->addLog("[aviso] " + fullPath + " " + this->getLanguage("NOT-PNG"), 0xFFD070FF);
+        this->addLog("[warn] " + fullPath + " is not a PNG file and was ignored", 0xFFD070FF);
         return;
     }
 
     sf::Texture texture;
     if (!texture.loadFromFile(fullPath))
     {
-        this->addLog("[erro] could not load " + fullPath, 0xFF6060FF);
+        this->addLog("[error] could not load " + fullPath, 0xFF6060FF);
         return;
     }
 
@@ -255,7 +247,7 @@ void SpriteFusion::addImageFromPath(const std::string &fullPath)
     this->mergeDirty = true;
 
     this->addLog("[ok] " + item.name + " (" + std::to_string(item.width) + "x"
-                 + std::to_string(item.height) + " px) " + this->getLanguage("ADDED"), 0x88CCFFFF);
+                 + std::to_string(item.height) + " px) added to the stack", 0x88CCFFFF);
 }
 
 void SpriteFusion::removeFromStack(int index)
@@ -266,7 +258,7 @@ void SpriteFusion::removeFromStack(int index)
     std::string name = this->stack[index].name;
     this->stack.erase(this->stack.begin() + index);
     this->mergeDirty = true;
-    this->addLog("[info] " + name + " " + this->getLanguage("REMOVED"), 0xFFD070FF);
+    this->addLog("[info] " + name + " removed from the stack", 0xFFD070FF);
 }
 
 void SpriteFusion::moveStackItem(int index, int direction)
@@ -310,7 +302,7 @@ void SpriteFusion::clearStack()
         return;
     this->stack.clear();
     this->mergeDirty = true;
-    this->addLog("[info] " + this->getLanguage("CLEARED"), 0xFFD070FF);
+    this->addLog("[info] stack cleared", 0xFFD070FF);
 }
 
 // ---------------------------------------------------------------------------
@@ -363,8 +355,8 @@ void SpriteFusion::setSaveFolder(const std::string &path)
 }
 
 // Remembers the destination folder across sessions: writes the current
-// saveFolder into data/options/options.json (the same file the game and the
-// tool read for misc-language, so the key survives restarts of both).
+// saveFolder into data/options/options.json (the same file the game reads for
+// its own options, so the key survives restarts of both).
 void SpriteFusion::persistSaveFolder()
 {
     try
@@ -378,7 +370,7 @@ void SpriteFusion::persistSaveFolder()
         std::ofstream fileStream(optionsPath);
         if (!fileStream)
         {
-            this->addLog("[aviso] could not write " + optionsPath, 0xFFD070FF);
+            this->addLog("[warn] could not write " + optionsPath, 0xFFD070FF);
             return;
         }
         fileStream << options.dump(4);
@@ -409,7 +401,7 @@ void SpriteFusion::createSaveFolder()
         || name.find('/') != std::string::npos
         || name.find('\\') != std::string::npos)
     {
-        this->addLog("[erro] " + this->getLanguage("INVALID-FOLDER-NAME"), 0xFF6060FF);
+        this->addLog("[error] invalid folder name", 0xFF6060FF);
         return;
     }
 
@@ -421,24 +413,24 @@ void SpriteFusion::createSaveFolder()
         if (boost::filesystem::exists(dir))
         {
             // Already there: just navigate into it.
-            this->addLog("[aviso] " + this->getLanguage("FOLDER-EXISTS") + ": " + relative, 0xFFD070FF);
+            this->addLog("[warn] folder already exists: " + relative, 0xFFD070FF);
             this->setSaveFolder(relative);
             return;
         }
 
         if (!boost::filesystem::create_directories(dir))
         {
-            this->addLog("[erro] " + this->getLanguage("FAILED-FOLDER") + ": " + relative, 0xFF6060FF);
+            this->addLog("[error] could not create the folder: " + relative, 0xFF6060FF);
             return;
         }
 
         this->setSaveFolder(relative);
         this->newFolderName[0] = '\0';
-        this->addLog("[ok] " + this->getLanguage("FOLDER-CREATED") + ": " + relative, 0x88CCFFFF);
+        this->addLog("[ok] folder created: " + relative, 0x88CCFFFF);
     }
     catch (...)
     {
-        this->addLog("[erro] " + this->getLanguage("FAILED-FOLDER") + ": " + relative, 0xFF6060FF);
+        this->addLog("[error] could not create the folder: " + relative, 0xFF6060FF);
     }
 }
 
@@ -503,14 +495,15 @@ bool SpriteFusion::saveMerged()
 {
     if (this->stack.empty())
     {
-        this->addLog("[erro] " + this->getLanguage("EMPTY-STACK"), 0xFF6060FF);
+        this->addLog("[error] The stack is empty. Add images from the browser on the left "
+                     "(double-click a PNG or select it and click Add).", 0xFF6060FF);
         return false;
     }
 
     this->rebuildMerge();
     if (this->mergeWidth <= 0 || this->mergeHeight <= 0)
     {
-        this->addLog("[erro] " + this->getLanguage("FAILED-SAVE"), 0xFF6060FF);
+        this->addLog("[error] could not save the merged image", 0xFF6060FF);
         return false;
     }
 
@@ -522,7 +515,7 @@ bool SpriteFusion::saveMerged()
 
     if (name.empty())
     {
-        this->addLog("[erro] " + this->getLanguage("INVALID-NAME"), 0xFF6060FF);
+        this->addLog("[error] inform a file name before saving", 0xFF6060FF);
         return false;
     }
     // Remove a ".png" typed by the user; it is appended automatically.
@@ -544,17 +537,17 @@ bool SpriteFusion::saveMerged()
     }
     catch (...)
     {
-        this->addLog("[erro] " + this->getLanguage("FAILED-SAVE") + ": " + outPath, 0xFF6060FF);
+        this->addLog("[error] could not save the merged image: " + outPath, 0xFF6060FF);
         return false;
     }
 
     if (!this->mergeTexture.getTexture().copyToImage().saveToFile(outPath))
     {
-        this->addLog("[erro] " + this->getLanguage("FAILED-SAVE") + ": " + outPath, 0xFF6060FF);
+        this->addLog("[error] could not save the merged image: " + outPath, 0xFF6060FF);
         return false;
     }
 
-    this->addLog("[ok] " + this->getLanguage("SAVED") + " " + outPath + " ("
+    this->addLog("[ok] merged image saved: " + outPath + " ("
                  + std::to_string(this->mergeWidth) + "x" + std::to_string(this->mergeHeight)
                  + " px)", 0x55FF88FF);
     return true;
@@ -568,12 +561,12 @@ void SpriteFusion::renderBrowser()
 {
     float scale = this->imguiScale;
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-    ImGui::TextUnformatted(this->getLanguage("BROWSER").c_str());
+    ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
+    ImGui::TextUnformatted("Sprites (resources/sprites)");
     ImGui::PopStyleColor();
     ImGui::SameLine();
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 8 * scale);
-    if (ImGui::SmallButton(this->getLanguage("REFRESH").c_str()))
+    if (ImGui::SmallButton("Refresh"))
         this->refreshDirectory();
     ImGui::Separator();
 
@@ -586,7 +579,7 @@ void SpriteFusion::renderBrowser()
 
     for (auto &folder : this->folderList)
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.9f, 0.5f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::gray(0.85f));
         bool entered = ImGui::Selectable(("[" + folder + "]").c_str(), false);
         ImGui::PopStyleColor();
         if (entered)
@@ -598,8 +591,8 @@ void SpriteFusion::renderBrowser()
 
     if (this->fileList.empty())
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-        ImGui::TextWrapped("%s", this->getLanguage("NO-PNG").c_str());
+        ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
+        ImGui::TextWrapped("%s", "This folder has no PNG files.");
         ImGui::PopStyleColor();
     }
 
@@ -619,20 +612,20 @@ void SpriteFusion::renderBrowser()
 
     ImGui::Separator();
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.8f, 1.0f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::gray(0.80f));
     ImGui::TextWrapped("%s", this->selectedFileInfo.empty()
-                             ? this->getLanguage("DOUBLE-CLICK").c_str()
+                             ? "double-click a PNG to add it, or select it and click Add"
                              : this->selectedFileInfo.c_str());
     ImGui::PopStyleColor();
 
     if (this->dropSupported)
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-        ImGui::TextWrapped("%s", this->getLanguage("DROP-FILES-HINT").c_str());
+        ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
+        ImGui::TextWrapped("%s", "You can also drag PNG files from the file explorer into this window.");
         ImGui::PopStyleColor();
     }
 
-    if (ImGui::Button(this->getLanguage("ADD").c_str(), ImVec2(-1, 30 * scale)))
+    if (ImGui::Button("Add", ImVec2(-1, 30 * scale)))
         this->addSelectedToStack();
 }
 
@@ -640,32 +633,33 @@ void SpriteFusion::renderStack()
 {
     float scale = this->imguiScale;
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-    ImGui::TextUnformatted(this->getLanguage("STACK").c_str());
+    ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
+    ImGui::TextUnformatted("Fusion stack");
     ImGui::PopStyleColor();
     ImGui::SameLine();
     ImGui::TextDisabled("(%d)", (int)this->stack.size());
     ImGui::SameLine();
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 8 * scale);
-    if (ImGui::SmallButton(this->getLanguage("ADD").c_str()))
+    if (ImGui::SmallButton("Add"))
         this->addSelectedToStack();
     ImGui::SameLine();
-    if (ImGui::SmallButton(this->getLanguage("CLEAR").c_str()))
+    if (ImGui::SmallButton("Clear all"))
         this->clearStack();
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("%s", this->getLanguage("CLEAR").c_str());
+        ImGui::SetTooltip("%s", "Clear all");
     ImGui::Separator();
 
     if (this->stack.empty())
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-        ImGui::TextWrapped("%s", this->getLanguage("EMPTY-STACK").c_str());
+        ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
+        ImGui::TextWrapped("%s", "The stack is empty. Add images from the browser on the left "
+                                 "(double-click a PNG or select it and click Add).");
         ImGui::PopStyleColor();
         return;
     }
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-    ImGui::TextWrapped("%s", this->getLanguage("DROP-HINT").c_str());
+    ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
+    ImGui::TextWrapped("%s", "Drag the thumbnails to reorder · ^ v to move · x to remove");
     ImGui::PopStyleColor();
     ImGui::Spacing();
 
@@ -697,7 +691,7 @@ void SpriteFusion::renderStack()
             ImGui::SameLine();
 
             // Name + dimensions.
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
             ImGui::TextUnformatted(item.name.c_str());
             ImGui::PopStyleColor();
             ImGui::TextDisabled("%dx%d px  #%d", item.width, item.height, i + 1);
@@ -755,32 +749,32 @@ void SpriteFusion::renderOptions()
 {
     float scale = this->imguiScale;
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-    ImGui::TextUnformatted(this->getLanguage("OPTIONS").c_str());
+    ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
+    ImGui::TextUnformatted("Options");
     ImGui::PopStyleColor();
     ImGui::Separator();
 
     // Scale (default 100 = 100%). Changing it rebuilds the merge so the
     // preview and the saved dimensions follow the new value immediately.
     ImGui::SetNextItemWidth(120 * scale);
-    if (ImGui::InputInt(this->getLanguage("SCALE").c_str(), &this->scalePercent, 1, 10))
+    if (ImGui::InputInt("Scale (%)", &this->scalePercent, 1, 10))
     {
         this->scalePercent = std::max(1, std::min(this->scalePercent, 1000));
         this->mergeDirty = true;
     }
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("%s", this->getLanguage("SCALE-HINT").c_str());
+        ImGui::SetTooltip("%s", "Resizes the merged image. 100 = 100% (default).");
 
     // Output file name (saved as PNG into the destination folder).
     ImGui::SetNextItemWidth(220 * scale);
-    ImGui::InputText(this->getLanguage("OUTPUT-NAME").c_str(), this->outputName,
+    ImGui::InputText("File name", this->outputName,
                      sizeof(this->outputName));
 
     std::string outPathDisplay = "resources/sprites";
     if (!this->saveFolder.empty())
         outPathDisplay += "/" + this->saveFolder;
     outPathDisplay += "/" + std::string(this->outputName) + ".png";
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
     ImGui::TextWrapped("%s", outPathDisplay.c_str());
     ImGui::PopStyleColor();
 
@@ -788,20 +782,20 @@ void SpriteFusion::renderOptions()
 
     // Destination folder: browse the subfolders of resources/sprites. The
     // current folder is the destination (".." goes up, single click enters).
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-    ImGui::TextUnformatted(this->getLanguage("DESTINATION").c_str());
+    ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
+    ImGui::TextUnformatted("Destination folder");
     ImGui::PopStyleColor();
     ImGui::SameLine();
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 8 * scale);
-    if (ImGui::SmallButton(this->getLanguage("REFRESH").c_str()))
+    if (ImGui::SmallButton("Refresh"))
         this->refreshSaveFolderList();
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("%s", this->getLanguage("DESTINATION-HINT").c_str());
+        ImGui::SetTooltip("%s", "The merged image is saved into this folder, relative to resources/sprites.");
 
     std::string folderDisplay = "resources/sprites";
     if (!this->saveFolder.empty())
         folderDisplay += "/" + this->saveFolder;
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.55f, 0.85f, 1.0f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::gray(0.90f));
     ImGui::TextWrapped("%s/", folderDisplay.c_str());
     ImGui::PopStyleColor();
 
@@ -816,14 +810,14 @@ void SpriteFusion::renderOptions()
 
         if (this->saveFolderList.empty())
         {
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-            ImGui::TextWrapped("%s", this->getLanguage("NO-FOLDERS").c_str());
+            ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
+            ImGui::TextWrapped("%s", "This folder has no subfolders.");
             ImGui::PopStyleColor();
         }
 
         for (auto &folder : this->saveFolderList)
         {
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.9f, 0.5f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::gray(0.85f));
             bool entered = ImGui::Selectable(("[" + folder + "]").c_str(), false);
             ImGui::PopStyleColor();
             if (entered)
@@ -834,10 +828,10 @@ void SpriteFusion::renderOptions()
 
     // New folder (created under the current destination folder).
     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 76 * scale);
-    ImGui::InputTextWithHint("##sf-newfolder", this->getLanguage("NEW-FOLDER").c_str(),
+    ImGui::InputTextWithHint("##sf-newfolder", "New folder",
                              this->newFolderName, sizeof(this->newFolderName));
     ImGui::SameLine();
-    if (ImGui::Button(this->getLanguage("CREATE").c_str(), ImVec2(68 * scale, 0)))
+    if (ImGui::Button("Create", ImVec2(68 * scale, 0)))
         this->createSaveFolder();
 
     ImGui::Spacing();
@@ -845,16 +839,16 @@ void SpriteFusion::renderOptions()
     // Output dimensions preview.
     if (this->mergeWidth > 0)
     {
-        ImGui::TextDisabled("%s: %dx%d px", this->getLanguage("DIMENSIONS").c_str(),
+        ImGui::TextDisabled("%s: %dx%d px", "merged size",
                             this->mergeWidth, this->mergeHeight);
     }
 
     ImGui::Spacing();
 
-    if (ImGui::Button(this->getLanguage("SAVE").c_str(), ImVec2(140 * scale, 34 * scale)))
+    if (ImGui::Button("Save PNG", ImVec2(140 * scale, 34 * scale)))
         this->saveMerged();
     ImGui::SameLine();
-    if (ImGui::Button(this->getLanguage("CLEAR").c_str(), ImVec2(140 * scale, 34 * scale)))
+    if (ImGui::Button("Clear all", ImVec2(140 * scale, 34 * scale)))
         this->clearStack();
 }
 
@@ -862,8 +856,8 @@ void SpriteFusion::renderPreview()
 {
     float scale = this->imguiScale;
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-    ImGui::TextUnformatted(this->getLanguage("PREVIEW").c_str());
+    ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
+    ImGui::TextUnformatted("Preview");
     ImGui::PopStyleColor();
     ImGui::SameLine();
     ImGui::TextDisabled("(%d%%)", this->scalePercent);
@@ -877,7 +871,7 @@ void SpriteFusion::renderPreview()
     if (availW <= 0.f || availH <= 0.f)
         return;
 
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.04f, 0.04f, 0.06f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, GrimsolfTheme::gray(0.035f));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     ImGui::BeginChild("##sf-preview-viewport", ImVec2(availW, availH), true,
                       ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
@@ -895,8 +889,8 @@ void SpriteFusion::renderPreview()
         for (int y = 0; y < rows; ++y)
             for (int x = 0; x < cols; ++x)
             {
-                ImU32 color = ((x + y) % 2 == 0) ? IM_COL32(32, 32, 38, 255)
-                                                 : IM_COL32(24, 24, 28, 255);
+                ImU32 color = ((x + y) % 2 == 0) ? GrimsolfTheme::u32(0.10f)
+                                                 : GrimsolfTheme::u32(0.07f);
                 drawList->AddRectFilled(ImVec2(base.x + x * tile, base.y + y * tile),
                                         ImVec2(base.x + (x + 1) * tile, base.y + (y + 1) * tile),
                                         color);
@@ -913,8 +907,9 @@ void SpriteFusion::renderPreview()
     }
     else
     {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-        ImGui::TextWrapped("%s", this->getLanguage("EMPTY-STACK").c_str());
+        ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
+        ImGui::TextWrapped("%s", "The stack is empty. Add images from the browser on the left "
+                                 "(double-click a PNG or select it and click Add).");
         ImGui::PopStyleColor();
     }
 
@@ -925,12 +920,12 @@ void SpriteFusion::renderLog()
 {
     float scale = this->imguiScale;
 
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-    ImGui::TextUnformatted(this->getLanguage("LOG").c_str());
+    ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
+    ImGui::TextUnformatted("Log");
     ImGui::PopStyleColor();
     ImGui::SameLine();
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 8 * scale);
-    if (ImGui::SmallButton(this->getLanguage("CLEAR").c_str()))
+    if (ImGui::SmallButton("Clear all"))
         this->logLines.clear();
     ImGui::Separator();
 
@@ -972,16 +967,16 @@ bool SpriteFusion::update(float timer)
     ImGui::Begin("##sprite-fusion", nullptr,
         ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings);
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.07f, 0.07f, 0.10f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.15f, 0.20f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.25f, 0.35f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.30f, 0.30f, 0.40f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.12f, 0.12f, 0.16f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.20f, 0.20f, 0.26f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.50f, 0.85f, 1.0f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.20f, 0.22f, 0.30f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.26f, 0.28f, 0.38f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, GrimsolfTheme::gray(0.05f));
+    ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
+    ImGui::PushStyleColor(ImGuiCol_Button, GrimsolfTheme::gray(0.16f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, GrimsolfTheme::gray(0.27f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, GrimsolfTheme::gray(0.32f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, GrimsolfTheme::gray(0.12f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, GrimsolfTheme::gray(0.20f));
+    ImGui::PushStyleColor(ImGuiCol_CheckMark, GrimsolfTheme::gray(1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Header, GrimsolfTheme::gray(0.24f));
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, GrimsolfTheme::gray(0.30f));
 
     bool leaveRequested = false;
 
@@ -990,19 +985,19 @@ bool SpriteFusion::update(float timer)
         if (this->fontBig)
         {
             ImGui::PushFont(this->fontBig);
-            ImGui::TextUnformatted(this->getLanguage("TITLE").c_str());
+            ImGui::TextUnformatted("Sprite Fusion");
             ImGui::PopFont();
         }
         else
         {
-            ImGui::TextUnformatted(this->getLanguage("TITLE").c_str());
+            ImGui::TextUnformatted("Sprite Fusion");
         }
         ImGui::SameLine();
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10 * this->imguiScale);
         ImGui::TextDisabled("resources/sprites");
         ImGui::SameLine();
         ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x - 150 * this->imguiScale);
-        if (ImGui::Button(this->getLanguage("BACK").c_str(), ImVec2(140 * this->imguiScale, 30 * this->imguiScale)))
+        if (ImGui::Button("Back to Studio", ImVec2(140 * this->imguiScale, 30 * this->imguiScale)))
             leaveRequested = true;
         ImGui::Separator();
     }

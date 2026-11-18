@@ -33,8 +33,9 @@ struct SpriteFusionItem
 // destination folder of your choice under resources/sprites (folder browser
 // in the options panel, with the option to create new folders).
 //
-// The game folder (--game-path) is where resources/sprites and the language
-// files are read from; the working directory stays the realm-editor folder.
+// The game folder (--game-path) is where resources/sprites are read from; the
+// working directory stays the realm-editor folder. All labels are fixed in
+// English: this tool does not read Grimsolf's language files.
 // ---------------------------------------------------------------------------
 class SpriteFusion
 {
@@ -61,7 +62,6 @@ class SpriteFusion
         };
 
         std::string gamePath;
-        json languageFile;
 
         ImFont *fontNormal = nullptr;
         ImFont *fontBig = nullptr;
@@ -127,7 +127,6 @@ class SpriteFusion
         bool saveMerged();
 
         // Misc
-        std::string getLanguage(const std::string &field) const;
         void addLog(const std::string &text, unsigned int color);
         json loadJsonFile(const std::string &path) const;
         bool readPngSize(const std::string &path, int &width, int &height) const;
