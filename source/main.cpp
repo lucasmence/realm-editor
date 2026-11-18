@@ -35,10 +35,14 @@ int main(int argc, char* argv[])
         //                         own window (no map editor UI at all)
         //   --sprite-fusion       open exclusively the Sprite Fusion tool in
         //                         its own window (no map editor UI at all)
+        //   --hud-theme <name>    theme to use (the World Editor passes the
+        //                         one picked in its Options window when it
+        //                         spawns a tool)
         bool noSplash = false;
         bool triggerEditorMode = false;
         bool spriteFusionMode = false;
         std::string gamePath = "";
+        std::string hudTheme = "";
 
         for (int i = 1; i < argc; ++i)
         {
@@ -51,30 +55,32 @@ int main(int argc, char* argv[])
                 spriteFusionMode = true;
             else if (arg == "--game-path" && i + 1 < argc)
                 gamePath = argv[++i];
+            else if (arg == "--hud-theme" && i + 1 < argc)
+                hudTheme = argv[++i];
         }
 
         if (triggerEditorMode)
         {
             // The Trigger Editor is a standalone tool: it needs the game
-            // folder to read the maps and language files. Grimsolf always
-            // passes --game-path; fall back to the current folder otherwise.
+            // folder to read the maps. Grimsolf always passes --game-path;
+            // fall back to the current folder otherwise.
             std::string path = gamePath;
             if (path.empty())
                 path = boost::filesystem::current_path().string();
 
-            TriggerApp app(path);
+            TriggerApp app(path, hudTheme);
             return app.run();
         }
 
         if (spriteFusionMode)
         {
             // The Sprite Fusion tool is also standalone: it needs the game
-            // folder to read resources/sprites and the language files.
+            // folder to read resources/sprites.
             std::string path = gamePath;
             if (path.empty())
                 path = boost::filesystem::current_path().string();
 
-            SpriteFusionApp app(path);
+            SpriteFusionApp app(path, hudTheme);
             return app.run();
         }
 
