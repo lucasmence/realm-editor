@@ -39,6 +39,20 @@ static ImU32 colorLineNumber()  { return GrimsolfTheme::u32(0.42f); }
 static ImU32 colorSelection()   { return GrimsolfTheme::u32(0.50f, 0.35f); }
 static ImU32 colorCaret()       { return GrimsolfTheme::textU32(); }
 
+// Golden yellow that highlights the parameter keywords ("unitName: hero
+// strings: ...") shown after each event / condition / action row of the
+// visual editor. It is deliberately not built from the theme gray ramp:
+// gray() would turn it into just another gray text, while this highlight is
+// meant to stand out on every theme. On the light theme the gold deepens so
+// it keeps contrast against the pale panels without losing its hue.
+static ImU32 colorKeyword(float alpha = 1.0f)
+{
+    const ImVec4 gold = GrimsolfTheme::isLight()
+        ? ImVec4(0.55f, 0.40f, 0.00f, alpha)   // #8C6600 over light panels
+        : ImVec4(1.00f, 0.84f, 0.35f, alpha);  // #FFD75A over dark panels
+    return ImGui::ColorConvertFloat4ToU32(gold);
+}
+
 // Indentation unit used by auto-indent and the Format button (matches the
 // 2-space layout written by Json::dumpYaml).
 static const int INDENT = 2;
@@ -4015,8 +4029,7 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
                 // Vertically aligned with the Selectable text (which starts at
                 // the row top, not at FramePadding.y).
                 ImVec2 valuesPos(rowMin.x + descW + 12.f * scale, rowMin.y);
-                drawList->AddText(valuesPos, entry.disabled ? GrimsolfTheme::u32(0.55f)
-                                                            : GrimsolfTheme::u32(0.95f),
+                drawList->AddText(valuesPos, colorKeyword(entry.disabled ? 0.55f : 1.0f),
                                   values.c_str());
             }
             if (ImGui::IsItemHovered())
