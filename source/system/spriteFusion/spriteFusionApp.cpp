@@ -16,15 +16,6 @@
 #endif
 
 #ifdef _WIN32
-// ---------------------------------------------------------------------------
-// OS file drag & drop (Windows Explorer -> window).
-//
-// SFML 2.5.1 does not expose a dropped-file event, so the window procedure
-// is subclassed (SetWindowLongPtr) to intercept WM_DROPFILES after
-// DragAcceptFiles enables the drop target. The dropped paths are queued and
-// drained once per frame in SpriteFusionApp::run, so the SFML event loop is
-// not disturbed.
-// ---------------------------------------------------------------------------
 static WNDPROC g_originalWndProc = nullptr;
 static std::vector<std::string> g_droppedFiles;
 
@@ -48,17 +39,14 @@ static LRESULT CALLBACK spriteFusionWndProc(HWND hWnd, UINT message, WPARAM wPar
         const UINT count = DragQueryFile(drop, 0xFFFFFFFF, nullptr, 0);
         for (UINT i = 0; i < count; ++i)
         {
-            // DragQueryFile returns the length EXCLUDING the null terminator,
-            // while cch must include it: the buffer needs length + 1.
             const UINT length = DragQueryFileW(drop, i, nullptr, 0);
             if (length == 0)
                 continue;
 
             std::wstring path(length + 1, L'\0');
             DragQueryFileW(drop, i, &path[0], length + 1);
-            path.resize(length); // strip the trailing null before UTF-8
+            path.resize(length);
 
-            // Folders cannot be added; only files are queued.
             DWORD attributes = GetFileAttributesW(path.c_str());
             if (attributes != INVALID_FILE_ATTRIBUTES
                 && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
@@ -71,8 +59,6 @@ static LRESULT CALLBACK spriteFusionWndProc(HWND hWnd, UINT message, WPARAM wPar
 }
 #endif
 
-// Reads a "DATA" entry from the game's constants.json (the same layout
-// Grimsolf uses: [ { "key": "FONT-TYPE", "value": "resources/fonts/osd_mono.ttf" } ]).
 static std::string getConstantValue(const json &file, const std::string &key)
 {
     if (!file.is_object() || !file.contains("DATA") || !file["DATA"].is_array())
@@ -85,30 +71,20 @@ static std::string getConstantValue(const json &file, const std::string &key)
 
 SpriteFusionApp::SpriteFusionApp(const std::string &gamePath, const std::string &hudTheme)
 {
-    // The tool was designed for a 1920x1080 window; opening it at desktop
-    // size gives it room to breathe (the UI scales with the viewport width).
     sf::VideoMode desktop = sf::VideoMode::getDesktopMode();
     this->window = std::make_shared<sf::RenderWindow>(desktop, "realm-editor - Sprite Fusion", sf::Style::Default);
     ImGui::SFML::Init(*this->window);
-    // Follow the theme picked in the World Editor's Options window. The tool
-    // runs as a separate process: the theme comes from --hud-theme when the
-    // World Editor spawned it, otherwise from the saved choice.
     if (hudTheme.empty())
         GrimsolfTheme::applySaved();
     else
         GrimsolfTheme::apply(hudTheme);
 
 
-    // Optional icon (realm-editor.png sits next to the executable folder
-    // layout; skip it when missing or 0x0 to avoid X server crashes).
     sf::Image icon;
     if (icon.loadFromFile("realm-editor.png")
         && icon.getSize().x > 0 && icon.getSize().y > 0)
         this->window->setIcon(icon.getSize().x, icon.getSize().y, icon.getPixelsPtr());
 
-    // Register the game font with the same sizes the in-game menus use
-    // (constants.json FONT-MENU-IMGUI / FONT-MENU-IMGUI-BIG), falling back to
-    // the ImGui default font when the game font cannot be loaded.
     ImGuiIO &io = ImGui::GetIO();
     ImFont *fontNormal = nullptr;
     ImFont *fontBig = nullptr;
@@ -137,15 +113,12 @@ SpriteFusionApp::SpriteFusionApp(const std::string &gamePath, const std::string 
     ImGui::SFML::UpdateFontTexture();
 
 #ifdef _WIN32
-    // Enable dropping files onto this window and subclass its procedure to
-    // receive WM_DROPFILES (SFML 2.5 has no dropped-file event).
     HWND hwnd = this->window->getSystemHandle();
     if (hwnd != nullptr)
     {
         g_droppedFiles.clear();
         g_originalWndProc = reinterpret_cast<WNDPROC>(SetWindowLongPtr(
             hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(spriteFusionWndProc)));
-        // Only enable the drop target when the subclass actually took effect.
         if (g_originalWndProc != nullptr)
             DragAcceptFiles(hwnd, TRUE);
     }
@@ -163,7 +136,6 @@ SpriteFusionApp::SpriteFusionApp(const std::string &gamePath, const std::string 
 SpriteFusionApp::~SpriteFusionApp()
 {
 #ifdef _WIN32
-    // Restore the original window procedure and disable the drop target.
     HWND hwnd = this->window->getSystemHandle();
     if (hwnd != nullptr)
     {
@@ -195,7 +167,6 @@ int SpriteFusionApp::run()
         }
 
 #ifdef _WIN32
-        // Drain the files dropped since the last frame into the fusion stack.
         if (!g_droppedFiles.empty())
         {
             std::vector<std::string> drops = std::move(g_droppedFiles);
@@ -206,15 +177,11 @@ int SpriteFusionApp::run()
 
         ImGui::SFML::Update(*this->window, this->clock.restart());
 
-        // Restore the theme text colors on every frame (see Manager::imguiUpdate).
         ImGui::GetStyle().Colors[ImGuiCol_Text] = GrimsolfTheme::textColor();
         ImGui::GetStyle().Colors[ImGuiCol_TextDisabled] = GrimsolfTheme::textDisabledColor();
 
         this->window->clear(sf::Color(12, 12, 12));
 
-        // update() returns true when the user left the tool (BACK button):
-        // close the process so Grimsolf restores its own window
-        // (Menu::updateWorldEditor).
         if (this->spriteFusion->update(0.f))
             this->closeRequested = true;
 

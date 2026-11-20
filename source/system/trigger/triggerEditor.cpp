@@ -15,20 +15,11 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 
-// Number formatting helper (replaces Grimsolf's toStr).
 template <typename T> static std::string toStr(const T &value)
 {
     return boost::lexical_cast<std::string>(value);
 }
 
-// ---------------------------------------------------------------------------
-// JSON syntax colors
-//
-// They keep the monokai-ish brightness order of the original palette but go
-// through GrimsolfTheme, so the editor follows the theme picked in the World
-// Editor (dark text on the light theme). They are functions, not constants,
-// because the theme can only be read at runtime.
-// ---------------------------------------------------------------------------
 static ImU32 colorKey()         { return GrimsolfTheme::u32(0.85f); }
 static ImU32 colorString()      { return GrimsolfTheme::u32(0.92f); }
 static ImU32 colorNumber()      { return GrimsolfTheme::u32(0.75f); }
@@ -39,35 +30,20 @@ static ImU32 colorLineNumber()  { return GrimsolfTheme::u32(0.42f); }
 static ImU32 colorSelection()   { return GrimsolfTheme::u32(0.50f, 0.35f); }
 static ImU32 colorCaret()       { return GrimsolfTheme::textU32(); }
 
-// Golden yellow that highlights the parameter keywords ("unitName: hero
-// strings: ...") shown after each event / condition / action row of the
-// visual editor. It is deliberately not built from the theme gray ramp:
-// gray() would turn it into just another gray text, while this highlight is
-// meant to stand out on every theme. On the light theme the gold deepens so
-// it keeps contrast against the pale panels without losing its hue.
 static ImU32 colorKeyword(float alpha = 1.0f)
 {
     const ImVec4 gold = GrimsolfTheme::isLight()
-        ? ImVec4(0.55f, 0.40f, 0.00f, alpha)   // #8C6600 over light panels
-        : ImVec4(1.00f, 0.84f, 0.35f, alpha);  // #FFD75A over dark panels
+        ? ImVec4(0.55f, 0.40f, 0.00f, alpha)
+        : ImVec4(1.00f, 0.84f, 0.35f, alpha);
     return ImGui::ColorConvertFloat4ToU32(gold);
 }
 
-// Indentation unit used by auto-indent and the Format button (matches the
-// 2-space layout written by Json::dumpYaml).
 static const int INDENT = 2;
 
-// Undo/redo history limit (per open file).
 static const int HISTORY_LIMIT = 200;
 
-// The Trigger Editor renders dense content (YAML text and trigger block
-// lists), so its font is ~40% smaller than the regular menu font.
 static const float GUI_FONT_SCALE = 0.6f;
 
-// The Add/Edit registration popup fits its content: the search box, the
-// type lookup (max 6 rows, longer lists scroll inside that child) and the
-// parameter editors (scrollable child) are measured from real layout, so the
-// Save/Cancel bar always stays visible without scrolling the popup itself.
 static const float GUI_POPUP_MAX_WIDTH_FRACTION = 0.6f;
 static const float GUI_POPUP_MIN_WIDTH = 640.f;
 static const float GUI_POPUP_MIN_HEIGHT = 480.f;
@@ -76,14 +52,10 @@ static const float GUI_TYPE_LIST_MIN_ROWS = 3.f;
 static const float GUI_PARAMS_MIN_ROWS = 5.f;
 static const float GUI_PARAMS_MIN_PX = 150.f;
 
-// Folders outside data/maps whose YAML documents share the trigger layout, so
-// the editor can open (and save) them the same way (interactions: one file per
-// character; cutscenes: one file per cutscene). Folders that do not exist are
-// skipped, so the tool keeps working in projects without them.
 struct ExtraSourceDef
 {
-    const char *folder;  // folder inside data/
-    const char *label;   // sidebar button label (fixed English)
+    const char *folder;
+    const char *label;
 };
 
 static const ExtraSourceDef EXTRA_SOURCES[] = {
@@ -91,9 +63,6 @@ static const ExtraSourceDef EXTRA_SOURCES[] = {
     { "cutscenes",    "Cutscenes" }
 };
 
-// ---------------------------------------------------------------------------
-// YAML tokenizer (used by the syntax highlighter)
-// ---------------------------------------------------------------------------
 
 static bool isIdentChar(char c)
 {
@@ -107,7 +76,7 @@ enum class YamlTokenType
     Number,
     Boolean,
     Null,
-    Punctuation, // "-", ":", flow indicators and anchors/tags
+    Punctuation,
     Comment,
     Other
 };
@@ -119,10 +88,6 @@ struct YamlToken
     YamlTokenType type;
 };
 
-// The trigger files are YAML documents, so the highlighter works line by line:
-// a "key:" prefix colors the key, the rest of the line is the value. Bare
-// scalars are classified by content (numbers, booleans, null), quoted strings
-// keep their token and "#" starts a comment until the end of the line.
 static std::vector<YamlToken> tokenizeYaml(const std::string &text)
 {
     std::vector<YamlToken> tokens;
@@ -131,13 +96,11 @@ static std::vector<YamlToken> tokenizeYaml(const std::string &text)
     int i = 0;
     while (i < n)
     {
-        // Line bounds.
         int lineStart = i;
         int lineEnd = lineStart;
         while (lineEnd < n && text[lineEnd] != '\n')
             ++lineEnd;
 
-        // Indentation and the optional "- " sequence markers.
         int cursor = lineStart;
         while (cursor < lineEnd && (text[cursor] == ' ' || text[cursor] == '\t'))
             ++cursor;
@@ -145,8 +108,6 @@ static std::vector<YamlToken> tokenizeYaml(const std::string &text)
         bool lineIsItem = false;
         while (cursor < lineEnd && text[cursor] == '-')
         {
-            // A "-" is a list marker when followed by a space or end of line
-            // (otherwise it is part of a negative number or a plain scalar).
             if (cursor + 1 >= lineEnd || text[cursor + 1] == ' ' || text[cursor + 1] == '\t')
             {
                 tokens.push_back(YamlToken{ cursor, cursor + 1, YamlTokenType::Punctuation });
@@ -167,9 +128,6 @@ static std::vector<YamlToken> tokenizeYaml(const std::string &text)
             continue;
         }
 
-        // A key is the first plain scalar of the line followed by ":"
-        // ("key: value") or by the end of the line ("key:"). Comment lines
-        // ("# ...") are left to the value tokenizer below.
         int keyStart = cursor;
         if (cursor < lineEnd && text[cursor] != '#' && text[cursor] != ':')
         {
@@ -193,8 +151,6 @@ static std::vector<YamlToken> tokenizeYaml(const std::string &text)
             }
         }
 
-        // The remaining line is the value ("key: value", "- value" or a
-        // continuation line). Classify it token by token.
         bool inComment = false;
         while (cursor < lineEnd)
         {
@@ -304,16 +260,7 @@ static ImU32 yamlTokenColor(YamlTokenType type)
     }
 }
 
-// ---------------------------------------------------------------------------
-// UTF-8 helpers (the editor buffer is UTF-8; cursor positions are byte
-// offsets, display columns are counted in code points)
-// ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-// UTF-8 helpers (the editor buffer is UTF-8; cursor positions are byte
-// offsets, display columns are counted in code points)
-// ---------------------------------------------------------------------------
-// Word boundaries for Ctrl+Left/Right navigation.
 static int wordLeft(const std::string &text, int offset)
 {
     int i = offset;
@@ -335,9 +282,6 @@ static int wordRight(const std::string &text, int offset)
     return i;
 }
 
-// ---------------------------------------------------------------------------
-// TriggerEditor
-// ---------------------------------------------------------------------------
 
 TriggerEditor::TriggerEditor(const std::string &gamePath, ImFont *fontNormal, ImFont *fontBig)
 {
@@ -345,10 +289,6 @@ TriggerEditor::TriggerEditor(const std::string &gamePath, ImFont *fontNormal, Im
     this->fontNormal = fontNormal;
     this->fontBig = fontBig;
 
-    // UI scale baseline: the game's configured resolution width (Grimsolf used
-    // to force 1920x1080 and scale the editor by the configured resolution, so
-    // a 1280x720 config ran at 1.5x). Read it here so the UI keeps the old
-    // look regardless of the realm-editor window size; 1920 is the fallback.
     json options = this->loadJsonFile(gamePath + "/data/options/options.json");
     if (options.is_object())
         this->designWidth = (float)options.value("video-resolution-width", 1920);
@@ -370,8 +310,6 @@ TriggerEditor::~TriggerEditor()
 
 void TriggerEditor::addLog(const std::string &text, unsigned int color)
 {
-    // Log entries arrive in packed colors; toGray keeps their brightness while
-    // fitting the active theme (light themes need dark text).
     const unsigned int themed = ImGui::ColorConvertFloat4ToU32(
         GrimsolfTheme::toGray(ImGui::ColorConvertU32ToFloat4(color)));
     this->logLines.push_back(LogLine{ text, themed });
@@ -380,9 +318,6 @@ void TriggerEditor::addLog(const std::string &text, unsigned int color)
     this->logDirty = true;
 }
 
-// Logs an error and opens the modal error popup. Used instead of letting an
-// exception escape (the main loop catches everything and closes the game
-// silently, which looks like a crash with no message).
 void TriggerEditor::showError(const std::string &text)
 {
     this->addLog(text, 0xFF6060FF);
@@ -392,14 +327,9 @@ void TriggerEditor::showError(const std::string &text)
     this->errorPopupOpen = true;
 }
 
-// ---------------------------------------------------------------------------
-// Filesystem helpers
-// ---------------------------------------------------------------------------
 
 json TriggerEditor::loadJsonFile(const std::string &path) const
 {
-    // Read directly with nlohmann so the editor never pollutes the game's
-    // global JSON load-error list (which would open a console dialog).
     if (!boost::filesystem::exists(path))
         return json();
 
@@ -444,9 +374,6 @@ bool TriggerEditor::saveTextFile(const std::string &path, const std::string &con
     return (bool)stream;
 }
 
-// ---------------------------------------------------------------------------
-// Map stage
-// ---------------------------------------------------------------------------
 
 void TriggerEditor::refreshMapList()
 {
@@ -468,20 +395,17 @@ void TriggerEditor::refreshMapList()
             std::string rel = it->path().lexically_relative(base).string();
             boost::replace_all(rel, "\\", "/");
 
-            // Trigger script files live in "trigger/" subfolders: they are the
-            // content being edited, not maps to pick.
             if (rel.find("/trigger/") != std::string::npos || rel.rfind("trigger/", 0) == 0)
                 continue;
 
             if (rel.size() > 5)
-                rel = rel.substr(0, rel.size() - 5); // strip ".json"
+                rel = rel.substr(0, rel.size() - 5);
 
             this->mapList.push_back(rel);
         }
     }
     catch (...)
     {
-        // A failed scan must never close the game: keep the list as is.
     }
 
     std::sort(this->mapList.begin(), this->mapList.end());
@@ -493,8 +417,6 @@ void TriggerEditor::selectMap(const std::string &ref)
     this->mapPath = this->gamePath + "/data/maps/" + ref + ".json";
 }
 
-// Reads the map's "trigger" array and returns the first non-empty "script"
-// reference found ("" when the map is not linked to a trigger file).
 std::string TriggerEditor::resolveMapScript(const json &mapJson) const
 {
     if (!mapJson.is_object() || !mapJson.contains("trigger") || !mapJson["trigger"].is_array())
@@ -511,9 +433,6 @@ std::string TriggerEditor::resolveMapScript(const json &mapJson) const
     return "";
 }
 
-// Links the map to its main trigger file (data/maps/<dir>/trigger/<name>.json,
-// where <dir>/<name> is the map ref) by writing the map's "trigger" array and
-// saving the map. Returns the script ref written ("" on failure).
 std::string TriggerEditor::ensureTriggerLink(json &mapJson, const std::string &mapRef)
 {
     size_t slash = mapRef.find_last_of('/');
@@ -543,11 +462,9 @@ bool TriggerEditor::openMapSession(const std::string &ref)
         return false;
     }
 
-    // 1) Is the map already linked to a trigger script?
     std::string scriptRef = this->resolveMapScript(mapJson);
     bool created = false;
 
-    // 2) No link: create one (and save the map).
     if (scriptRef.empty())
     {
         scriptRef = this->ensureTriggerLink(mapJson, ref);
@@ -559,7 +476,6 @@ bool TriggerEditor::openMapSession(const std::string &ref)
         created = true;
     }
 
-    // 3) Resolve the trigger folder and the main trigger file.
     size_t slash = scriptRef.find_last_of('/');
     this->triggerFolderRef = (slash == std::string::npos) ? "" : scriptRef.substr(0, slash);
     std::string mainStem = (slash == std::string::npos) ? scriptRef : scriptRef.substr(slash + 1);
@@ -567,7 +483,6 @@ bool TriggerEditor::openMapSession(const std::string &ref)
     this->triggerFolderPath = this->gamePath + "/data/maps/"
                               + (this->triggerFolderRef.empty() ? "" : this->triggerFolderRef + "/");
 
-    // 4) Make sure the main trigger file exists (create it with the template).
     std::string mainPath = this->triggerFolderPath + this->mainTriggerFile;
     if (!boost::filesystem::exists(mainPath))
     {
@@ -582,7 +497,6 @@ bool TriggerEditor::openMapSession(const std::string &ref)
     if (created)
         this->addLog("[info] map linked to trigger: " + scriptRef, 0x88CCFFFF);
 
-    // The map's trigger folder is the first browsable folder of the session.
     this->sourceIndex = 0;
     this->refreshSources();
     this->openTriggerFile(this->mainTriggerFile);
@@ -625,18 +539,10 @@ void TriggerEditor::resetSession()
     this->guiCommentInsertIndex = -1;
     this->guiDeleteBlockOpen = false;
 
-    // Without a map the sidebar only offers the game folders (interactions and
-    // cutscenes), which the map-select stage lists too.
     this->refreshSources();
 }
 
-// ---------------------------------------------------------------------------
-// Browsable folders
-// ---------------------------------------------------------------------------
 
-// Rebuilds the browsable folder list: the map's trigger folder (only while a
-// map session is open) followed by the game folders that also hold trigger
-// documents. Every folder has its ".yaml" files scanned right away.
 void TriggerEditor::refreshSources()
 {
     this->sources.clear();
@@ -670,7 +576,6 @@ void TriggerEditor::refreshSources()
     }
     catch (...)
     {
-        // A failed scan must never close the editor.
     }
 
     if (this->sourceIndex < 0 || this->sourceIndex >= (int)this->sources.size())
@@ -680,9 +585,6 @@ void TriggerEditor::refreshSources()
         this->refreshSourceFiles(index);
 }
 
-// Lists the ".yaml" documents of one browsable folder. The scan is recursive
-// (so the per-map subfolders of data/interactions show up as
-// "nibbos/adam.yaml") and the stored paths always use '/'.
 void TriggerEditor::refreshSourceFiles(int index)
 {
     if (index < 0 || index >= (int)this->sources.size())
@@ -711,7 +613,6 @@ void TriggerEditor::refreshSourceFiles(int index)
     }
     catch (...)
     {
-        // Keep the current list on a failed scan.
     }
 
     std::sort(source.files.begin(), source.files.end());
@@ -722,8 +623,6 @@ bool TriggerEditor::sourceIsEditable(int index) const
     return index >= 0 && index < (int)this->sources.size() && this->sources[index].editable;
 }
 
-// Switches the folder listed in the sidebar. The open file stays open: it
-// belongs to its own folder, remembered in currentFileSource.
 void TriggerEditor::switchSource(int index)
 {
     if (index < 0 || index >= (int)this->sources.size() || index == this->sourceIndex)
@@ -744,9 +643,6 @@ void TriggerEditor::openFileInSource(int index, const std::string &filename)
     this->openTriggerFile(filename);
 }
 
-// Opens a file of an extra folder (interactions / cutscenes) straight from the
-// map-select stage: without a map session no map is touched and only the
-// chosen document is edited here.
 void TriggerEditor::openSourceSession(int index, const std::string &filename)
 {
     if (index < 0 || index >= (int)this->sources.size())
@@ -761,9 +657,6 @@ void TriggerEditor::openSourceSession(int index, const std::string &filename)
     this->openFileInSource(index, filename);
 }
 
-// ---------------------------------------------------------------------------
-// Trigger file stage
-// ---------------------------------------------------------------------------
 
 void TriggerEditor::openTriggerFile(const std::string &filename)
 {
@@ -793,9 +686,6 @@ void TriggerEditor::openTriggerFile(const std::string &filename)
     this->addLog("[info] Opened: " + path, 0x88CCFFFF);
 }
 
-// Builds the GUI model from the just-opened file and selects the active tab.
-// The visual editor is the default mode: when the file cannot be converted
-// (invalid JSON, wrong structure, ...) the editor falls back to the JSON tab.
 void TriggerEditor::openTriggerFileGui()
 {
     this->guiTriggers.clear();
@@ -812,7 +702,6 @@ void TriggerEditor::openTriggerFileGui()
     }
     else
     {
-        // The JSON tab is a read-only viewer: it always shows the raw text.
         this->guiTab = GuiTab::Json;
         this->guiConvertible = false;
         this->addLog("[error] " + this->guiConvertError, 0xFF6060FF);
@@ -821,8 +710,6 @@ void TriggerEditor::openTriggerFileGui()
 
 void TriggerEditor::createTriggerFile(const std::string &name)
 {
-    // Only the map's trigger folder is managed by this editor: the interaction
-    // and cutscene folders belong to the game and are edited here, not created.
     if (!this->sourceIsEditable(this->sourceIndex))
     {
         this->showError("[error] Only files inside the map's trigger folder can be created or deleted.");
@@ -832,7 +719,6 @@ void TriggerEditor::createTriggerFile(const std::string &name)
     std::string trimmed = name;
     boost::trim(trimmed);
 
-    // Accept "name" or "name.yaml", validate the stem.
     if (boost::iends_with(trimmed, ".yaml"))
         trimmed = trimmed.substr(0, trimmed.size() - 5);
     boost::trim(trimmed);
@@ -873,17 +759,12 @@ void TriggerEditor::createTriggerFile(const std::string &name)
 
 void TriggerEditor::deleteTriggerFile(const std::string &filename)
 {
-    // Only the map's trigger folder is managed by this editor: the interaction
-    // and cutscene folders belong to the game, so their files are opened and
-    // saved here but never deleted.
     if (!this->sourceIsEditable(this->currentFileSource))
     {
         this->showError("[error] Only files inside the map's trigger folder can be created or deleted.");
         return;
     }
 
-    // The map-linked trigger file is the entry point of the map's script
-    // structure: it is never allowed to be deleted.
     if (filename == this->mainTriggerFile)
     {
         this->showError("[error] The main trigger file of the map cannot be deleted.");
@@ -956,13 +837,7 @@ trigger:
 )YAML";
 }
 
-// ---------------------------------------------------------------------------
-// Dirty-change handling
-// ---------------------------------------------------------------------------
 
-// Requests an action that replaces/leaves the current buffer. When there are
-// unsaved changes a confirmation popup is shown first; performAction() is
-// called with the stored action after the user confirms.
 void TriggerEditor::requestAction(const std::string &action, const std::string &target)
 {
     if (this->dirty && this->fileLoaded && !this->discardPopupOpen)
@@ -977,7 +852,6 @@ void TriggerEditor::requestAction(const std::string &action, const std::string &
         this->pendingLeave = true;
 }
 
-// Returns true when the action leaves the editor (back to the Studio menu).
 bool TriggerEditor::performAction(const std::string &action, const std::string &target)
 {
     if (action == "back")
@@ -1008,13 +882,9 @@ bool TriggerEditor::performAction(const std::string &action, const std::string &
     return false;
 }
 
-// ---------------------------------------------------------------------------
-// JSON editor widget
-// ---------------------------------------------------------------------------
 
 namespace
 {
-    // Levenshtein distance, used for "did you mean" suggestions.
     size_t editDistance(const std::string &a, const std::string &b)
     {
         std::vector<size_t> row(b.size() + 1);
@@ -1037,7 +907,6 @@ namespace
         return row[b.size()];
     }
 
-    // Closest known name to `value`, or "" when nothing is close enough.
     std::string closestName(const std::string &value, const std::vector<std::string> &names)
     {
         std::string best;
@@ -1071,9 +940,6 @@ namespace
     }
 }
 
-// Structural checks on a parsed trigger document. Each problem becomes a
-// warning with a hint (the closest valid name when there is a typo). Warnings
-// do not block saving; they are logged and counted in the status line.
 void TriggerEditor::checkTriggerSyntax(const json &root)
 {
     this->syntaxWarnings.clear();
@@ -1101,7 +967,6 @@ void TriggerEditor::checkTriggerSyntax(const json &root)
         return;
     }
 
-    // "name" is the optional editor-only label of a block, so it is accepted.
     const std::vector<std::string> blockKeys = { "events", "conditions", "conditions-or", "then", "else", "name" };
     const std::vector<std::string> fieldNames = { "floatValue", "integerValue", "unitName", "text",
                                                   "strings", "integers", "floats", "booleans" };
@@ -1109,9 +974,9 @@ void TriggerEditor::checkTriggerSyntax(const json &root)
 
     struct ListRule
     {
-        const char *key;      // list inside the block
-        const char *typeKey;  // field holding the type name inside each entry
-        const char *kind;     // label used in messages
+        const char *key;
+        const char *typeKey;
+        const char *kind;
         const std::vector<TriggerTypeDef> *defs;
     };
 
@@ -1235,7 +1100,6 @@ void TriggerEditor::validateYaml()
         this->yamlValid = false;
         this->parseError = e.what();
 
-        // fkYAML reports the position as "(at line L, column C)".
         std::string msg = e.what();
         size_t pos = msg.find("at line ");
         if (pos != std::string::npos)
@@ -1266,9 +1130,6 @@ void TriggerEditor::formatYaml()
     try
     {
         this->snapshotUndo();
-        // Formatting through the visual model keeps the comment rows and the
-        // disabled declarations, which a plain YAML re-dump would drop (they
-        // only exist as comments in the text).
         if (this->textToGui())
             this->guiToText();
         else
@@ -1288,7 +1149,6 @@ void TriggerEditor::formatYaml()
     }
 }
 
-// --- text helpers (byte-offset based) ---
 
 int TriggerEditor::countLines() const
 {
@@ -1352,8 +1212,6 @@ int TriggerEditor::lineIndentWidth(int line) const
     return width;
 }
 
-// Number of code points between the start of the line holding `offset` and
-// `offset` (display column, tabs count as one column).
 int TriggerEditor::utf8Columns(int offset) const
 {
     int line = this->lineOfOffset(offset);
@@ -1435,9 +1293,6 @@ void TriggerEditor::handleEditorKeys()
 {
     ImGuiIO &io = ImGui::GetIO();
 
-    // Not focused: leave the typed-character queue alone when one of the
-    // modal dialogs is open (their InputText consumes it); otherwise drain it
-    // so characters typed while a plain button had focus do not replay later.
     if (!this->editorFocused)
     {
         if (!this->createPopupOpen && !this->deletePopupOpen
@@ -1446,16 +1301,11 @@ void TriggerEditor::handleEditorKeys()
         return;
     }
 
-    // The JSON tab is a read-only viewer (the GUI and Misc tabs are the
-    // editing surfaces and keep the JSON text in sync): only navigation,
-    // selection and copy are allowed - no hotkey mutates the buffer, so keys
-    // pressed while reading never interfere with editing.
     io.InputQueueCharacters.resize(0);
 
     bool ctrl = io.KeyCtrl;
     bool shift = io.KeyShift;
 
-    // --- selection helpers ---
     const auto moveCursor = [&](int newPos)
     {
         if (shift)
@@ -1473,9 +1323,6 @@ void TriggerEditor::handleEditorKeys()
         this->caretVisible = true;
     };
 
-    // ImGui 1.85 takes a user key index here, not an ImGuiKey value: passing
-    // the enum directly read io.KeysDown[enum], i.e. an unrelated letter
-    // (Escape -> "O", Enter -> "N", LeftArrow -> "B").
     if (ctrl && ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_A)))
     {
         this->selectionStart = 0;
@@ -1546,7 +1393,6 @@ void TriggerEditor::handleEditorMouse(ImVec2 base)
 {
     ImGuiIO &io = ImGui::GetIO();
 
-    // Place the caret where the mouse was clicked. Clamp to the last line.
     const auto placeFromMouse = [&]()
     {
         float fx = io.MousePos.x - base.x + this->scrollX - this->editorGutterW;
@@ -1578,7 +1424,6 @@ void TriggerEditor::handleEditorMouse(ImVec2 base)
         placeFromMouse();
     }
 
-    // Wheel over the editor: vertical scroll (Shift = horizontal).
     if (ImGui::IsItemHovered() && io.MouseWheel != 0.f)
     {
         float step = 3.f * this->editorLineH;
@@ -1600,7 +1445,6 @@ void TriggerEditor::renderEditorText(ImVec2 base)
         firstLine = 0;
     int lastLine = std::min(lines - 1, firstLine + this->editorVisibleLines);
 
-    // Line numbers + tokens.
     std::vector<YamlToken> tokens = tokenizeYaml(this->text);
 
     for (int line = firstLine; line <= lastLine; ++line)
@@ -1614,7 +1458,6 @@ void TriggerEditor::renderEditorText(ImVec2 base)
         drawList->AddText(ImGui::GetFont(), ImGui::GetFontSize(),
                           ImVec2(base.x + 4.f, y), colorLineNumber(), number);
 
-        // Tokens that intersect this line.
         for (const auto &token : tokens)
         {
             if (token.end <= ls)
@@ -1634,7 +1477,6 @@ void TriggerEditor::renderEditorText(ImVec2 base)
         }
     }
 
-    // Selection highlight (clipped to the editor child automatically).
     if (this->selectionStart >= 0)
     {
         int selA = std::min(this->cursorPos, this->selectionStart);
@@ -1703,7 +1545,6 @@ void TriggerEditor::renderEditorStatus()
     
     float scale = this->imguiScale;
 
-    // Left: JSON validity.
     if (this->yamlValid)
     {
         ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::gray(0.85f));
@@ -1722,7 +1563,6 @@ void TriggerEditor::renderEditorStatus()
         ImGui::PopStyleColor();
     }
 
-    // Structure warnings (typos, missing fields); the file still saves.
     if (!this->syntaxWarnings.empty())
     {
         ImGui::SameLine(0.f, 24.f * scale);
@@ -1731,7 +1571,6 @@ void TriggerEditor::renderEditorStatus()
         ImGui::PopStyleColor();
     }
 
-    // Right: cursor position + dirty marker.
     int line = this->lineOfOffset(this->cursorPos) + 1;
     int column = this->utf8Columns(this->cursorPos) + 1;
     std::string status = "Line " + toStr(line)
@@ -1759,8 +1598,6 @@ void TriggerEditor::renderEditorStatus()
     ImGui::PopStyleColor();
 }
 
-// Raw JSON editor body (status line + code editor). Rendered inside the JSON
-// tab so the custom key/mouse handling never runs while the GUI tab is active.
 void TriggerEditor::renderYamlBody()
 {
     float scale = this->imguiScale;
@@ -1779,7 +1616,6 @@ void TriggerEditor::renderYamlBody()
 
     ImGui::PushStyleColor(ImGuiCol_ChildBg, GrimsolfTheme::gray(0.04f));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, 0.f));
-    // The negative height leaves room below for the log panel.
     ImGui::BeginChild("##trigger-editor-code", ImVec2(0, -150.f * this->imguiScale), true,
                       ImGuiWindowFlags_NoScrollWithMouse);
     ImGui::PopStyleVar();
@@ -1791,7 +1627,6 @@ void TriggerEditor::renderYamlBody()
     this->editorViewH = std::max(1.f, viewport.y);
     this->editorVisibleLines = std::max(1, (int)std::ceil(this->editorViewH / this->editorLineH) + 1);
 
-    // Content size drives the scrollbars.
     float maxColumns = 0.f;
     for (int line = 0; line < lines; ++line)
     {
@@ -1806,14 +1641,12 @@ void TriggerEditor::renderYamlBody()
     this->scrollX = ImGui::GetScrollX();
     this->scrollY = ImGui::GetScrollY();
 
-    // Input capture layer on top of the content (same position as the viewport).
     ImGui::SetCursorScreenPos(base);
     ImGui::InvisibleButton("##trigger-editor-input", viewport);
     ImGui::SetItemAllowOverlap();
 
     this->editorFocused = ImGui::IsItemActive() || ImGui::IsItemFocused();
 
-    // Caret blink.
     this->caretTimer += ImGui::GetIO().DeltaTime;
     if (this->caretTimer > 1.0f)
         this->caretTimer = 0.f;
@@ -1843,7 +1676,6 @@ void TriggerEditor::renderEditor()
 {
     float scale = this->imguiScale;
 
-    // ---- header: current file ----
     ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
     if (this->fileLoaded)
         ImGui::TextUnformatted((this->currentFile + "  (" + this->currentFilePath + ")").c_str());
@@ -1855,20 +1687,8 @@ void TriggerEditor::renderEditor()
     this->renderToolbar();
     ImGui::Separator();
 
-    // ---- tabs: GUI (trigger blocks) | Misc (other fields) | JSON (raw, read-only) ----
-    // The GUI and Misc tabs edit the parsed model; the JSON tab is a
-    // read-only viewer of the current text. If the JSON cannot be converted to
-    // the model (invalid JSON, wrong structure, ...), the GUI/Misc tabs are
-    // blocked until the file is fixed.
     ImGui::BeginTabBar("##trigger-tabs");
 
-    // In ImGui 1.85 a tab click only registers NextSelectedTabId, which the
-    // tab bar applies on the NEXT frame: BeginTabItem() returns false during
-    // the click frame, so gating the click on its return value never fires and
-    // the SetSelected flag of the active tab would undo the user's click every
-    // frame. The click is therefore detected through IsItemClicked() right
-    // after BeginTabItem(), which works because the tab item is always
-    // submitted (ItemAdd + ButtonBehavior) even when it is not visible yet.
     const auto switchTab = [&](GuiTab target, bool needsConversion)
     {
         ImGuiTabItemFlags flags = (this->guiTab == target) ? ImGuiTabItemFlags_SetSelected : 0;
@@ -1890,14 +1710,13 @@ void TriggerEditor::renderEditor()
             ImGui::EndTabItem();
     };
 
-    switchTab(GuiTab::Visual, true);   // needs the parsed model
-    switchTab(GuiTab::Misc, true);     // needs the parsed model
-    switchTab(GuiTab::Json, false);    // read-only viewer, always available
+    switchTab(GuiTab::Visual, true);
+    switchTab(GuiTab::Misc, true);
+    switchTab(GuiTab::Json, false);
 
     ImGui::EndTabBar();
     ImGui::Separator();
 
-    // ---- active tab content ----
     if (this->guiTab == GuiTab::Visual)
         this->renderGuiEditor();
     else if (this->guiTab == GuiTab::Misc)
@@ -1905,7 +1724,6 @@ void TriggerEditor::renderEditor()
     else
         this->renderYamlBody();
 
-    // Log panel below the editor, inside the right panel.
     ImGui::Separator();
     ImGui::BeginChild("##trigger-log", ImVec2(0, 150.f * this->imguiScale), true);
     this->renderLog();
@@ -1916,10 +1734,6 @@ void TriggerEditor::renderSidebar()
 {
     float scale = this->imguiScale;
 
-    // ---- folder selector ----
-    // The map's trigger folder plus the game folders whose files are trigger
-    // documents too (interactions / cutscenes). The active folder is the one
-    // whose files are listed below.
     ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
     for (int index = 0; index < (int)this->sources.size(); ++index)
     {
@@ -1944,8 +1758,6 @@ void TriggerEditor::renderSidebar()
             ImGui::SetTooltip("%s", this->sources[index].ref.c_str());
     }
 
-    // New files are only created inside the map's trigger folder: the other
-    // folders belong to the game and are edited here, not created.
     bool canCreate = this->sourceIsEditable(this->sourceIndex);
     ImGui::SameLine();
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10.f * scale);
@@ -1977,9 +1789,6 @@ void TriggerEditor::renderSidebar()
     {
         for (const auto &file : source->files)
         {
-            // The main tag is only meaningful inside the map's trigger folder,
-            // and the open file is matched in the folder it belongs to, so
-            // equal names in different folders are not confused.
             bool isMain = source->editable && (file == this->mainTriggerFile);
             bool selected = (this->currentFileSource == this->sourceIndex && file == this->currentFile);
 
@@ -1987,8 +1796,6 @@ void TriggerEditor::renderSidebar()
             if (ImGui::Selectable(file.c_str(), selected))
                 this->requestAction("file", file);
 
-            // The main (map-linked) trigger gets a small colored tag, drawn
-            // directly with the draw list so the row cursor is not moved.
             if (isMain)
             {
                 ImVec2 itemMin = ImGui::GetItemRectMin();
@@ -2014,8 +1821,6 @@ void TriggerEditor::renderSidebar()
 
     ImGui::Separator();
 
-    // Delete the currently open file. Only the map's trigger folder is managed
-    // by this editor, and never its main (map-linked) file.
     bool currentEditable = this->sourceIsEditable(this->currentFileSource);
     bool canDelete = this->fileLoaded && !this->currentFile.empty() && currentEditable
                      && this->currentFile != this->mainTriggerFile;
@@ -2060,8 +1865,6 @@ void TriggerEditor::renderToolbar()
         this->saveCurrentFile();
 
     ImGui::SameLine();
-    // The JSON tab is read-only: formatting is meaningless there (and would
-    // touch a buffer the user cannot edit), so the button is disabled.
     bool formatEnabled = (this->guiTab != GuiTab::Json);
     if (!formatEnabled)
         ImGui::BeginDisabled();
@@ -2070,8 +1873,6 @@ void TriggerEditor::renderToolbar()
     if (!formatEnabled)
         ImGui::EndDisabled();
 
-    // The file path is already shown in the header above the toolbar, so it is
-    // not repeated here.
 }
 
 void TriggerEditor::renderLog()
@@ -2106,13 +1907,7 @@ void TriggerEditor::renderLog()
     ImGui::EndChild();
 }
 
-// ---------------------------------------------------------------------------
-// Visual (GUI) editor
-// ---------------------------------------------------------------------------
 
-// The visual editor shows each type through its metadata definition. Its
-// chrome strings are intentionally hardcoded in English: the tools do not use
-// Grimsolf's language files (realm-editor will grow its own strings later).
 
 const std::vector<TriggerTypeDef> &TriggerEditor::guiDefs(GuiKind kind) const
 {
@@ -2133,10 +1928,6 @@ std::string TriggerEditor::guiDescription(GuiKind kind, const std::string &type)
     return type.empty() ? "(unknown)" : type;
 }
 
-// Compact summary of the entry parameters (e.g. "unitName: skeleton
-// strings: special/dialog-new, special/dialog-update"), shown in yellow next
-// to the entry description. Covers every field of the raw record, including
-// unknown ones, so nothing is hidden.
 std::string TriggerEditor::guiEntryValues(GuiKind kind, const GuiEntry &entry) const
 {
     const char *typeKey = "action";
@@ -2204,9 +1995,6 @@ std::vector<GuiEntry> &TriggerEditor::guiEntryList(GuiKind kind, GuiTrigger &tri
     return trigger.events;
 }
 
-// Parses this->text into the GUI model. Returns false (and stores a message)
-// when the JSON cannot be represented in the visual editor; in that case the
-// user must fix the JSON before switching to the GUI tab.
 bool TriggerEditor::textToGui()
 {
     this->guiTriggers.clear();
@@ -2227,7 +2015,6 @@ bool TriggerEditor::textToGui()
 
         if (!root.contains("trigger") || root["trigger"].is_null())
         {
-            // No trigger array yet: start with a single empty block.
             this->guiTriggers.push_back(GuiTrigger());
             return true;
         }
@@ -2250,17 +2037,9 @@ bool TriggerEditor::textToGui()
 
             GuiTrigger trigger;
 
-            // Optional visual label written by the trigger editor. The engine
-            // only reads events / conditions / then / else, so "name" is
-            // ignored by Grimsolf and a block without it behaves as before.
             if (block.contains("name") && block["name"].is_string())
                 trigger.name = block["name"].get<std::string>();
 
-            // `typeKey` is the JSON field that carries the entry type for this
-            // list ("event" / "condition" / "action"); `group` only selects the
-            // and/or and then/else grouping. Reading the type from the wrong
-            // field made every action load as unknown (the "then" list read
-            // "event" from action records).
             const auto parseList = [&](const char *key, const char *typeKey, int group)
             {
                 std::vector<GuiEntry> list;
@@ -2299,8 +2078,6 @@ bool TriggerEditor::textToGui()
             if (!this->guiConvertible)
                 return false;
             trigger.conditions.insert(trigger.conditions.end(), conditionsOr.begin(), conditionsOr.end());
-            // group matches guiToText: 0 = then, 1 = else (same convention as
-            // the popup branch radios and the GuiEntry.group documentation).
             trigger.actions = parseList("then", "action", 0);
             if (!this->guiConvertible)
                 return false;
@@ -2314,8 +2091,6 @@ bool TriggerEditor::textToGui()
 
         if (this->guiTriggers.empty())
             this->guiTriggers.push_back(GuiTrigger());
-        // Comments and disabled declarations are lost by the YAML parse: they
-        // are restored from the raw text so reopening a file keeps them.
         this->guiAnnotateFromText();
         return true;
     }
@@ -2334,10 +2109,6 @@ bool TriggerEditor::textToGui()
 
 namespace
 {
-    // YAML lines of one list item, de-indented so the first line starts with
-    // "- " (the item marker) and the following lines keep their relative
-    // indentation. The formatting comes from Json::dumpYaml, so a regenerated
-    // file looks exactly like a formatted one.
     std::vector<std::string> guiItemYamlLines(const json &item)
     {
         json items = json::array();
@@ -2354,7 +2125,6 @@ namespace
         {
             if (header)
             {
-                // The "k:" wrapper key emitted by dumpYaml.
                 header = false;
                 continue;
             }
@@ -2366,8 +2136,6 @@ namespace
         return lines;
     }
 
-    // Lines of a comment row: "#" optionally followed by the text, one line of
-    // `text` per output line (so a multi-line comment stays valid YAML).
     std::vector<std::string> guiCommentYamlLines(const std::string &text)
     {
         std::vector<std::string> lines;
@@ -2393,9 +2161,6 @@ namespace
         return lines;
     }
 
-    // Prefixes every line of a declaration with "#" after its indentation, so
-    // the row is disabled (the engine no longer reads it) while uncommenting
-    // it by hand restores the exact YAML.
     void guiDisableYamlLines(std::vector<std::string> &lines)
     {
         for (auto &line : lines)
@@ -2409,20 +2174,12 @@ namespace
     }
 }
 
-// Regenerates this->text from the GUI model, keeping every non-trigger field
-// of the document (item-drop, environments-drop, player-characters, ...).
-//
-// The document is dumped by Json::dumpYaml and the "trigger" section is then
-// rewritten by hand, because the comment rows and the disabled declarations
-// only exist as YAML comments: they have no JSON counterpart to dump.
 void TriggerEditor::guiToText()
 {
     json root = this->guiRoot;
     if (!root.is_object())
         root = json::object();
 
-    // Live declarations only: the fallback document keeps a valid trigger list
-    // even if the section splice below ever fails to find its chunk.
     json triggers = json::array();
 
     for (const auto &trigger : this->guiTriggers)
@@ -2482,18 +2239,15 @@ void TriggerEditor::guiToText()
     root["trigger"] = triggers;
     std::string dumped = Json::dumpYaml(root);
 
-    // ---- trigger section, with the comment and disabled rows ----
     std::vector<std::string> triggerLines;
     triggerLines.push_back("trigger:");
 
     for (const auto &trigger : this->guiTriggers)
     {
-        // Same key order dumpYaml writes (the JSON object is sorted), so an
-        // untouched file keeps its layout.
         struct Section
         {
             const char *key;
-            bool always;   // written even when the list is empty
+            bool always;
         };
         const Section sections[] = {
             { "conditions",    true  },
@@ -2538,8 +2292,6 @@ void TriggerEditor::guiToText()
         appendList(4, trigger.actions, 0, "action");
 
         std::vector<std::string> blockLines;
-        // Optional block label, written first so it shows at the top of the
-        // "- " block. It is editor metadata only (the engine ignores it).
         if (!trigger.name.empty())
             blockLines.push_back("name: " + json(trigger.name).dump());
         for (int index = 0; index < sectionCount; ++index)
@@ -2556,21 +2308,17 @@ void TriggerEditor::guiToText()
                 blockLines.push_back(line);
         }
 
-        // The first block line shares the "- " sequence marker; the rest of the
-        // block is indented under it (keys at 4 spaces, items at 6).
         triggerLines.push_back("  - " + blockLines.front());
         for (size_t index = 1; index < blockLines.size(); ++index)
             triggerLines.push_back("    " + blockLines[index]);
     }
 
-    // ---- splice the section into the dumped document ----
     std::vector<std::vector<std::string>> chunks;
     {
         std::istringstream stream(dumped);
         std::string line;
         while (std::getline(stream, line))
         {
-            // A top-level key line (column 0) starts a new chunk.
             if (chunks.empty() || (!line.empty() && line[0] != ' '))
                 chunks.push_back(std::vector<std::string>());
             chunks.back().push_back(line);
@@ -2597,11 +2345,6 @@ void TriggerEditor::guiToText()
     this->text = text;
 }
 
-// Restores the editor-only rows from the raw text: the "# ..." comment rows
-// and the declarations that were disabled with the right-click menu (written
-// commented out in the file). YAML parsing drops comments, so they are read
-// line by line, following the layout Json::dumpYaml writes: "trigger:" at
-// column 0, a block at 2, its list keys at 4 and the items at 6.
 void TriggerEditor::guiAnnotateFromText()
 {
     if (this->guiTriggers.empty() || this->text.empty())
@@ -2640,10 +2383,10 @@ void TriggerEditor::guiAnnotateFromText()
 
     struct ScannedItem
     {
-        bool live = false;          // a declaration already in the JSON model
-        bool comment = false;       // a free comment row
+        bool live = false;
+        bool comment = false;
         std::string commentText;
-        std::string yaml;           // reconstructed YAML of a disabled declaration
+        std::string yaml;
     };
 
     struct ScannedList
@@ -2655,7 +2398,7 @@ void TriggerEditor::guiAnnotateFromText()
     std::vector<std::vector<ScannedList>> blocks;
     int blockIndex = -1;
     int listIndex = -1;
-    int disabledIndex = -1;   // item being collected (disabled declaration)
+    int disabledIndex = -1;
 
     const auto stripCommentMarker = [](const std::string &content) -> std::string
     {
@@ -2676,7 +2419,6 @@ void TriggerEditor::guiAnnotateFromText()
 
         std::string content = line.substr(indent);
 
-        // Continuation of a disabled declaration (an indented "#" line).
         if (disabledIndex >= 0 && indent > itemIndent && content[0] == '#'
             && blockIndex >= 0 && listIndex >= 0
             && disabledIndex < (int)blocks[blockIndex][listIndex].items.size())
@@ -2687,7 +2429,6 @@ void TriggerEditor::guiAnnotateFromText()
         }
         disabledIndex = -1;
 
-        // Block start: "- events:" / "- conditions: []" / ...
         if (indent == blockIndent && content.rfind("- ", 0) == 0)
         {
             std::string rest = content.substr(2);
@@ -2702,7 +2443,6 @@ void TriggerEditor::guiAnnotateFromText()
             continue;
         }
 
-        // List key inside the block.
         if (indent == keyIndent && blockIndex >= 0)
         {
             size_t colon = content.find(':');
@@ -2722,7 +2462,6 @@ void TriggerEditor::guiAnnotateFromText()
             continue;
         }
 
-        // Item row of the current list.
         if (indent == itemIndent && blockIndex >= 0 && listIndex >= 0)
         {
             ScannedItem item;
@@ -2756,8 +2495,6 @@ void TriggerEditor::guiAnnotateFromText()
     {
         GuiTrigger &trigger = this->guiTriggers[block];
 
-        // The parsed declarations of one list, consumed in file order while the
-        // scan walks the items (so comments/disabled rows land between them).
         struct Pending
         {
             std::vector<GuiEntry> entries;
@@ -2830,7 +2567,6 @@ void TriggerEditor::guiAnnotateFromText()
                     continue;
                 }
 
-                // Disabled declaration: parse the text that was commented out.
                 try
                 {
                     json parsed = Json::parseYaml(item.yaml);
@@ -2843,21 +2579,14 @@ void TriggerEditor::guiAnnotateFromText()
                 }
                 catch (...)
                 {
-                    // A commented block that no longer parses stays a plain
-                    // comment in the file and is skipped here.
                 }
             }
         }
 
-        // Anything the scan did not place (a hand-written file with another
-        // indentation) keeps its original order at the end of its list.
         for (auto &list : pending)
             while (list.cursor < list.entries.size())
                 list.target->push_back(list.entries[list.cursor++]);
 
-        // The file groups the branches (conditions before conditions-or, then
-        // before else), so the merged lists get the same order back; without
-        // this the else actions would sit above the then ones after a reload.
         std::stable_sort(newConditions.begin(), newConditions.end(),
                          [](const GuiEntry &a, const GuiEntry &b) { return a.group < b.group; });
         std::stable_sort(newActions.begin(), newActions.end(),
@@ -2869,8 +2598,6 @@ void TriggerEditor::guiAnnotateFromText()
     }
 }
 
-// Called after every GUI mutation: keeps the raw JSON text in sync with the
-// visual model (the JSON tab is updated in real time).
 void TriggerEditor::guiSyncText()
 {
     this->guiToText();
@@ -2888,10 +2615,6 @@ void TriggerEditor::guiMoveEntry(std::vector<GuiEntry> &entries, int index, int 
     this->guiSyncText();
 }
 
-// Drag & drop reorder: moves the entry at "from" next to the entry at "to",
-// above or below it ("insertBefore"). Only entries of the same list are moved,
-// so the then/else and and/or groups of a list (which are just the "group"
-// field of the rows) follow their entries as usual.
 void TriggerEditor::guiDropEntry(std::vector<GuiEntry> &entries, int from, int to, bool insertBefore)
 {
     int count = (int)entries.size();
@@ -2901,7 +2624,6 @@ void TriggerEditor::guiDropEntry(std::vector<GuiEntry> &entries, int from, int t
     GuiEntry moved = entries[from];
     entries.erase(entries.begin() + from);
 
-    // The erase shifted every index above "from" down by one.
     int target = (to > from) ? (to - 1) : to;
     int insertAt = insertBefore ? target : target + 1;
     if (insertAt < 0)
@@ -2920,24 +2642,15 @@ void TriggerEditor::guiDeleteEntry(std::vector<GuiEntry> &entries, int index)
     this->guiSyncText();
 }
 
-// Inserts a copy of the entry right after the original. The copy keeps the
-// type, every parameter and the group (and/or, then/else), so duplicating an
-// "or" condition or an "else" action stays in the same branch of the list.
 void TriggerEditor::guiDuplicateEntry(std::vector<GuiEntry> &entries, int index)
 {
     if (index < 0 || index >= (int)entries.size())
         return;
-    // Copied before inserting: the reference would dangle if insert()
-    // reallocated the vector.
     GuiEntry copy = entries[index];
     entries.insert(entries.begin() + index + 1, copy);
     this->guiSyncText();
 }
 
-// Copies the whole record (type, every parameter and the and/or - then/else
-// group) to the editor-wide clipboard. The kind is stored with it so Paste can
-// refuse an entry from another list; it also works across trigger blocks and
-// files, since the clipboard lives in the editor, not in the list.
 void TriggerEditor::guiCopyEntry(const GuiEntry &entry, GuiKind kind)
 {
     this->guiClipboard = entry;
@@ -2945,9 +2658,6 @@ void TriggerEditor::guiCopyEntry(const GuiEntry &entry, GuiKind kind)
     this->guiClipboardValid = true;
 }
 
-// Inserts a copy of the clipboard entry into "entries" at "insertIndex"
-// (-1 appends at the end of the list). Does nothing when the clipboard is
-// empty or holds a type from another list (event / condition / action).
 void TriggerEditor::guiPasteEntry(std::vector<GuiEntry> &entries, GuiKind kind, int insertIndex)
 {
     if (!this->guiClipboardValid || this->guiClipboardKind != kind)
@@ -2960,8 +2670,6 @@ void TriggerEditor::guiPasteEntry(std::vector<GuiEntry> &entries, GuiKind kind, 
     this->guiSyncText();
 }
 
-// Populates the popup buffers from a raw record (sized to the metadata plus
-// any extra values already present in the file, so nothing is lost).
 static void guiPopulateBuffers(GuiPopupState &popup, const TriggerTypeDef *def)
 {
     popup.unitNameBuf[0] = '\0';
@@ -3028,8 +2736,6 @@ void TriggerEditor::openGuiPopup(GuiKind kind, int triggerIndex, int entryIndex,
     this->guiPopup.editing = (entryIndex >= 0);
     this->guiPopup.triggerIndex = triggerIndex;
     this->guiPopup.entryIndex = entryIndex;
-    // Only an add uses the insertion position: -1 keeps the default of
-    // appending the new entry at the end of the list.
     this->guiPopup.insertIndex = this->guiPopup.editing ? -1 : insertIndex;
     this->guiPopup.search[0] = '\0';
     this->guiPopup.selectedType.clear();
@@ -3055,9 +2761,6 @@ void TriggerEditor::openGuiPopup(GuiKind kind, int triggerIndex, int entryIndex,
         this->guiPopup.entryIndex = -1;
     }
 
-    // Adding right below an existing row keeps that row's group (and/or,
-    // then/else), so a new condition next to an "or" one or a new action next
-    // to an "else" one stays in the same branch of the list.
     if (this->guiPopup.insertIndex >= 0
         && triggerIndex >= 0 && triggerIndex < (int)this->guiTriggers.size())
     {
@@ -3094,9 +2797,6 @@ void TriggerEditor::commitGuiPopup()
     };
     setScalar("unitName", this->guiPopup.unitNameBuf);
     setScalar("text", this->guiPopup.textBuf);
-    // Keep explicit zeros when the original record carried the field (the
-    // engine treats a missing scalar as 0 anyway, but don't drop what the
-    // file already had); otherwise omit clean empty defaults.
     if (this->guiPopup.intValueBuf != 0 || raw.contains("integerValue"))
         raw["integerValue"] = this->guiPopup.intValueBuf;
     else
@@ -3163,8 +2863,6 @@ void TriggerEditor::commitGuiPopup()
             list[this->guiPopup.entryIndex] = e;
         else
         {
-            // Adds opened from a row's context menu go right below that row;
-            // plain adds (the "+" buttons) append at the bottom of the list.
             int insertAt = this->guiPopup.insertIndex;
             if (insertAt < 0 || insertAt > (int)list.size())
                 insertAt = (int)list.size();
@@ -3176,8 +2874,6 @@ void TriggerEditor::commitGuiPopup()
     this->guiSyncText();
 }
 
-// Opens the small comment editor for a new comment row (entryIndex < 0, placed
-// at insertIndex) or for an existing one (entryIndex >= 0).
 void TriggerEditor::guiOpenCommentPopup(GuiKind kind, int triggerIndex, int entryIndex, int insertIndex)
 {
     this->guiCommentPopupOpen = true;
@@ -3209,7 +2905,6 @@ void TriggerEditor::commitGuiCommentPopup()
     std::vector<GuiEntry> &list = this->guiEntryList(this->guiCommentKind,
                                                      this->guiTriggers[this->guiCommentTriggerIndex]);
 
-    // One comment row is one YAML line: line breaks become spaces.
     std::string text = this->guiCommentBuf;
     std::replace(text.begin(), text.end(), '\r', ' ');
     std::replace(text.begin(), text.end(), '\n', ' ');
@@ -3228,7 +2923,6 @@ void TriggerEditor::commitGuiCommentPopup()
         int insertAt = this->guiCommentInsertIndex;
         if (insertAt < 0 || insertAt > (int)list.size())
             insertAt = (int)list.size();
-        // The new row joins the branch (and/or, then/else) of the row above it.
         int reference = insertAt - 1;
         if (reference >= 0 && reference < (int)list.size())
             entry.group = list[reference].group;
@@ -3305,10 +2999,6 @@ void TriggerEditor::renderGuiPopup()
     }
     std::string caption = std::string(this->guiPopup.editing ? "Edit " : "Add ") + kindLabel;
 
-    // Popup height is driven by the content measured on the previous frame
-    // (everything above the params child + its computed height + the
-    // Save/Cancel bar). With that fit, the popup itself never scrolls and
-    // Save/Cancel always stay on screen.
     const ImGuiStyle &style = ImGui::GetStyle();
     float textH = ImGui::GetTextLineHeight();
     float inputH = ImGui::GetFrameHeight();
@@ -3316,8 +3006,6 @@ void TriggerEditor::renderGuiPopup()
     float padY = style.WindowPadding.y * 2.f;
     float listRowH = textH + sp;
 
-    // Available height for the params child: viewport minus header rows
-    // (measured last frame) minus the Save/Cancel bar and paddings.
     float saveBarH = inputH;
     float paramsAvail = this->viewportH * 0.97f
                         - this->guiPopup.fixedBodyH
@@ -3341,7 +3029,6 @@ void TriggerEditor::renderGuiPopup()
 
         const std::vector<TriggerTypeDef> &defs = this->guiDefs(this->guiPopup.kind);
 
-        // ---- searchable lookup (stretches to the popup width) ----
         ImGui::SetNextItemWidth(-FLT_MIN);
         ImGui::InputTextWithHint("##gui-search", "Search type...",
                                  this->guiPopup.search, sizeof(this->guiPopup.search));
@@ -3349,8 +3036,6 @@ void TriggerEditor::renderGuiPopup()
         std::string filter = this->guiPopup.search;
         boost::to_lower(filter);
 
-        // Show at most 6 types at a time (minimum 3 rows); longer lists
-        // scroll inside this child so the popup itself never scrolls.
         int visibleCount = 0;
         for (const auto &def : defs)
         {
@@ -3379,7 +3064,6 @@ void TriggerEditor::renderGuiPopup()
                 this->guiPopup.selectedType = def.key;
                 if (typeChanged && !this->guiPopup.editing)
                 {
-                    // Fresh entry: reset the buffers for the new type.
                     this->guiPopup.draft = GuiEntry();
                     this->guiPopup.draft.raw = json::object();
                     guiPopulateBuffers(this->guiPopup, &def);
@@ -3388,7 +3072,6 @@ void TriggerEditor::renderGuiPopup()
         }
         ImGui::EndChild();
 
-        // ---- parameter editors for the selected type ----
         const TriggerTypeDef *def = guiFindDef(defs, this->guiPopup.selectedType);
         if (def != nullptr)
         {
@@ -3398,13 +3081,10 @@ void TriggerEditor::renderGuiPopup()
             ImGui::PopStyleColor();
             ImGui::Separator();
 
-            // Body height so far (header rows above the params child) is
-            // used by the next frame to compute the popup size.
             this->guiPopup.fixedBodyH = ImGui::GetCursorPosY() + style.WindowPadding.y;
 
             ImGui::BeginChild("##gui-params", ImVec2(0, paramsH), true);
 
-            // Group selector for conditions (and/or) and actions (then/else).
             if (this->guiPopup.kind == GuiKind::Condition)
             {
                 ImGui::TextUnformatted("Group");
@@ -3430,7 +3110,6 @@ void TriggerEditor::renderGuiPopup()
                 return label;
             };
 
-            // Scalars first (unitName / text / integerValue / floatValue).
             for (const auto &p : def->params)
             {
                 if (p.index >= 0)
@@ -3447,7 +3126,6 @@ void TriggerEditor::renderGuiPopup()
                 ImGui::PopID();
             }
 
-            // Array rows (strings / integers / floats / booleans).
             const auto arrayRows = [&](const std::string &field, int &maxIndex) -> int
             {
                 maxIndex = -1;
@@ -3469,8 +3147,6 @@ void TriggerEditor::renderGuiPopup()
                     for (const auto &p : def->params)
                         if (p.field == "strings" && p.index == i)
                             label = p.label;
-                    // ImGui has no built-in std::string input; round-trip
-                    // through a local char buffer each frame.
                     char buf[512];
                     std::strncpy(buf, this->guiPopup.stringsBuf[i].c_str(), sizeof(buf) - 1);
                     buf[sizeof(buf) - 1] = '\0';
@@ -3529,8 +3205,6 @@ void TriggerEditor::renderGuiPopup()
                     for (const auto &p : def->params)
                         if (p.field == "booleans" && p.index == i)
                             label = p.label;
-                    // std::vector<bool> stores bits (proxy references), so
-                    // edit through a local bool and write it back on change.
                     bool value = this->guiPopup.boolsBuf[i];
                     if (ImGui::Checkbox(label.c_str(), &value))
                         this->guiPopup.boolsBuf[i] = value;
@@ -3559,16 +3233,7 @@ void TriggerEditor::renderGuiPopup()
         }
 
         ImGui::Separator();
-        // Enter only saves while no field is focused, so typing a value never
-        // commits it by accident. Escape always cancels, exactly like the
-        // Cancel button, even when a text field is being edited: the screen is
-        // a modal dialog and the user expects ESC to leave it from anywhere
-        // (the first ESC used to be swallowed by the focused input, which
-        // looked like the key did nothing).
         bool typing = ImGui::IsAnyItemActive();
-        // ImGui 1.85 (the vendored one) still uses IsKeyPressed(user_key_index),
-        // so the named key has to go through GetKeyIndex(); passing ImGuiKey_Escape
-        // directly read an unrelated slot of io.KeysDown and never saw Escape.
         const bool escapePressed = ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Escape));
         bool saveClicked = ImGui::Button("Save", ImVec2(110.f * scale, 0))
                            || (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter))
@@ -3594,14 +3259,6 @@ void TriggerEditor::renderGuiPopup()
     ImGui::PopStyleVar();
 }
 
-// ---------------------------------------------------------------------------
-// Misc tab: generic editor for the non-trigger top-level fields
-// ---------------------------------------------------------------------------
-// The trigger file can carry several other sections next to the "trigger"
-// array (item-drop, item-drop-list, environments-drop, environments-drop-hit,
-// player-characters, config, exit, procedural-*, quest-*, unit-spawn, musics,
-// screen-background, ...). The Misc tab edits all of them through a generic
-// type-driven form, so any present (or future) field is handled.
 
 void TriggerEditor::renderGuiMiscEditor()
 {
@@ -3660,8 +3317,6 @@ void TriggerEditor::renderGuiMiscEditor()
         this->guiSyncText();
 }
 
-// Generic value editor: renders an ImGui control matching the JSON type and
-// writes changes back to `value`. Returns true when the value changed.
 bool TriggerEditor::guiMiscEditValue(json &value)
 {
     if (value.is_string())
@@ -3732,8 +3387,6 @@ bool TriggerEditor::guiMiscEditArray(json &value)
     for (int i = 0; i < (int)value.size(); ++i)
     {
         ImGui::PushID(("a" + std::to_string(i)).c_str());
-        // The remove button comes FIRST: the row editor (which stretches to
-        // the right edge) would otherwise push it off-screen.
         if (ImGui::SmallButton("-"))
             removeIndex = i;
         ImGui::SameLine();
@@ -3742,7 +3395,6 @@ bool TriggerEditor::guiMiscEditArray(json &value)
         bool valueWrapper = item.is_object() && item.size() == 1 && item.contains("value");
         if (valueWrapper)
         {
-            // { "value": ... } - the common list shape (drops, unit-spawn, ...).
             ImGui::TextUnformatted("value");
             ImGui::SameLine(70.f * this->imguiScale);
             changed |= this->guiMiscEditValue(item["value"]);
@@ -3806,8 +3458,6 @@ void TriggerEditor::guiMiscAddArrayElement(json &value)
         return;
     }
 
-    // Clone the shape of the first element so the new row matches the list
-    // (e.g. { "value": ... } or { "chance": N, "drops": [...] }).
     std::function<json(const json &)> cloneShape = [&](const json &from) -> json
     {
         if (from.is_string())
@@ -3844,8 +3494,6 @@ void TriggerEditor::guiMiscAddArrayElement(json &value)
     }
 }
 
-// Height a group memo needs to show every row without a scrollbar: the rows
-// plus the spacing between them, plus the panel padding and border.
 static float guiGroupContentHeight(const std::vector<GuiEntry> &entries)
 {
     ImGuiStyle &style = ImGui::GetStyle();
@@ -3858,14 +3506,11 @@ static float guiGroupContentHeight(const std::vector<GuiEntry> &entries)
          + padding;
 }
 
-// Payload of the row drag & drop of the visual editor. The kind makes a row
-// accept drops only from its own list (events, conditions or actions), so an
-// action can never land in the conditions memo.
 static const char *GUI_ENTRY_PAYLOAD = "TRIGGER-GUI-ENTRY";
 struct GuiDropPayload
 {
-    int kind = 0;   // GuiKind of the dragged list
-    int index = 0;  // row index inside that list
+    int kind = 0;
+    int index = 0;
 };
 
 void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
@@ -3889,12 +3534,6 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
         case GuiKind::Action:    hideMemo = this->guiHideActions;    break;
     }
 
-    // Collapse toggle (arrow) right after the title: "v" expands, ">" shows
-    // the panel is collapsed. Every memo keeps its own toggle, and the count
-    // of entries stays visible even when the list is hidden.
-    // The ## suffix gives each toggle a unique ImGui ID: a shared label ("v"/
-    // ">") made all three buttons collide on the same ID and the click acted
-    // on the wrong memo (conditions only worked after events was clicked).
     std::string toggleId = hideMemo ? ">##expand-" : "v##collapse-";
     toggleId += title;
     if (ImGui::SmallButton(toggleId.c_str()))
@@ -3913,10 +3552,6 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
     ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
     ImGui::TextUnformatted((std::string(title) + "  (" + toStr((int)entries.size()) + ")").c_str());
     ImGui::PopStyleColor();
-    // Compact square "+" button in the corner of each group list (the previous
-    // "+Events"/"+Conditions" labels were wider than the right margin, so the
-    // button ran past the panel edge and was clipped - you could not see its
-    // full extent).
     float addButtonSize = 30.f * scale;
     ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - addButtonSize);
     if (ImGui::Button(("+##add-" + std::string(title)).c_str(), ImVec2(addButtonSize, addButtonSize)))
@@ -3924,22 +3559,13 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Add %s", title);
 
-    // The memo panels can be hidden through the toolbar toggle (all) or
-    // through the arrow button in each group header (one at a time).
     if (this->guiHideMemos || hideMemo)
     {
         ImGui::Separator();
         return;
     }
 
-    // The memo is always exactly as tall as its content: every row is visible
-    // without an internal scrollbar (the user asked for no scrolling inside
-    // the memos). When all three lists together exceed the available space,
-    // the parent panel's own scrollbar keeps everything reachable.
 
-    // The list Paste item is shared by the two ways of pasting: right
-    // click on the empty area of the list (window popup below) and right click
-    // on the "No ... yet." placeholder of an empty list (item popup).
     const auto pasteMenuItem = [&]()
     {
         if (ImGui::MenuItem("Paste", "Ctrl+V", false,
@@ -3955,8 +3581,6 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
         ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
         ImGui::TextWrapped("No %s yet.", title);
         ImGui::PopStyleColor();
-        // An empty memo is only as tall as this line, so the whole component is
-        // that item: it gets the Paste menu itself.
         if (ImGui::BeginPopupContextItem("##gui-list-empty-ctx"))
         {
             pasteMenuItem();
@@ -3970,9 +3594,6 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
             GuiEntry &entry = entries[i];
             ImGui::PushID((title + std::to_string(i)).c_str());
 
-            // Two row kinds exist besides the live declarations: a comment row
-            // ("# ..." line, no declaration) and a disabled declaration
-            // (written commented out in the YAML, so the engine skips it).
             std::string desc;
             std::string badge;
             std::string values;
@@ -3992,10 +3613,6 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
                     badge += "  [OR]";
                 else if (kind == GuiKind::Action && entry.group == 1)
                     badge += "  [ELSE]";
-                // Parameter values are drawn right after the description (via
-                // the draw list so the Selectable still spans the whole row for
-                // clicks and the context menu). Long summaries are clipped at
-                // the list edge; the tooltip shows the full type + values.
                 values = this->guiEntryValues(kind, entry);
             }
 
@@ -4019,15 +3636,11 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
             if (dimmed)
                 ImGui::PopStyleColor();
 
-            // Rect of the row, used to place the values text and to know which
-            // half of the row the mouse is over while dropping another row.
             ImVec2 rowMax = ImGui::GetItemRectMax();
             if (!values.empty())
             {
                 ImDrawList *drawList = ImGui::GetWindowDrawList();
                 float descW = ImGui::CalcTextSize((desc + badge).c_str()).x;
-                // Vertically aligned with the Selectable text (which starts at
-                // the row top, not at FramePadding.y).
                 ImVec2 valuesPos(rowMin.x + descW + 12.f * scale, rowMin.y);
                 drawList->AddText(valuesPos, colorKeyword(entry.disabled ? 0.55f : 1.0f),
                                   values.c_str());
@@ -4043,10 +3656,6 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
                 ImGui::SetTooltip("%s", tooltip.c_str());
             }
 
-            // ---- drag & drop reordering ----
-            // Grab a row and drop it on another row of the same list: the entry
-            // moves above or below the hovered row depending on which half of
-            // it the mouse is over, with a yellow line previewing the spot.
             if (ImGui::BeginDragDropSource())
             {
                 GuiDropPayload payload;
@@ -4060,9 +3669,6 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
             bool dropBefore = false;
             if (ImGui::BeginDragDropTarget())
             {
-                // AcceptBeforeDelivery lets the drop line be drawn while the
-                // mouse still hovers the row; the move itself only runs on
-                // release (IsDelivery).
                 if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload(
                         GUI_ENTRY_PAYLOAD, ImGuiDragDropFlags_AcceptBeforeDelivery))
                 {
@@ -4086,21 +3692,15 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
                 }
                 ImGui::EndDragDropTarget();
             }
-            // Applied after the drop target ended. The row reference is not
-            // touched anymore, so the vector reordering below is safe.
             if (dropFrom >= 0 && dropFrom != i)
                 this->guiDropEntry(entries, dropFrom, i, dropBefore);
 
             if (ImGui::BeginPopupContextItem())
             {
-                // Insert a new entry right below the clicked row (the "+"
-                // buttons at the top of each memo still append at the end).
                 if (!entry.isComment && ImGui::MenuItem("Add"))
                     this->openGuiPopup(kind, this->guiTriggerIndex, -1, i + 1);
                 if (!entry.isComment)
                 {
-                    // Comments the declaration out in the YAML (or restores
-                    // it): the engine stops / starts reading that entry.
                     if (ImGui::MenuItem(entry.disabled ? "Enable" : "Disable",
                                         entry.disabled ? "(off)" : "(on)"))
                     {
@@ -4110,8 +3710,6 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
                 }
                 if (entry.isComment && ImGui::MenuItem("Edit comment"))
                     this->guiOpenCommentPopup(kind, this->guiTriggerIndex, i);
-                // New comment row right below the clicked one; it behaves like
-                // any other row (draggable, movable, deletable).
                 if (ImGui::MenuItem("Add comment"))
                     this->guiOpenCommentPopup(kind, this->guiTriggerIndex, -1, i + 1);
                 ImGui::Separator();
@@ -4135,9 +3733,6 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
         }
     }
 
-    // Empty area of the list: right-click pastes the copied entry at the end of
-    // the list. NoOpenOverItems keeps this popup from opening over a row, so
-    // the rows keep their own context menu (Add/Edit/Copy/Duplicate/Delete).
     bool listHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows);
     bool listFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
     if (ImGui::BeginPopupContextWindow("##gui-list-ctx",
@@ -4148,10 +3743,6 @@ void TriggerEditor::renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries)
     }
     ImGui::EndChild();
 
-    // Ctrl+V pastes the last copied entry at the end of the list under the mouse
-    // pointer (or of the focused list), matching the list's Paste menu item.
-    // Text inputs and popups keep their own Ctrl+V, so the shortcut only fires
-    // while a list is hovered/focused and nothing else is being typed/opened.
     const bool anyPopupOpen = ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopup);
     if (!anyPopupOpen && (listHovered || listFocused) && !ImGui::GetIO().WantTextInput &&
         ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_V)))
@@ -4169,12 +3760,9 @@ void TriggerEditor::renderGuiEditor()
     if (this->guiTriggerIndex < 0 || this->guiTriggerIndex >= (int)this->guiTriggers.size())
         this->guiTriggerIndex = 0;
 
-    // ---- trigger block selector ----
     ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
     ImGui::TextUnformatted("Trigger block");
     ImGui::PopStyleColor();
-    // The block keeps "Trigger N" unless the user named it; the name is a
-    // visual label only (the engine ignores it).
     const auto blockLabel = [this](int index) -> std::string
     {
         const std::string &name = this->guiTriggers[index].name;
@@ -4186,7 +3774,6 @@ void TriggerEditor::renderGuiEditor()
     {
         for (int i = 0; i < (int)this->guiTriggers.size(); ++i)
         {
-            // Distinct IDs: two blocks may share a name.
             ImGui::PushID(i);
             if (ImGui::Selectable(blockLabel(i).c_str(), i == this->guiTriggerIndex))
                 this->guiTriggerIndex = i;
@@ -4223,9 +3810,6 @@ void TriggerEditor::renderGuiEditor()
         ImGui::PopStyleColor();
     }
 
-    // ---- header: one square "+" button per group (tooltip on hover). The
-    // old "+ Add Event"/"+ Add Condition"/"+ Add Action" labels were wider
-    // than the panel on low resolutions and ran past the screen edge. ----
     ImGui::Spacing();
     if (ImGui::Button("+##add-event", ImVec2(30.f * scale, 30.f * scale)))
         this->openGuiPopup(GuiKind::Event, this->guiTriggerIndex, -1);
@@ -4242,7 +3826,6 @@ void TriggerEditor::renderGuiEditor()
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Add Action");
 
-    // Toggle that hides every memo panel (events, conditions and actions).
     ImGui::SameLine();
     if (ImGui::Button(this->guiHideMemos ? "Show memos" : "Hide memos",
                       ImVec2(0, 30.f * scale)))
@@ -4255,13 +3838,10 @@ void TriggerEditor::renderGuiEditor()
 
     GuiTrigger &trigger = this->guiTriggers[this->guiTriggerIndex];
 
-    // ---- memos: each one is exactly as tall as its content (no scrolling
-    // inside the memos); the panel's own scrollbar handles overflow. ----
     this->renderGuiGroup(GuiKind::Event, trigger.events);
     this->renderGuiGroup(GuiKind::Condition, trigger.conditions);
     this->renderGuiGroup(GuiKind::Action, trigger.actions);
 
-    // ---- remove block confirmation ----
     if (this->guiDeleteBlockOpen)
     {
         ImGui::OpenPopup("##trigger-gui-delblock");
@@ -4294,19 +3874,13 @@ void TriggerEditor::renderGuiEditor()
         }
     }
 
-    // ---- add/edit entry popup (searchable lookup + parameter editors) ----
     this->renderGuiPopup();
 
-    // ---- add/edit comment row popup ----
     this->renderGuiCommentPopup();
 
-    // ---- trigger block name popup ----
     this->renderGuiNamePopup();
 }
 
-// Popup that edits the optional name of the selected trigger block. The name
-// is written as "name:" in the block (so it survives reopening the file) but
-// is never read by the engine: it only changes the label in this editor.
 void TriggerEditor::renderGuiNamePopup()
 {
     float scale = this->imguiScale;
@@ -4370,9 +3944,6 @@ void TriggerEditor::renderGuiNamePopup()
     ImGui::EndPopup();
 }
 
-// ---------------------------------------------------------------------------
-// Map select stage
-// ---------------------------------------------------------------------------
 
 void TriggerEditor::renderMapSelect()
 {
@@ -4399,7 +3970,6 @@ void TriggerEditor::renderMapSelect()
 
     ImGui::Separator();
 
-    // ---- map list (left) ----
     ImGui::BeginChild("##trigger-map-list", ImVec2(380.f * scale, 0), true);
     ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
     ImGui::TextUnformatted("Maps");
@@ -4424,9 +3994,6 @@ void TriggerEditor::renderMapSelect()
         }
     }
 
-    // ---- documents outside data/maps (interactions / cutscenes) ----
-    // These folders hold trigger documents as well, so they are opened here
-    // without going through a map (and without touching any map file).
     bool hasExtraFiles = false;
     for (const auto &source : this->sources)
         if (!source.editable && !source.files.empty())
@@ -4446,8 +4013,6 @@ void TriggerEditor::renderMapSelect()
             if (this->sources[index].editable)
                 continue;
 
-            // Copies: opening a file rescans its folder and would invalidate
-            // the iterators of the loop below.
             const std::string ref = this->sources[index].ref;
             const std::vector<std::string> files = this->sources[index].files;
 
@@ -4465,7 +4030,6 @@ void TriggerEditor::renderMapSelect()
 
     ImGui::SameLine();
 
-    // ---- details (right) ----
     ImGui::BeginChild("##trigger-map-info", ImVec2(0, 0), true);
     ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
     ImGui::TextUnformatted("Select a map");
@@ -4493,9 +4057,6 @@ void TriggerEditor::renderMapSelect()
     ImGui::EndChild();
 }
 
-// ---------------------------------------------------------------------------
-// Dialogs
-// ---------------------------------------------------------------------------
 
 void TriggerEditor::renderErrorPopup()
 {
@@ -4538,9 +4099,6 @@ void TriggerEditor::renderErrorPopup()
     ImGui::PopFont();
 }
 
-// ---------------------------------------------------------------------------
-// update / frame
-// ---------------------------------------------------------------------------
 
 bool TriggerEditor::update(float timer)
 {
@@ -4573,9 +4131,6 @@ bool TriggerEditor::updateImpl()
     ImVec2 displaySize = ImGui::GetIO().DisplaySize;
     this->viewportW = std::max(1.f, displaySize.x);
     this->viewportH = std::max(1.f, displaySize.y);
-    // The UI scale is relative to the game's configured resolution width
-    // (designWidth), so the editor looks exactly like it did when Grimsolf
-    // forced a 1920x1080 window around it.
     this->imguiScale = std::max(0.5f, std::min(3.0f, this->viewportW / this->designWidth));
 
     ImGui::PushFont(this->fontNormal);
@@ -4608,7 +4163,6 @@ bool TriggerEditor::updateImpl()
     }
     else
     {
-        // ---- editor layout ----
         ImGui::PushFont(this->fontBig);
         ImGui::TextUnformatted("Trigger Editor");
         ImGui::PopFont();
@@ -4625,9 +4179,6 @@ bool TriggerEditor::updateImpl()
 
         ImGui::SameLine();
 
-        // Mouse wheel scrolls the main area in the Visual/Misc tabs. In the
-        // JSON tab the code editor widget handles its own wheel, so the panel
-        // keeps NoScrollWithMouse there to avoid double-scrolling.
         ImGuiWindowFlags rightPanelFlags = ImGuiWindowFlags_AlwaysVerticalScrollbar;
         if (this->guiTab == GuiTab::Json)
             rightPanelFlags |= ImGuiWindowFlags_NoScrollWithMouse;
@@ -4636,7 +4187,6 @@ bool TriggerEditor::updateImpl()
         ImGui::EndChild();
     }
 
-    // ---- create trigger popup ----
     if (this->createPopupOpen)
     {
         ImGui::OpenPopup("##trigger-create");
@@ -4661,10 +4211,6 @@ bool TriggerEditor::updateImpl()
             if (ImGui::Button("Create", ImVec2(110.f * this->imguiScale, 0))
                 || ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_Enter)))
             {
-                // Validate inline so an invalid/existing name keeps the popup
-                // open with the error message; only close when the file can
-                // actually be created (unsaved changes are confirmed through
-                // the discard popup by requestAction).
                 std::string trimmed = this->newFileName;
                 boost::trim(trimmed);
                 if (boost::iends_with(trimmed, ".yaml"))
@@ -4709,7 +4255,6 @@ bool TriggerEditor::updateImpl()
         }
     }
 
-    // ---- delete trigger popup ----
     if (this->deletePopupOpen)
     {
         ImGui::OpenPopup("##trigger-delete");
@@ -4749,7 +4294,6 @@ bool TriggerEditor::updateImpl()
         }
     }
 
-    // ---- discard (unsaved changes) popup ----
     if (this->discardPopupOpen)
     {
         ImGui::OpenPopup("##trigger-discard");

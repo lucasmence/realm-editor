@@ -10,16 +10,6 @@
 #include <algorithm>
 #include <boost/filesystem.hpp>
 
-// ---------------------------------------------------------------------------
-// SpriteFusion implementation.
-//
-// Merging rule (same as the duq-sprite-fusion web tool): images are stacked
-// vertically, left-aligned; the sheet width is the widest image and the
-// height is the sum of all heights. The "scale" percentage resizes the final
-// merged image (100 = 100%, default). Saving writes a PNG through
-// sf::Image::saveToFile (SFML supports PNG out of the box), keeping
-// transparency.
-// ---------------------------------------------------------------------------
 
 SpriteFusion::SpriteFusion(const std::string &gamePath, ImFont *fontNormal, ImFont *fontBig,
                            bool dropSupported)
@@ -29,15 +19,10 @@ SpriteFusion::SpriteFusion(const std::string &gamePath, ImFont *fontNormal, ImFo
     this->fontBig = fontBig;
     this->dropSupported = dropSupported;
 
-    // Labels of this tool are fixed in English on purpose: the tool belongs to
-    // realm-editor, which does not use Grimsolf's language files.
     json options = this->loadJsonFile(gamePath + "/data/options/options.json");
 
     this->refreshDirectory();
 
-    // Restore the last destination folder the user chose, persisted in
-    // data/options/options.json. Falls back to the root when the folder
-    // no longer exists (validated below; no persist here).
     if (options.is_object())
     {
         std::string savedFolder = options.value("misc-sprite-fusion-folder", "");
@@ -52,7 +37,6 @@ SpriteFusion::SpriteFusion(const std::string &gamePath, ImFont *fontNormal, ImFo
             }
             catch (...)
             {
-                // Invalid saved folder: keep the root.
             }
         }
     }
@@ -86,8 +70,6 @@ json SpriteFusion::loadJsonFile(const std::string &path) const
 
 void SpriteFusion::addLog(const std::string &text, unsigned int color)
 {
-    // Log entries arrive in packed colors; toGray keeps their brightness while
-    // fitting the active theme (light themes need dark text).
     const unsigned int themed = ImGui::ColorConvertFloat4ToU32(
         GrimsolfTheme::toGray(ImGui::ColorConvertU32ToFloat4(color)));
     this->logLines.push_back(LogLine{ text, themed });
@@ -96,8 +78,6 @@ void SpriteFusion::addLog(const std::string &text, unsigned int color)
     this->logDirty = true;
 }
 
-// Cheap PNG dimension read from the 24-byte header (same technique as
-// SpriteStudio::readPngSize in the game).
 bool SpriteFusion::readPngSize(const std::string &path, int &width, int &height) const
 {
     std::ifstream stream(path, std::ios::binary);
@@ -118,9 +98,6 @@ bool SpriteFusion::readPngSize(const std::string &path, int &width, int &height)
     return width > 0 && height > 0;
 }
 
-// ---------------------------------------------------------------------------
-// Browser (resources/sprites)
-// ---------------------------------------------------------------------------
 
 void SpriteFusion::refreshDirectory()
 {
@@ -167,7 +144,6 @@ void SpriteFusion::navigateTo(const std::string &path)
     }
     catch (...)
     {
-        // A failed navigation must never close the editor.
     }
 }
 
@@ -199,9 +175,6 @@ void SpriteFusion::addSelectedToStack()
     this->addToStack(this->selectedFile);
 }
 
-// ---------------------------------------------------------------------------
-// Stack helpers
-// ---------------------------------------------------------------------------
 
 void SpriteFusion::addToStack(const std::string &relative)
 {
@@ -214,9 +187,6 @@ void SpriteFusion::addExternalFiles(const std::vector<std::string> &paths)
         this->addImageFromPath(path);
 }
 
-// Shared image loader: used by the browser (relative to resources/sprites)
-// and by OS file drag & drop (absolute path). Only PNG files are accepted,
-// matching the duq-sprite-fusion web tool rule.
 void SpriteFusion::addImageFromPath(const std::string &fullPath)
 {
     std::string lower = fullPath;
@@ -305,9 +275,6 @@ void SpriteFusion::clearStack()
     this->addLog("[info] stack cleared", 0xFFD070FF);
 }
 
-// ---------------------------------------------------------------------------
-// Destination folder (subfolder of resources/sprites; "" = root)
-// ---------------------------------------------------------------------------
 
 void SpriteFusion::refreshSaveFolderList()
 {
@@ -326,7 +293,6 @@ void SpriteFusion::refreshSaveFolderList()
     }
     catch (...)
     {
-        // A failed refresh must never close the editor.
     }
 
     std::sort(this->saveFolderList.begin(), this->saveFolderList.end());
@@ -342,7 +308,7 @@ void SpriteFusion::setSaveFolder(const std::string &path)
             return;
 
         if (path == this->saveFolder)
-            return; // unchanged: nothing to persist
+            return;
 
         this->saveFolder = path;
         this->refreshSaveFolderList();
@@ -350,13 +316,9 @@ void SpriteFusion::setSaveFolder(const std::string &path)
     }
     catch (...)
     {
-        // A failed navigation must never close the editor.
     }
 }
 
-// Remembers the destination folder across sessions: writes the current
-// saveFolder into data/options/options.json (the same file the game reads for
-// its own options, so the key survives restarts of both).
 void SpriteFusion::persistSaveFolder()
 {
     try
@@ -377,7 +339,6 @@ void SpriteFusion::persistSaveFolder()
     }
     catch (...)
     {
-        // A failed persist must never break the editor.
     }
 }
 
@@ -412,7 +373,6 @@ void SpriteFusion::createSaveFolder()
                                       / "resources" / "sprites" / relative;
         if (boost::filesystem::exists(dir))
         {
-            // Already there: just navigate into it.
             this->addLog("[warn] folder already exists: " + relative, 0xFFD070FF);
             this->setSaveFolder(relative);
             return;
@@ -434,9 +394,6 @@ void SpriteFusion::createSaveFolder()
     }
 }
 
-// ---------------------------------------------------------------------------
-// Merge / save
-// ---------------------------------------------------------------------------
 
 void SpriteFusion::rebuildMerge()
 {
@@ -461,8 +418,6 @@ void SpriteFusion::rebuildMerge()
         totalHeight += (float)item.height;
     }
 
-    // ceil (not lround): the sprites are drawn at unrounded offsets, so
-    // rounding down could clip the last image's bottom row / right column.
     int outW = std::max(1, (int)std::ceil((float)maxWidth * factor));
     int outH = std::max(1, (int)std::ceil(totalHeight * factor));
 
@@ -475,7 +430,6 @@ void SpriteFusion::rebuildMerge()
 
     this->mergeTexture.clear(sf::Color::Transparent);
 
-    // Vertical stack, left-aligned, each image scaled by the same factor.
     float yOffset = 0.f;
     for (auto &item : this->stack)
     {
@@ -518,12 +472,9 @@ bool SpriteFusion::saveMerged()
         this->addLog("[error] inform a file name before saving", 0xFF6060FF);
         return false;
     }
-    // Remove a ".png" typed by the user; it is appended automatically.
     if (name.size() > 4 && name.compare(name.size() - 4, 4, ".png") == 0)
         name = name.substr(0, name.size() - 4);
 
-    // Destination folder (subfolder of resources/sprites chosen in the
-    // options panel; created here as a safety net if it went missing).
     std::string outPath = this->gamePath + "/resources/sprites";
     if (!this->saveFolder.empty())
         outPath += "/" + this->saveFolder;
@@ -553,9 +504,6 @@ bool SpriteFusion::saveMerged()
     return true;
 }
 
-// ---------------------------------------------------------------------------
-// Rendering
-// ---------------------------------------------------------------------------
 
 void SpriteFusion::renderBrowser()
 {
@@ -605,7 +553,6 @@ void SpriteFusion::renderBrowser()
         if (ImGui::Selectable(file.c_str(), selected))
             this->selectFile(relative);
 
-        // Double-click adds the image to the stack directly.
         if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
             this->addToStack(relative);
     }
@@ -669,12 +616,8 @@ void SpriteFusion::renderStack()
         ImGui::PushID(1000 + i);
         bool mutated = false;
 
-        // Whole row is one group: thumbnail, name/dimensions and the order
-        // buttons side by side. The group rect is also the drag&drop target,
-        // so dropping over any part of the row reorders relative to it.
         ImGui::BeginGroup();
         {
-            // Thumbnail (drag source: grab it to reorder).
             float thumbBox = 52.f * scale;
             float fit = std::min(thumbBox / (float)item.width,
                                  thumbBox / (float)item.height);
@@ -690,13 +633,11 @@ void SpriteFusion::renderStack()
 
             ImGui::SameLine();
 
-            // Name + dimensions.
             ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
             ImGui::TextUnformatted(item.name.c_str());
             ImGui::PopStyleColor();
             ImGui::TextDisabled("%dx%d px  #%d", item.width, item.height, i + 1);
 
-            // Order buttons, right-aligned.
             ImGui::SameLine();
             ImGui::SetCursorPosX(ImGui::GetCursorPosX()
                                  + std::max(0.f, ImGui::GetContentRegionAvail().x - 86.f * scale));
@@ -720,7 +661,6 @@ void SpriteFusion::renderStack()
         }
         ImGui::EndGroup();
 
-        // Row-wide drop target: drop reorders relative to this row.
         if (!mutated && ImGui::BeginDragDropTarget())
         {
             if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload("SPRITE-FUSION-ITEM"))
@@ -739,7 +679,6 @@ void SpriteFusion::renderStack()
 
         ImGui::PopID();
 
-        // Stack changed: indices shifted, redraw everything next frame.
         if (mutated)
             return;
     }
@@ -754,8 +693,6 @@ void SpriteFusion::renderOptions()
     ImGui::PopStyleColor();
     ImGui::Separator();
 
-    // Scale (default 100 = 100%). Changing it rebuilds the merge so the
-    // preview and the saved dimensions follow the new value immediately.
     ImGui::SetNextItemWidth(120 * scale);
     if (ImGui::InputInt("Scale (%)", &this->scalePercent, 1, 10))
     {
@@ -765,7 +702,6 @@ void SpriteFusion::renderOptions()
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("%s", "Resizes the merged image. 100 = 100% (default).");
 
-    // Output file name (saved as PNG into the destination folder).
     ImGui::SetNextItemWidth(220 * scale);
     ImGui::InputText("File name", this->outputName,
                      sizeof(this->outputName));
@@ -780,8 +716,6 @@ void SpriteFusion::renderOptions()
 
     ImGui::Spacing();
 
-    // Destination folder: browse the subfolders of resources/sprites. The
-    // current folder is the destination (".." goes up, single click enters).
     ImGui::PushStyleColor(ImGuiCol_Text, GrimsolfTheme::textColor());
     ImGui::TextUnformatted("Destination folder");
     ImGui::PopStyleColor();
@@ -826,7 +760,6 @@ void SpriteFusion::renderOptions()
     }
     ImGui::EndChild();
 
-    // New folder (created under the current destination folder).
     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 76 * scale);
     ImGui::InputTextWithHint("##sf-newfolder", "New folder",
                              this->newFolderName, sizeof(this->newFolderName));
@@ -836,7 +769,6 @@ void SpriteFusion::renderOptions()
 
     ImGui::Spacing();
 
-    // Output dimensions preview.
     if (this->mergeWidth > 0)
     {
         ImGui::TextDisabled("%s: %dx%d px", "merged size",
@@ -880,7 +812,6 @@ void SpriteFusion::renderPreview()
 
     if (this->mergeWidth > 0 && this->mergeHeight > 0)
     {
-        // Checkerboard background (transparency).
         ImVec2 base = ImGui::GetCursorScreenPos();
         ImDrawList *drawList = ImGui::GetWindowDrawList();
         const float tile = 12.f * scale;
@@ -896,10 +827,9 @@ void SpriteFusion::renderPreview()
                                         color);
             }
 
-        // Fit the merged image into the viewport, keeping aspect.
         float fit = std::min(availW / (float)this->mergeWidth,
                              availH / (float)this->mergeHeight);
-        fit = std::max(0.01f, std::min(fit, 8.f)); // upscale cap for tiny sheets
+        fit = std::max(0.01f, std::min(fit, 8.f));
         ImVec2 imgSize(std::max(1.f, (float)this->mergeWidth * fit),
                        std::max(1.f, (float)this->mergeHeight * fit));
         ImGui::SetCursorPos(ImVec2((availW - imgSize.x) * 0.5f, (availH - imgSize.y) * 0.5f));
@@ -943,9 +873,6 @@ void SpriteFusion::renderLog()
     ImGui::EndChild();
 }
 
-// ---------------------------------------------------------------------------
-// Main frame
-// ---------------------------------------------------------------------------
 
 bool SpriteFusion::update(float timer)
 {
@@ -980,7 +907,6 @@ bool SpriteFusion::update(float timer)
 
     bool leaveRequested = false;
 
-    // Title bar.
     {
         if (this->fontBig)
         {
@@ -1008,21 +934,18 @@ bool SpriteFusion::update(float timer)
     float stackW = 360 * this->imguiScale;
     float previewW = std::max(100.f, ImGui::GetContentRegionAvail().x - browserW - stackW - 20 * this->imguiScale);
 
-    // Browser (left)
     ImGui::BeginChild("##sf-browser", ImVec2(browserW, colsH), true);
     this->renderBrowser();
     ImGui::EndChild();
 
     ImGui::SameLine();
 
-    // Stack (middle)
     ImGui::BeginChild("##sf-stack", ImVec2(stackW, colsH), true);
     this->renderStack();
     ImGui::EndChild();
 
     ImGui::SameLine();
 
-    // Preview + options (right)
     ImGui::BeginChild("##sf-right", ImVec2(previewW, colsH), true);
     this->renderOptions();
     ImGui::Separator();
@@ -1031,7 +954,6 @@ bool SpriteFusion::update(float timer)
 
     ImGui::Separator();
 
-    // Log (bottom)
     ImGui::BeginChild("##sf-log-region", ImVec2(0, logH), true);
     this->renderLog();
     ImGui::EndChild();

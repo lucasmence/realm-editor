@@ -106,7 +106,6 @@ class Manager
 		bool welcomeActive;
 		sf::Clock deltaClock;
 		sf::Clock splashClock;
-		// Double click detection on the map (opens the properties popup).
 		sf::Clock clickClock;
 		sf::Time doubleClickPreviousTime;
 		sf::Vector2i doubleClickPreviousPosition;
@@ -119,7 +118,6 @@ class Manager
 		ImguiMiscData imguiMiscData;
 		ImguiDialogBoxData imguiDialogBoxData;
 		std::list<std::string> recentFiles;
-		// ImGui HUD theme selected in Options (one of GrimsolfTheme::names()).
 		std::string hudTheme;
 
 		Manager(bool noSplash = false, const std::string &gamePath = "");

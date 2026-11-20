@@ -113,9 +113,6 @@ bool Palette::loadPaletteItemList(std::list<std::string>& list, std::string fiel
         {
             if (model->sprite)
             {
-                // A sprite whose texture failed to load has a 0x0 bounds box;
-                // scaling by 64/0 would produce NaN and can crash the OpenGL
-                // driver, so only scale valid textures.
                 float previewWidth = model->sprite->getGlobalBounds().width;
                 float previewHeight = model->sprite->getGlobalBounds().height;
                 if (previewWidth > 0.f && previewHeight > 0.f)

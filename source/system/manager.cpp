@@ -28,9 +28,6 @@ Manager::Manager(bool noSplash, const std::string &gamePath)
     this->font = std::shared_ptr<sf::Font>(new sf::Font);
     this->font->loadFromFile(this->constant.fontFilePath);
     this->icon.loadFromFile("realm-editor.png");
-    // Skip the icon when it failed to load (0x0 image): setting an empty icon
-    // is useless and can crash on some platforms (e.g. an X server refusing a
-    // 0x0 pixmap).
     if (this->icon.getSize().x > 0 && this->icon.getSize().y > 0)
         this->window->setIcon(this->icon.getSize().x, this->icon.getSize().y, this->icon.getPixelsPtr());
 
@@ -61,13 +58,7 @@ Manager::Manager(bool noSplash, const std::string &gamePath)
 
     if (gamePath != "")
     {
-        // Launched by the game (Studio -> World Editor): open straight on the
-        // given game folder, skipping the "Select game folder" dialog.
         this->constant.gamePath = gamePath;
-        // Keep the maps folder configured in config.txt (last folder used or
-        // picked in Options); only fall back to data/maps/custom when no valid
-        // folder is saved, so the Open/Save dialogs don't always restart in
-        // /custom.
         std::string savedMapFolder = this->loadConfigMapFolder();
         if (!savedMapFolder.empty() && boost::filesystem::is_directory(savedMapFolder))
             this->constant.mapFolder = savedMapFolder;
@@ -82,8 +73,6 @@ Manager::Manager(bool noSplash, const std::string &gamePath)
     else if (!this->loadConfigTxt())
         this->choosePath(PathType::ptGamepath, "Select", "Select game folder", true, false);
 
-    // When launched as an in-game tool the splash screen is skipped entirely
-    // (loadGamepathAfter may have enabled it because no temp map exists).
     if (noSplash)
         this->splashActive = false;
 }
@@ -95,8 +84,6 @@ Manager::~Manager()
 
 void Manager::systemClose()
 {
-    // Persist the last used properties edit popup size/position even when the
-    // app is quit while the popup is still open.
     if (this->hud && this->hud->propertiesEditWindowConfigSet)
         this->saveConfigTxt();
 
@@ -174,9 +161,6 @@ bool Manager::update()
 
         this->imguiUpdate();
 
-        // Remember where every ImGui window was drawn this frame so the next
-        // frame's map actions can be kept out from under the panels (see
-        // Hud::isMouseOverImgui).
         if (this->hudLoaded)
             this->hud->updateImguiPanelRects();
     }	this->display();
@@ -200,9 +184,6 @@ bool Manager::imguiUpdate()
 {
     ImGui::SFML::Update(*this->window, deltaClock.restart());
 
-    // Restore the text colors of the active theme on every frame: some UI code
-    // pushes text colors and never pops them. The colors come from the theme
-    // (not hardcoded white) so the light theme keeps its dark text.
     ImGui::GetStyle().Colors[ImGuiCol_Text] = GrimsolfTheme::textColor();
     ImGui::GetStyle().Colors[ImGuiCol_TextDisabled] = GrimsolfTheme::textDisabledColor();
 
@@ -425,9 +406,6 @@ bool Manager::imguiUpdatePath()
     return true;
 }
 
-// ImGui HUD theme: persisted in the editor's own data/options/realm-editor.json
-// so the choice survives restarts. Falls back to Grimsolf when the file or key
-// is missing or holds an unknown name.
 bool Manager::loadHudTheme()
 {
     this->hudTheme = "Grimsolf";
@@ -476,7 +454,6 @@ bool Manager::loadGamepathAfter()
 
     this->map->newMap();
 
-    // Restore the HUD theme picked in Options (Grimsolf when nothing is saved).
     this->loadHudTheme();
 
     
@@ -492,7 +469,6 @@ bool Manager::loadGamepathAfter()
     if (this->splashActive)
         this->splashClock.restart();
 
-    // Startup hub: the closable Welcome window listing the most recent maps.
     this->welcomeActive = true;
 
     return true;
@@ -621,31 +597,18 @@ bool Manager::eventClick(sf::Event& event)
 {
     
     
-    // A mouse press over any ImGui window (menu bar, Tools/Palette panels,
-    // popups...) belongs to the UI and must never reach the map: otherwise an
-    // armed palette item could be spawned behind the panel. Hovering empty
-    // window space is not an "item", so IsAnyItemHovered() alone is not enough.
-    // WantCaptureMouse additionally covers presses while any popup/modal is
-    // open (confirm dialogs, file browser) or while an ImGui drag is active.
     if (ImGui::IsAnyItemHovered() || ImGui::GetIO().WantCaptureMouse || this->hud->isMouseOverImgui())
     {
-        // A click on the UI must never also edit the map: disarm any
-        // in-progress spawn/paint action so nothing gets placed behind the
-        // panels.
         this->hud->cancelMapActions();
         return true;
     }
 
-    // While the properties edit popup is open the map must not react to the
-    // mouse - clicks and typing belong to the popup until it is closed.
     if (this->hud->isPropertiesEditOpen())
     {
         this->hud->cancelMapActions();
         return true;
     }
 
-    // Two quick left clicks on the same spot count as a double click, which
-    // opens the properties popup of the object under the cursor.
     bool doubleClick = false;
     if (event.mouseButton.button == sf::Mouse::Left)
     {
@@ -660,7 +623,7 @@ bool Manager::eventClick(sf::Event& event)
             clickPosition.y - this->doubleClickPreviousPosition.y <= 6;
 
         if (doubleClick)
-            this->doubleClickArmed = false; // a third press starts a new pair
+            this->doubleClickArmed = false;
         else
         {
             this->doubleClickArmed = true;
@@ -671,15 +634,10 @@ bool Manager::eventClick(sf::Event& event)
 
     sf::Vector2f cursor = this->getMousePosition();
 
-    // Right click over a prop opens the "Move to Front"/"Move to Back"
-    // context popup. The click is consumed here so it does not also run the
-    // other right-click actions (delete while inserting, camera pan).
     if (event.mouseButton.button == sf::Mouse::Right && !this->hud->locked &&
         this->hud->openPropContextMenu(cursor, sf::Vector2i(event.mouseButton.x, event.mouseButton.y)))
         return true;
 
-    // Picking an object consumes the second click: treating it as an ordinary
-    // map click would, for instance, spawn a duplicate of the object.
     if (doubleClick && this->hud->selectItemDoubleClick(cursor))
         return true;
 
@@ -693,12 +651,9 @@ bool Manager::eventKey(sf::Event& event)
     if (this->hud->getCheckEditing())
         return false;
 
-    // While the properties edit popup is open no editor hotkey should run.
     if (this->hud->isPropertiesEditOpen())
         return true;
 
-    // While the map is locked only navigation/zoom/view keys and the lock
-    // toggle (K) work: every editing hotkey is ignored.
     if (this->hud->locked)
     {
         switch (event.key.code)
@@ -860,7 +815,6 @@ bool Manager::eventKey(sf::Event& event)
         }
         case (sf::Keyboard::K):
         {
-            // Toggle the map lock (read-only mode). See Hud::setLocked.
             this->hud->toggleLock();
             break;
         }
@@ -986,10 +940,6 @@ bool Manager::loadConstants()
 {
     json file = Json::loadFromFile("data/options/realm-editor.json");
 
-    // data/options/realm-editor.json missing from the working directory (e.g.
-    // the editor was double-clicked from the wrong folder). Defaults keep the
-    // editor usable instead of throwing on operator[]/value() below, which
-    // previously made the process die right after opening.
     if (file.is_null())
     {
         std::cerr << "realm-editor: data/options/realm-editor.json not found - run the editor from its own folder" << std::endl;
@@ -1079,8 +1029,6 @@ bool Manager::choosePath(PathType type, std::string confirmButtonName, std::stri
     this->filePathData = FilePathData{ type, confirmButtonName, dialogCaption, "", "", FileEntry{"", "", false}, getFolder, true, this->returnFiles(initialPath), cancelButtonVisible, false, {0}, boost::filesystem::absolute(initialPath).string()};
     if (type == PathType::ptSaveMap)
     {
-        // Start the filename input pre-filled with the current map name so the
-        // user can just press Save (instead of "nothing happens" on empty name).
         std::string suggested = this->map && !this->map->filename.empty()
             ? boost::filesystem::path(this->map->filename).filename().replace_extension("").string()
             : "map";
@@ -1116,9 +1064,6 @@ bool Manager::updatePathImgui()
                 this->filePathData.currentEntry = (this->filePathData.isFolder && entry.isFolder) || (!this->filePathData.isFolder && !entry.isFolder) ? entry : FileEntry{"", "", false};
                 bool isUpEntry = entry.isFolder && entry.name == "...";
 
-                // The "..." entry carries the parent directory of the CURRENT
-                // listing, so navigate from the tracked currentDirectory and
-                // not from the entry path itself.
                 std::string targetPath = isUpEntry
                     ? this->filePathData.currentDirectory
                     : entry.path;
@@ -1181,8 +1126,6 @@ bool Manager::updatePathImgui()
 
         if (ImGui::Button(this->filePathData.confirmButtonName.data(), ImVec2(btnWidth, btnHeight)))
         { 
-            // Fall back to the browsed directory when nothing is selected, so
-            // navigation alone never makes the confirm button do nothing.
             std::string selectedPath = this->filePathData.currentEntry.path;
             if (selectedPath.empty() || this->filePathData.currentEntry.name == "...")
                 selectedPath = this->filePathData.currentDirectory;
@@ -1282,8 +1225,6 @@ bool Manager::loadConfigTxt()
     this->constant.gamePath = localGamepath;
     this->constant.mapFolder = localMapFolder;
 
-    // Lines after the 4 fixed settings (gamePath, mapFolder, autoSaveSeconds,
-    // autoSaveMessage) are the recently opened map files (newest first).
     std::string skipAutoSaveSeconds, skipAutoSaveMessage;
     std::getline(file, skipAutoSaveSeconds);
     std::getline(file, skipAutoSaveMessage);
@@ -1298,9 +1239,6 @@ bool Manager::loadConfigTxt()
             this->recentFiles.push_back(recentLine);
     }
 
-    // config.txt can hold paths from another machine/OS (e.g. Linux paths on
-    // Windows). Only trust it when the folder actually exists; otherwise fall
-    // through to the "Select game folder" dialog instead of crashing.
     if (this->constant.gamePath != "" && boost::filesystem::is_directory(this->constant.gamePath))
     {
         if (this->constant.mapFolder.empty() || !boost::filesystem::is_directory(this->constant.mapFolder))
@@ -1328,8 +1266,6 @@ bool Manager::saveConfigTxt()
     for (auto& recent : this->recentFiles)
         file << "\n" << recent;
 
-    // Optional line holding the last size/position of the properties edit
-    // popup so it can be restored on the next session.
     if (this->hud && this->hud->propertiesEditWindowConfigSet)
         file << "\npropertiesEditWindow=" << this->hud->propertiesEditWindowPosX << ","
             << this->hud->propertiesEditWindowPosY << ","
@@ -1342,9 +1278,6 @@ bool Manager::saveConfigTxt()
 
 bool Manager::loadAutoSaveConfig(int& seconds, bool& message)
 {
-    // Lines 3 and 4 of config.txt hold the auto save interval (seconds) and
-    // whether the auto save notification is enabled. They are optional: older
-    // configs (or configs written by other machines) may not have them.
     std::ifstream file("config.txt");
 
     if (!file.is_open()) return false;
@@ -1383,8 +1316,6 @@ bool Manager::applyAutoSaveConfigFromFile()
 
 std::string Manager::loadConfigMapFolder()
 {
-    // Line 2 of config.txt holds the last maps folder used (or the one picked
-    // in Options). Returns "" when the file is missing or in an older format.
     std::ifstream file("config.txt");
     if (!file.is_open()) return "";
 
@@ -1399,9 +1330,6 @@ bool Manager::applyPropertiesEditWindowConfigFromFile()
 {
     if (!this->hud) return false;
 
-    // Optional "propertiesEditWindow=x,y,w,h" line in config.txt holds the
-    // last used size/position of the properties edit popup so it can be
-    // restored on the next session.
     std::ifstream file("config.txt");
     if (!file.is_open()) return false;
 
@@ -1428,7 +1356,7 @@ bool Manager::applyPropertiesEditWindowConfigFromFile()
             pos = comma + 1;
         }
         if (index != 4) return false;
-        if (numbers[2] < 50 || numbers[3] < 50) return false; // ignore tiny/stale sizes
+        if (numbers[2] < 50 || numbers[3] < 50) return false;
 
         this->hud->propertiesEditWindowPosX = numbers[0];
         this->hud->propertiesEditWindowPosY = numbers[1];
@@ -1443,7 +1371,6 @@ bool Manager::applyPropertiesEditWindowConfigFromFile()
 
 bool Manager::applyRecentFilesFromConfig()
 {
-    // Lines 5+ of config.txt are the recently opened map files (newest first).
     this->recentFiles.clear();
 
     std::ifstream file("config.txt");
@@ -1454,7 +1381,7 @@ bool Manager::applyRecentFilesFromConfig()
     while (std::getline(file, line) && (int)this->recentFiles.size() < 5)
     {
         index++;
-        if (index <= 4) continue; // gamePath, mapFolder, autoSaveSeconds, autoSaveMessage
+        if (index <= 4) continue;
         boost::algorithm::trim(line);
         if (!line.empty())
             if (boost::filesystem::is_regular_file(line)
@@ -1484,8 +1411,6 @@ std::list<std::string> Manager::loadFileLists(std::string directory, std::string
 {
     std::list<std::string> listFiles = this->loadFileFromDirectory(directory, "", subDirectory);
 
-    // The paths are assembled on Windows with backslashes; normalize to "/"
-    // so lookups like "characters/neutral/nibbos/adam" work on every OS.
     for (auto& file : listFiles)
         boost::algorithm::replace_all(file, "\\", "/");
 
@@ -1502,9 +1427,6 @@ std::list<std::string> Manager::loadFileFromDirectory(std::string directory, std
 
     std::list<std::string> listFiles = {};
 
-    // The folder may not exist (wrong game path, stale config.txt from another
-    // OS) or may be a regular file. Iterating it would throw filesystem_error
-    // and kill the editor, so bail out with an empty list instead.
     if (!boost::filesystem::is_directory(path))
         return {};
 
@@ -1516,9 +1438,6 @@ std::list<std::string> Manager::loadFileFromDirectory(std::string directory, std
             stringStreamName << entry.path().filename();
             std::string directory = this->getString(stringStreamDirectory.str()), name = this->getString(stringStreamName.str());
             boost::algorithm::replace_all(directory, "\\", "/");
-            // Accumulate the base path so nested folders keep their parent
-            // names (e.g. characters/neutral/nibbos/adam), instead of only the
-            // immediate folder name.
             std::list<std::string> subListFiles = this->loadFileFromDirectory(directory, base + name);
             if (subListFiles.size() > 0)
                 listFiles.insert(listFiles.end(), subListFiles.begin(), subListFiles.end());
@@ -1683,13 +1602,11 @@ bool Manager::imguiRenderWelcome()
     ImVec2 winPos = ImGui::GetWindowPos();
     ImVec2 winSize = ImGui::GetWindowSize();
 
-    // Accent bar on top, like the splash / about screens.
     drawList->AddRectFilled(
         ImVec2(winPos.x, winPos.y),
         ImVec2(winPos.x + winSize.x, winPos.y + 3.f),
         IM_COL32(235, 235, 235, 255));
 
-    // Close (X) button in the top-right corner.
     ImGui::SetCursorPos(ImVec2(winSize.x - 40.f, 10.f));
     if (ImGui::Button("X", ImVec2(28.f, 24.f)))
         this->welcomeActive = false;
@@ -1714,9 +1631,6 @@ bool Manager::imguiRenderWelcome()
     ImGui::TextWrapped("Welcome back! Open one of your recent maps or start a new one.");
     ImGui::PopStyleColor();
 
-    // List of the most recently opened maps (newest first, up to 5). The load
-    // is deferred until after the loop because Map::loadMap -> addRecentFile
-    // mutates recentFiles while it is being iterated.
     std::string openRequest = "";
 
     ImGui::SetCursorPosY(128.f);
@@ -1758,10 +1672,6 @@ bool Manager::imguiRenderWelcome()
     }
     ImGui::EndChild();
 
-    // Bottom action buttons. The standalone tools (Trigger Editor / Sprite
-    // Fusion) get their own row so the labels fit: each button spawns a
-    // second realm-editor process in that mode, exactly like the Tools menu,
-    // and the welcome popup stays open behind it.
     ImGui::SetCursorPos(ImVec2(12.f, winSize.y - 78.f));
     if (ImGui::Button("Trigger Editor", ImVec2(150.f, 30.f)))
         this->hud->launchTool("--trigger-editor");
@@ -1792,12 +1702,9 @@ bool Manager::imguiRenderWelcome()
     ImGui::PopStyleColor(2);
     ImGui::End();
 
-    // TEMP DEBUG HOOK: auto-open first recent file to exercise the click path
     if (std::getenv("REALM_AUTO_OPEN_RECENT") && !this->recentFiles.empty() && openRequest == "")
         openRequest = *this->recentFiles.begin();
 
-    // Load the selected map only now that recentFiles is no longer locked by
-    // the loop above (opening it re-adds the file to the recent list).
     if (openRequest != "")
     {
         this->welcomeActive = false;

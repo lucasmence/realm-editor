@@ -37,9 +37,6 @@ struct HistoryEntry
 	HistoryActionType type;
 	std::list<MapObjectUnit> objects;
 	std::string description;
-	// hatMove entries: the render-order state of the object before the move
-	// (priority, auto-priority and objects-list index) plus the direction, so
-	// undo restores the exact order and redo re-applies the move.
 	bool moveToFront;
 	int previousPriority;
 	int previousAutoPriority;
@@ -76,8 +73,6 @@ class Hud
 		bool itemSelected;
 		bool itemSelectedMove;
 
-		// Corner drag-resize of rectangle portals: the 4 handles are shown on
-		// the selected portal and can be held to drag its width/height.
 		bool portalResizeActive;
 		int portalResizeHandle;
 		sf::Vector2f portalResizeAnchor;
@@ -226,21 +221,11 @@ class Hud
 		bool showOptionsWindow;
 		bool showPropertiesEditWindow;
 
-		// Right-click prop context menu state: armed by a right click over a
-		// prop (Manager::eventClick -> Hud::openPropContextMenu) and shown by
-		// imguiRenderPropContextMenu, which draws the "Move to Front"/"Move
-		// to Back" popup at the click position.
 		bool showPropContextMenu;
-		// True once OpenPopup() has been issued for the current arming; reset
-		// on re-arm, on dismiss and when the popup closes itself, so the popup
-		// is opened exactly once per right click (opening it every frame would
-		// make it impossible to dismiss by clicking elsewhere).
 		bool propContextMenuOpened;
 		std::shared_ptr<Model> propContextMenuModel;
 		sf::Vector2i propContextMenuScreenPos;
 
-		// Last used size/position of the properties edit popup, restored on the
-		// next session from config.txt.
 		bool propertiesEditWindowConfigSet;
 		int propertiesEditWindowPosX;
 		int propertiesEditWindowPosY;
@@ -251,14 +236,8 @@ class Hud
 		bool showAboutWindow;
 		bool showTerrainLayers;
 
-		// Embedded tools ("Tools" menu): the trigger editor and sprite fusion
-		// are standalone modes of this same binary (--trigger-editor /
-		// --sprite-fusion). Opening them here spawns a SECOND realm-editor
-		// process (fire and forget); closing the tool exits only that process,
-		// so the map editor window, the open map and unsaved changes survive.
 		void launchTool(std::string toolFlag);
 
-		// Layer visibility toggles
 		bool showTerrain;
 		bool showProp;
 		bool showEnvironment;
@@ -288,9 +267,6 @@ class Hud
 
 	private:
 		
-		// Properties edit popup state: while the popup is open the fields above
-		// can be changed freely, but if it closes without pressing OK the edits
-		// are discarded by reloading the values from the selected object.
 		bool propertiesEditDirty;
 		void renderPropertyEditFields(bool readOnly);
 		void savePropertiesEditWindowConfig();
@@ -300,18 +276,9 @@ class Hud
 		std::vector<EditType> extraFieldTypes;
 		std::vector<int> extraFieldMaxValues;
 		std::vector<std::string> extraFieldOrigins;
-		// Radio-group options for etRadio fields ("label|value" entries),
-		// resolved from constants.json PORTAL-SFX-* keys when the field is set
-		// up so the sound list is defined in one place for both the game and
-		// the editor.
 		std::vector<std::string> extraFieldRadioOptions;
 		std::string formShapeSelected;
 
-		// Screen rectangles (in ImGui coordinates) of every ImGui window that
-		// floats over the map (menu bar, Tools/Palette panels, popups...),
-		// recorded each frame after the UI renders. Used to keep map actions
-		// from running underneath any of them even while a map drag is in
-		// progress (ImGui stops reporting hover/capture during such drags).
 		std::vector<sf::FloatRect> imguiPanelRects;
 };
 

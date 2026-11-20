@@ -8,53 +8,41 @@
 #ifndef TRIGGEREDITOR_HPP
 #define TRIGGEREDITOR_HPP
 
-struct ImVec2; // forward declaration (Dear ImGui), used by reference in method signatures
-struct ImFont; // forward declaration (Dear ImGui)
+struct ImVec2;
+struct ImFont;
 
-// ---------------------------------------------------------------------------
-// Visual (GUI) editing model
-//
-// A trigger file is a YAML document whose "trigger" list holds one or more
-// trigger blocks. Each block has events, conditions and actions. The GUI
-// editor edits those blocks through typed rows and regenerates the raw YAML
-// text on every change (the YAML tab stays in sync in real time).
-// ---------------------------------------------------------------------------
 
 enum class GuiKind { Event, Condition, Action };
 
 struct GuiEntry
 {
-    std::string type;  // type key, e.g. "unit-kill"
-    json raw;          // original record object (preserves unknown fields)
-    int group = 0;     // conditions: 0 = and, 1 = or ; actions: 0 = then, 1 = else
-    bool disabled = false;   // declaration is commented out in the YAML ("# - ...")
-    bool isComment = false;  // row is a free "# ..." comment line, not a declaration
-    std::string comment;     // text of the comment row (lines separated by '\n')
+    std::string type;
+    json raw;
+    int group = 0;
+    bool disabled = false;
+    bool isComment = false;
+    std::string comment;
 };
 
 struct GuiTrigger
 {
-    // Optional label of the block ("name:" in the YAML). It exists only for
-    // the visual editor: the engine does not read it, and an empty name keeps
-    // the default "Trigger N" label.
     std::string name;
     std::vector<GuiEntry> events;
     std::vector<GuiEntry> conditions;
     std::vector<GuiEntry> actions;
 };
 
-// State of the add/edit popup (searchable type lookup + parameter editors).
 struct GuiPopupState
 {
     bool open = false;
     GuiKind kind = GuiKind::Event;
-    bool editing = false;        // false = adding a new entry
-    int triggerIndex = 0;        // block being edited
-    int entryIndex = 0;          // index in its list (-1 when adding)
-    int insertIndex = -1;        // adding: insert at this index (-1 = append at the end)
-    char search[64] = "";        // lookup filter
-    std::string selectedType;    // type key currently selected
-    GuiEntry draft;              // working copy of the entry
+    bool editing = false;
+    int triggerIndex = 0;
+    int entryIndex = 0;
+    int insertIndex = -1;
+    char search[64] = "";
+    std::string selectedType;
+    GuiEntry draft;
     char unitNameBuf[256] = "";
     char textBuf[256] = "";
     int intValueBuf = 0;
@@ -65,116 +53,69 @@ struct GuiPopupState
     std::vector<float> floatsBuf;
     std::vector<bool> boolsBuf;
     std::string error;
-    float fixedBodyH = 0.f;      // height of everything above the params child
+    float fixedBodyH = 0.f;
 };
 
-// ---------------------------------------------------------------------------
-// Trigger Editor (realm-editor tool, launched by Grimsolf with --trigger-editor)
-//
-// ImGui tool that edits the trigger YAML files linked to a map
-// (<gamePath>/data/maps/<map>.json -> <gamePath>/data/maps/<dir>/trigger/<map>.yaml,
-// following the "script" field of the map's "trigger" array, e.g. meadows.yaml).
-//
-// Flow:
-//   1. Map select  - pick one of the maps under <gamePath>/data/maps/.
-//   2. Open/create - the editor resolves (or creates and links) the map's
-//                    main trigger file and opens it.
-//   3. Edit        - a YAML text editor with syntax highlighting, auto
-//                    indentation, a live YAML validity check and structure
-//                    warnings (unknown names get a "did you mean" hint), plus a
-//                    sidebar that lists the files of the browsable folder
-//                    selected there. The map's trigger folder comes first (the
-//                    main file can reference others through the "script"
-//                    entries of its own "trigger" array); the game's
-//                    interaction and cutscene folders are listed as well,
-//                    because their files are trigger documents too. New files
-//                    can be created and non-main files deleted inside the
-//                    map's trigger folder only.
-//
-// The whole UI is wrapped in a try/catch inside update() so an unexpected
-// exception is reported through a popup instead of killing the process
-// silently.
-//
-// update() returns true when the user asked to leave the editor (BACK button
-// or the map-select stage), which the host application (TriggerApp) turns into
-// closing the editor window so Grimsolf can restore its own window.
-// ---------------------------------------------------------------------------
 class TriggerEditor
 {
     public:
         TriggerEditor(const std::string &gamePath, ImFont *fontNormal, ImFont *fontBig);
         ~TriggerEditor();
 
-        // Renders the tool UI for one frame (Dear ImGui).
-        // Returns true when the user asked to leave the editor (close the
-        // realm-editor process). Never throws: exceptions from the internal
-        // implementation are caught and reported through the log popup.
         bool update(float timer);
 
     private:
         struct LogLine
         {
             std::string text;
-            unsigned int color; // packed IM_COL32
+            unsigned int color;
         };
 
         enum class Stage
         {
-            MapSelect,   // pick which map to edit triggers for
-            Editor       // trigger JSON editor for the selected map
+            MapSelect,
+            Editor
         };
 
-        std::string gamePath;       // game folder (data/maps, data/options, ...)
+        std::string gamePath;
         ImFont *fontNormal = nullptr;
         ImFont *fontBig = nullptr;
         float imguiScale = 1.f;
 
-        // UI scale baseline: the game's configured resolution width (read from
-        // <gamePath>/data/options/options.json). The editor UI was designed
-        // against it, so this keeps the old look regardless of the window size.
         float designWidth = 1920.f;
 
-        // ---- stage ----
         Stage stage = Stage::MapSelect;
 
-        // ---- map selection ----
-        std::vector<std::string> mapList;   // map refs relative to data/maps ("custom/meadows")
-        std::string selectedMap;            // map ref of the current session
-        std::string mapPath;                // "<gamePath>/data/maps/<ref>.json"
+        std::vector<std::string> mapList;
+        std::string selectedMap;
+        std::string mapPath;
 
-        // ---- trigger session (resolved once the map is chosen) ----
-        std::string triggerFolderRef;       // folder ref relative to data/maps ("custom/trigger")
-        std::string triggerFolderPath;      // "<gamePath>/data/maps/custom/trigger/"
-        std::string mainTriggerFile;        // filename of the map-linked trigger ("meadows.yaml")
+        std::string triggerFolderRef;
+        std::string triggerFolderPath;
+        std::string mainTriggerFile;
 
-        // ---- browsable folders (sidebar) ----
-        // The map's trigger folder is the first entry while a map session is
-        // open. The game folders that hold trigger documents too (interactions
-        // and cutscenes) follow, so the same visual editor can open them.
         struct BrowseSource
         {
-            std::string label;              // sidebar button label (fixed English)
-            std::string ref;                // folder relative to the game ("data/cutscenes")
-            std::string folder;             // full folder path, with a trailing '/'
-            bool editable = false;          // create/delete allowed (map trigger folder)
-            std::vector<std::string> files; // ".yaml" files, relative and '/'-separated
+            std::string label;
+            std::string ref;
+            std::string folder;
+            bool editable = false;
+            std::vector<std::string> files;
         };
 
         std::vector<BrowseSource> sources;
-        int sourceIndex = 0;                // folder currently listed in the sidebar
-        int currentFileSource = -1;         // folder owning the open file (-1 = none)
+        int sourceIndex = 0;
+        int currentFileSource = -1;
 
-        // ---- open file state ----
-        std::string currentFile;            // path inside its folder ("meadows.yaml", "nibbos/adam.yaml")
-        std::string currentFilePath;        // full path relative to the game folder
-        std::string text;                   // editor buffer (UTF-8)
-        bool dirty = false;                 // unsaved changes?
+        std::string currentFile;
+        std::string currentFilePath;
+        std::string text;
+        bool dirty = false;
         bool fileLoaded = false;
 
-        // ---- JSON text editor widget state ----
-        int cursorPos = 0;                  // byte offset in text
-        int selectionStart = -1;            // byte offset, -1 = no selection
-        float scrollX = 0.f;                // kept in sync with the child scrollbars
+        int cursorPos = 0;
+        int selectionStart = -1;
+        float scrollX = 0.f;
         float scrollY = 0.f;
         bool editorFocused = false;
         float caretTimer = 0.f;
@@ -182,49 +123,39 @@ class TriggerEditor
         std::vector<std::string> undoStack;
         std::vector<std::string> redoStack;
 
-        // ---- live JSON validation ----
         bool yamlValid = true;
         std::string parseError;
         int parseErrorLine = 0;
         int parseErrorCol = 0;
-        std::vector<std::string> syntaxWarnings; // structure / name warnings of the open file
+        std::vector<std::string> syntaxWarnings;
 
-        // ---- visual (GUI) mode ----
-        // Active editor tab: GUI edits the trigger blocks, Misc edits the
-        // other top-level fields (item-drop, environments-drop, ...), JSON is
-        // a read-only viewer of the current file text.
         enum class GuiTab { Visual, Json, Misc };
         GuiTab guiTab = GuiTab::Visual;
-        std::vector<GuiTrigger> guiTriggers; // trigger blocks of the open file
-        json guiRoot;                       // whole document (keeps item-drop, etc.)
-        int guiTriggerIndex = 0;            // selected block in the GUI
-        bool guiConvertible = true;         // last JSON -> GUI conversion succeeded
+        std::vector<GuiTrigger> guiTriggers;
+        json guiRoot;
+        int guiTriggerIndex = 0;
+        bool guiConvertible = true;
         std::string guiConvertError;
         GuiPopupState guiPopup;
-        bool guiDeleteBlockOpen = false;    // confirm removing the selected block
-        bool guiNamePopupOpen = false;      // edit the name of the selected block
-        char guiNameBuf[256] = "";          // working copy of that name
-        bool guiHideMemos = false;          // hide the event/condition/action list panels
-        bool guiHideEvents = false;         // hide the Events memo only
-        bool guiHideConditions = false;     // hide the Conditions memo only
-        bool guiHideActions = false;        // hide the Actions memo only
+        bool guiDeleteBlockOpen = false;
+        bool guiNamePopupOpen = false;
+        char guiNameBuf[256] = "";
+        bool guiHideMemos = false;
+        bool guiHideEvents = false;
+        bool guiHideConditions = false;
+        bool guiHideActions = false;
 
-        // ---- comment row popup (right-click -> Add comment / Edit comment) ----
         bool guiCommentPopupOpen = false;
         GuiKind guiCommentKind = GuiKind::Event;
         int guiCommentTriggerIndex = 0;
-        int guiCommentEntryIndex = -1;   // comment row being edited (-1 = adding)
-        int guiCommentInsertIndex = -1;  // adding: insert at this index (-1 = end)
+        int guiCommentEntryIndex = -1;
+        int guiCommentInsertIndex = -1;
         char guiCommentBuf[512] = "";
 
-        // ---- entry clipboard (Copy / Paste in the GUI lists) ----
-        // One entry at a time, scoped to its group: an event is never pasted
-        // into the condition or action list (and vice versa).
         bool guiClipboardValid = false;
         GuiKind guiClipboardKind = GuiKind::Event;
         GuiEntry guiClipboard;
 
-        // ---- per-frame editor layout (computed in renderEditor) ----
         float editorCharW = 8.f;
         float editorLineH = 20.f;
         float editorViewW = 0.f;
@@ -232,35 +163,29 @@ class TriggerEditor
         float editorGutterW = 40.f;
         int editorVisibleLines = 10;
 
-        // Current viewport size in pixels (set in updateImpl; used to size
-        // the registration popup and the GUI group lists relative to screen).
         float viewportW = 0.f;
         float viewportH = 0.f;
 
-        // ---- dialogs ----
         bool createPopupOpen = false;
         char newFileName[64] = "";
         std::string createError;
         bool deletePopupOpen = false;
         std::string deleteTarget;
-        bool discardPopupOpen = false;      // "unsaved changes" confirmation
-        std::string discardAction;          // "file:<name>" / "map" / "back"
+        bool discardPopupOpen = false;
+        std::string discardAction;
         std::string discardTarget;
-        bool pendingLeave = false;          // user asked to leave the editor
+        bool pendingLeave = false;
 
-        // ---- log / error popup ----
         std::vector<LogLine> logLines;
         bool logDirty = false;
         bool errorPopupOpen = false;
         std::vector<std::string> errorPopupLines;
         void showError(const std::string &text);
 
-        // ---- internals ----
         void addLog(const std::string &text, unsigned int color);
         bool updateImpl();
         void renderErrorPopup();
 
-        // map stage
         void refreshMapList();
         void selectMap(const std::string &ref);
         bool openMapSession(const std::string &ref);
@@ -268,53 +193,46 @@ class TriggerEditor
         std::string resolveMapScript(const json &mapJson) const;
         void resetSession();
 
-        // browsable folders
         void refreshSources();
         void refreshSourceFiles(int index);
         void switchSource(int index);
         void openFileInSource(int index, const std::string &filename);
-        void openSourceSession(int index, const std::string &filename); // no map session
+        void openSourceSession(int index, const std::string &filename);
         bool sourceIsEditable(int index) const;
 
-        // trigger file stage
         void openTriggerFile(const std::string &filename);
         void createTriggerFile(const std::string &name);
         void deleteTriggerFile(const std::string &filename);
         bool saveCurrentFile();
 
-        // UI panels
         void renderMapSelect();
         void renderSidebar();
         void renderToolbar();
         void renderLog();
-        void renderYamlBody();   // raw JSON editor content (inside the JSON tab)
+        void renderYamlBody();
 
-        // visual (GUI) editor
         void renderGuiEditor();
         void renderGuiGroup(GuiKind kind, std::vector<GuiEntry> &entries);
-        bool textToGui();                  // parse this->text into guiTriggers
-        void guiToText();                  // regenerate this->text from guiTriggers
-        void guiAnnotateFromText();        // restore "# ..." comment / disabled rows from this->text
+        bool textToGui();
+        void guiToText();
+        void guiAnnotateFromText();
         std::string guiDescription(GuiKind kind, const std::string &type) const;
-        std::string guiEntryValues(GuiKind kind, const GuiEntry &entry) const; // compact values summary
+        std::string guiEntryValues(GuiKind kind, const GuiEntry &entry) const;
         const std::vector<TriggerTypeDef> &guiDefs(GuiKind kind) const;
         void openGuiPopup(GuiKind kind, int triggerIndex, int entryIndex, int insertIndex = -1);
         void renderGuiPopup();
         void commitGuiPopup();
         void guiOpenCommentPopup(GuiKind kind, int triggerIndex, int entryIndex, int insertIndex = -1);
         void renderGuiCommentPopup();
-        void renderGuiNamePopup();         // edit the optional block name (visual only)
+        void renderGuiNamePopup();
         void commitGuiCommentPopup();
 
-        // Misc tab: generic editor for the non-trigger top-level fields of the
-        // file (item-drop, item-drop-list, environments-drop, environments-
-        // drop-hit, player-characters, config, exit, procedural-*, quest-*, ...).
         void renderGuiMiscEditor();
-        bool guiMiscEditValue(json &value);   // edits one value; true = changed
+        bool guiMiscEditValue(json &value);
         bool guiMiscEditArray(json &value);
         bool guiMiscEditObject(json &value);
         void guiMiscAddArrayElement(json &value);
-        void guiSyncText();                // guiToText + validate + dirty + log
+        void guiSyncText();
         void guiMoveEntry(std::vector<GuiEntry> &entries, int index, int direction);
         void guiDropEntry(std::vector<GuiEntry> &entries, int from, int to, bool insertBefore);
         void guiDeleteEntry(std::vector<GuiEntry> &entries, int index);
@@ -323,12 +241,11 @@ class TriggerEditor
         void guiPasteEntry(std::vector<GuiEntry> &entries, GuiKind kind, int insertIndex = -1);
         std::vector<GuiEntry> &guiEntryList(GuiKind kind, GuiTrigger &trigger);
 
-        // JSON editor widget
         void renderEditor();
         void renderEditorStatus();
         void validateYaml();
         void formatYaml();
-        void checkTriggerSyntax(const json &root);  // fills syntaxWarnings
+        void checkTriggerSyntax(const json &root);
         void logSyntaxWarnings();
         void handleEditorKeys();
         void handleEditorMouse(ImVec2 base);
@@ -336,30 +253,27 @@ class TriggerEditor
         void drawCaret(ImVec2 base);
         void ensureCaretVisible();
 
-        // session / dirty-change handling
         void requestAction(const std::string &action, const std::string &target);
-        void openTriggerFileGui();         // initialize GUI state after opening a file
+        void openTriggerFileGui();
         bool performAction(const std::string &action, const std::string &target);
         std::string defaultTriggerTemplate() const;
 
-        // text helpers (byte-offset based)
         int countLines() const;
         int lineStartOffset(int line) const;
-        int lineEndOffset(int line) const;   // start of the next line
+        int lineEndOffset(int line) const;
         int lineOfOffset(int offset) const;
         int lineIndentWidth(int line) const;
-        int utf8Columns(int offset) const;   // code points on the line before offset
-        int utf8Advance(int offset) const;   // next code point boundary
-        int utf8Back(int offset) const;      // previous code point boundary
-        int visualToByte(int line, int column) const; // column (code points) -> byte offset
+        int utf8Columns(int offset) const;
+        int utf8Advance(int offset) const;
+        int utf8Back(int offset) const;
+        int visualToByte(int line, int column) const;
         void clampCursor();
         void snapshotUndo();
         std::string getSelectedText() const;
 
-        // filesystem helpers
         json loadJsonFile(const std::string &path) const;
         bool saveTextFile(const std::string &path, const std::string &content) const;
         std::string readTextFile(const std::string &path) const;
 };
 
-#endif // TRIGGEREDITOR_HPP
+#endif

@@ -10,10 +10,6 @@
 #include <windows.h>
 #endif
 
-// Shows a startup/runtime error to the user instead of letting the process
-// die silently (which looked like the editor "opening and closing" on its
-// own — the game hides its window while the editor runs). On Windows the
-// message is shown in a message box; on other platforms it goes to stderr.
 static void reportError(const std::string &message)
 {
     std::cerr << "realm-editor error: " << message << std::endl;
@@ -26,18 +22,6 @@ int main(int argc, char* argv[])
 {
     try
     {
-        // Command-line switches used when the editor is launched as an in-game
-        // tool by Grimsolf (Studio -> World Editor / Trigger Editor):
-        //   --no-splash           skip the initial splash screen
-        //   --game-path <path>    open the editor directly on that game folder
-        //                         (skips the "Select game folder" dialog)
-        //   --trigger-editor      open exclusively the Trigger Editor in its
-        //                         own window (no map editor UI at all)
-        //   --sprite-fusion       open exclusively the Sprite Fusion tool in
-        //                         its own window (no map editor UI at all)
-        //   --hud-theme <name>    theme to use (the World Editor passes the
-        //                         one picked in its Options window when it
-        //                         spawns a tool)
         bool noSplash = false;
         bool triggerEditorMode = false;
         bool spriteFusionMode = false;
@@ -61,9 +45,6 @@ int main(int argc, char* argv[])
 
         if (triggerEditorMode)
         {
-            // The Trigger Editor is a standalone tool: it needs the game
-            // folder to read the maps. Grimsolf always passes --game-path;
-            // fall back to the current folder otherwise.
             std::string path = gamePath;
             if (path.empty())
                 path = boost::filesystem::current_path().string();
@@ -74,8 +55,6 @@ int main(int argc, char* argv[])
 
         if (spriteFusionMode)
         {
-            // The Sprite Fusion tool is also standalone: it needs the game
-            // folder to read resources/sprites.
             std::string path = gamePath;
             if (path.empty())
                 path = boost::filesystem::current_path().string();

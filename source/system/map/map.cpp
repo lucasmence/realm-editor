@@ -107,9 +107,6 @@ int Map::getObjectAutoPriority(MapObjectType type)
 	return priority;
 }
 
-// Portals are all drawn in the same layer, except "chunk": it must always
-// render below every other element, including terrain (higher priority =
-// drawn first = further back in the editor render list).
 int Map::getPortalTypePriority(std::string portalType)
 {
 	if (portalType == "chunk")
@@ -183,10 +180,6 @@ std::string Map::getTextureFromUnit(json line, MapObjectType type)
 
 			json subFile = Json::loadFromFile(this->manager->constant.gamePath + "/data/" + subFilename + ".json");
 
-			// The merchant file can be missing or have no "models" entry (content
-			// deleted after the map was saved). subFile is then an empty json and
-			// indexing ["models"][0] would throw and crash the editor while opening
-			// the map, so resolve to "" and let the caller skip the object.
 			std::string texture = "";
 			if (subFile.is_object() && subFile.contains("models")
 				&& subFile["models"].is_array() && subFile["models"].size() > 0)
@@ -235,11 +228,6 @@ bool Map::removeObjectUnit(MapObjectUnit& object)
 	return true;
 }
 
-// Moves a prop so it is drawn after (on top of) every other prop. The editor
-// sorts its render list by priority (then auto-priority) from highest to
-// lowest and draws it in that order, so the lowest auto-priority is drawn
-// last; the game draws props in the order they appear in the map file, so the
-// object is also moved to the end of the objects list to keep both in sync.
 bool Map::moveObjectToFront(std::shared_ptr<Model> model)
 {
 	if (!model)
@@ -253,7 +241,6 @@ bool Map::moveObjectToFront(std::shared_ptr<Model> model)
 	if (it == this->objects.end() || it->type != MapObjectType::motProp)
 		return false;
 
-	// Nothing to reorder against when this is the only prop on the map.
 	int minAutoPriority = 0;
 	int propCount = 0;
 	for (auto& object : this->objects)
@@ -266,15 +253,9 @@ bool Map::moveObjectToFront(std::shared_ptr<Model> model)
 	if (propCount == 0)
 		return false;
 
-	// Reset to the type's base priority so the prop stays inside its own
-	// layer, then give it the smallest auto-priority: it now sorts last in
-	// the render list and is drawn on top of every other prop.
 	it->model->priority = this->getObjectPriority(MapObjectType::motProp);
 	it->model->autoPriority = minAutoPriority - 1;
 
-	// Move the object to the end of the objects list: the map file lists
-	// objects in this order and the game draws props in file order, so the
-	// reorder also takes effect in-game after the map is saved.
 	this->objects.splice(this->objects.end(), this->objects, it);
 
 	this->manager->addViewElement(std::static_pointer_cast<ViewElement>(it->model));
@@ -282,10 +263,6 @@ bool Map::moveObjectToFront(std::shared_ptr<Model> model)
 	return true;
 }
 
-// Moves a prop so it is drawn before (below) every other prop: the highest
-// auto-priority sorts first in the editor render list and the object is moved
-// to the start of the objects list (first in the map file, drawn first by the
-// game).
 bool Map::moveObjectToBack(std::shared_ptr<Model> model)
 {
 	if (!model)
@@ -299,7 +276,6 @@ bool Map::moveObjectToBack(std::shared_ptr<Model> model)
 	if (it == this->objects.end() || it->type != MapObjectType::motProp)
 		return false;
 
-	// Nothing to reorder against when this is the only prop on the map.
 	int maxAutoPriority = 0;
 	int propCount = 0;
 	for (auto& object : this->objects)
@@ -312,14 +288,9 @@ bool Map::moveObjectToBack(std::shared_ptr<Model> model)
 	if (propCount == 0)
 		return false;
 
-	// Reset to the type's base priority so the prop stays inside its own
-	// layer, then give it the largest auto-priority: it now sorts first in
-	// the render list and is drawn below every other prop.
 	it->model->priority = this->getObjectPriority(MapObjectType::motProp);
 	it->model->autoPriority = maxAutoPriority + 1;
 
-	// First in the objects list = first in the map file = drawn first (below
-	// every other prop) both in the editor and in the game.
 	this->objects.splice(this->objects.begin(), this->objects, it);
 
 	this->manager->addViewElement(std::static_pointer_cast<ViewElement>(it->model));
@@ -829,9 +800,6 @@ bool Map::loadMapAfter()
 			{
 				int priorityIndex = priority + this->file[field][index][dimensionField][dimensionIndex].value("priority", 0);
 
-				// Portals never store a "priority" field in the map file; the
-				// render priority comes from the portal type instead so "chunk"
-				// portals stay below the terrain after save/load.
 				if (type == MapObjectType::motPortal)
 					priorityIndex = this->getPortalTypePriority(this->file[field][index].value("type", ""));
 
@@ -880,8 +848,6 @@ bool Map::loadMapAfter()
 	this->dirty = false;
 	this->manager->setTitle(this->filename);
 
-	// Loaded maps always come locked (read-only) so the map can be inspected
-	// without the risk of changing anything by accident.
 	this->manager->hud->setLocked(true);
 
 	this->manager->hud->showMessage("Map loaded successfully!");
@@ -935,7 +901,6 @@ bool Map::newMap()
 
 	this->updateMapInfo();
 
-	// A brand new map starts unlocked so it can be edited right away.
 	this->manager->hud->setLocked(false);
 
 	this->manager->setTitle("New");
@@ -1022,8 +987,6 @@ bool Map::createTriggerFile()
 
 		if (pos == std::string::npos)
 		{
-			// Keep the created file (it is valid on its own) but do not write
-			// a broken script reference into the map.
 			this->manager->hud->showMessage("Trigger file created, but the map is outside data/maps so it was not linked!", 5.f);
 			return true;
 		}

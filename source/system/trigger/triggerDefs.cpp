@@ -1,15 +1,5 @@
 #include "triggerDefs.hpp"
 
-// ---------------------------------------------------------------------------
-// Metadata tables for the visual trigger editor.
-//
-// Descriptions and labels are English on purpose (the visual editor keeps its
-// strings in English for now; they do not use the language files).
-// Parameters were derived from the fields the engine actually reads:
-//   - events     -> event.cpp / Map::loadTrigger
-//   - conditions -> condition.cpp
-//   - actions    -> action.cpp
-// ---------------------------------------------------------------------------
 
 namespace
 {
@@ -693,7 +683,6 @@ const std::vector<TriggerTypeDef> GUI_ACTION_DEFS =
     T("worldgraph-clear", "Clear the world map graph (rebuilt on the next map load)", PT({}))
 };
 
-// ---------------------------------------------------------------------------
 
 const TriggerTypeDef *guiFindDef(const std::vector<TriggerTypeDef> &defs,
                                  const std::string &key)

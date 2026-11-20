@@ -53,7 +53,7 @@ Hud::Hud(Manager* manager)
 	this->mousePressPosition = sf::Vector2f(0.f, 0.f);
 	this->terrainFillStartPos = sf::Vector2f(0.f, 0.f);
 	this->autoSaveTimer = 0.f;
-	this->autoSaveIntervalSeconds = 900.f; // 15 minutes
+	this->autoSaveIntervalSeconds = 900.f;
 	this->autoSaveMessageEnabled = true;
 	this->weatherChance = 100;
 	this->weatherName = "";
@@ -128,9 +128,6 @@ Hud::Hud(Manager* manager)
 	this->manager->addView(std::static_pointer_cast<ViewElement>(this->shapeItemSelected));
 	this->shapeItemSelected->visible = false;
 
-	// Corner handles of the selected rectangle portal: small white squares
-	// drawn on top of the selection outline; each one can be held and dragged
-	// to resize the portal like a rectangle in an image editor.
 	for (int handle = 0; handle < 4; handle++)
 	{
 		this->shapeResizeHandles[handle] = std::make_shared<Model>(this->manager, sf::Vector2f(0.f, 0.f), "", 0, false);
@@ -161,10 +158,6 @@ Hud::~Hud()
 	this->unloadLists();
 }
 
-// Locks (or unlocks) the current map. While locked the map is read-only: no
-// element can be added, altered or removed and map data fields (name, music,
-// size...) cannot change. Turning the lock on cancels any editing mode that
-// was in progress so nothing stays armed for a later click.
 bool Hud::setLocked(bool value)
 {
 	this->locked = value;
@@ -300,16 +293,12 @@ bool Hud::updateClick(sf::Vector2f cursor, bool rightButton)
 	this->mousePressed = true;
 	this->mouseRightButton = rightButton;
 
-	// Locked maps are read-only: remember the press so camera panning with
-	// the drag tool keeps working, but ignore every editing action below.
 	if (this->locked)
 	{
 		this->shapeHover->visible = false;
 		return true;
 	}
 
-	// Holding a corner handle of the selected portal consumes the click: the
-	// drag then resizes the portal instead of spawning/selecting behind it.
 	if (this->portalResizeActivate(cursor))
 		return true;
 
@@ -342,16 +331,12 @@ bool Hud::updateItemSelectedMove(sf::Vector2f cursor)
 bool Hud::updateMouseReleased(sf::Vector2f cursor)
 {
 	this->mousePressed = false;
-	// End of a portal corner drag: write the final width/height into the
-	// object fields so the resized size is saved with the map.
 	if (this->portalResizeActive)
 	{
 		this->portalResizeActive = false;
 		this->portalResizeCommit();
 		return true;
 	}
-	// Released over an ImGui window: cancel the in-progress matrix / terrain
-	// fill drag without generating anything behind the panel.
 	if (this->isMouseOverImgui())
 	{
 		this->matrixTriggered = false;
@@ -370,13 +355,7 @@ bool Hud::updateMousePressed(sf::Vector2f cursor)
 {
 	if (!this->mousePressed)
 		return false;
-	// The cursor is over an ImGui window (panel/menu bar): cancel the editing
-	// actions (painting, matrix, terrain fill) so nothing is placed behind the
-	// panel. The drag (camera pan) tool is a view action and keeps working
-	// across the whole window.
 	const bool overImgui = this->isMouseOverImgui();
-	// While locked only the drag (camera pan) tool may run: everything else
-	// is handled by the lock checks inside each action below.
 	if (this->portalResizeActive)
 		return this->updatePortalResize(cursor);
 	else if (!this->locked && this->spawnPress && !overImgui)
@@ -392,14 +371,11 @@ bool Hud::updateMousePressed(sf::Vector2f cursor)
 
 bool Hud::updateCursor(sf::Vector2f cursor)
 {
-	// Never show the painting/preview cursor on a locked (read-only) map.
 	if (this->locked)
 	{
 		this->shapeHover->visible = false;
 		return false;
 	}
-	// While dragging a portal corner the ghost cursor would only get in the
-	// way of the resize feedback.
 	if (this->portalResizeActive)
 	{
 		this->shapeHover->visible = false;
@@ -408,8 +384,6 @@ bool Hud::updateCursor(sf::Vector2f cursor)
 	if (this->manager->palette->selectedItem == "")
 		return false;
 
-	// Cursor is over an ImGui window (panel/menu bar), not the map: hide the
-	// placement ghost so nothing can be spawned behind the panel.
 	if (this->isMouseOverImgui())
 	{
 		this->shapeHover->visible = false;
@@ -480,8 +454,6 @@ bool Hud::setEditValue(std::string editName, std::string value)
 		this->priority = atoi(value.c_str());
 	else if (editName == "edtMapSizeX")
 	{
-		// While locked the map is read-only: keep the field mirror updated but
-		// never write the value into the map data.
 		if (!this->locked)
 			this->manager->map->data.size.x = atoi(value.c_str());
 	}
@@ -592,8 +564,6 @@ bool Hud::updateHoverGeneral()
 {
 	this->shapeItemSelected->visible = this->itemSelected;
 
-	// Corner handles: shown on the selected rectangle portal and glued to its
-	// four corners every frame so they follow moves and resizes.
 	bool resizeHandlesVisible = !this->locked && this->itemSelected && this->itemModelSelected
 		&& this->isPortalResizeable(this->itemModelSelected);
 	sf::FloatRect selectedBounds(0.f, 0.f, 0.f, 0.f);
@@ -890,19 +860,9 @@ bool Hud::checkMapClick(sf::Vector2f cursor)
 
 bool Hud::isMouseOverImgui()
 {
-	// True while the cursor is over any ImGui window (menu bar, Tools/Palette
-	// panels, popups). These calls happen between frames (event handling and
-	// map update both run before the ImGui frame), so the result reflects the
-	// previous frame's layout - fine, because the panels are static while the
-	// map is being edited. Used to keep clicks on the UI from reaching the map.
 	if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow))
 		return true;
 
-	// While the app owns a mouse drag (a click that started on the map), ImGui
-	// clears window hover and stops requesting the mouse, so also hit-test
-	// every window directly against the rectangles recorded when they last
-	// rendered (see updateImguiPanelRects). This keeps a held drag
-	// (paint/matrix/terrain fill) from acting on the map under any window.
 	const ImVec2 mouse = ImGui::GetIO().MousePos;
 	for (const auto& rect : this->imguiPanelRects)
 		if (rect.width > 0.f && rect.height > 0.f && rect.contains(mouse.x, mouse.y))
@@ -910,12 +870,6 @@ bool Hud::isMouseOverImgui()
 	return false;
 }
 
-// Records the screen rectangles of every visible ImGui window (menu bar,
-// Tools/Palette panels, popups...). The map must never react to the mouse
-// under a panel, and ImGui's own hover/capture flags stop reporting panels
-// while a drag that started on the map is in progress, so the editor
-// hit-tests the panels itself. Called once per frame after the UI is drawn;
-// the rects are consumed by the next frame's event handling.
 void Hud::updateImguiPanelRects()
 {
 	this->imguiPanelRects.clear();
@@ -928,18 +882,12 @@ void Hud::updateImguiPanelRects()
 	{
 		if (!window->Active || window->Hidden || window->Collapsed)
 			continue;
-		// NoInputs windows (notifications, tooltips) and the fallback
-		// background window never receive the mouse: they cannot be clicked
-		// "over" and must not block the map.
 		if (window->Flags & ImGuiWindowFlags_NoMouseInputs)
 			continue;
 		if (window->IsFallbackWindow)
 			continue;
-		// Skip the invisible 1x1 anchor windows used only to host popups.
 		if (strncmp(window->Name, "##placeholder", 13) == 0)
 			continue;
-		// Ignore degenerate rects (collapsed leftovers); anything that small
-		// is not an interactive panel.
 		if (window->OuterRectClipped.GetWidth() < 4.f || window->OuterRectClipped.GetHeight() < 4.f)
 			continue;
 
@@ -948,10 +896,6 @@ void Hud::updateImguiPanelRects()
 	}
 }
 
-// Called whenever the mouse goes down over an ImGui window (or while the
-// properties popup is open): a UI click must never also edit the map, so
-// disarm every in-progress spawn/paint action (spawn painting, matrix drag,
-// terrain fill) that could otherwise place an item behind the panels.
 void Hud::cancelMapActions()
 {
 	this->mousePressed = false;
@@ -1038,10 +982,6 @@ bool Hud::selectItem(sf::Vector2f cursor)
 	return false;
 }
 
-// Right click over a prop: picks the prop drawn on top under the cursor and
-// arms the "Move to Front"/"Move to Back" context popup. Returns true when a
-// prop was picked so the click is consumed and does not also run the other
-// right-click actions (delete while inserting, camera pan).
 bool Hud::openPropContextMenu(sf::Vector2f cursor, sf::Vector2i screenPos)
 {
 	if (this->locked)
@@ -1054,8 +994,6 @@ bool Hud::openPropContextMenu(sf::Vector2f cursor, sf::Vector2i screenPos)
 		if (object.type == MapObjectType::motProp && object.model &&
 			object.model->getGlobalBounds().contains(cursor) && this->isLayerVisibleByObjectType(object.type))
 		{
-			// Keep the prop drawn last (lowest priority, then lowest
-			// auto-priority): that is the one visually on top under the cursor.
 			if (objectSelected)
 			{
 				const bool selectedIsOnTop =
@@ -1074,8 +1012,6 @@ bool Hud::openPropContextMenu(sf::Vector2f cursor, sf::Vector2i screenPos)
 	this->showPropContextMenu = true;
 	this->propContextMenuModel = objectSelected->model;
 	this->propContextMenuScreenPos = screenPos;
-	// A fresh arming re-opens the popup (a previous popup may still be open
-	// or half-dismissed from an earlier right click).
 	this->propContextMenuOpened = false;
 	return true;
 }
@@ -1459,8 +1395,6 @@ bool Hud::spawnClick(sf::Vector2f cursor)
 					objectType = MapObjectType::motPortal;
 					paletteTypeField = "";
 					texture = "";
-					// Use the type-specific priority: "chunk" portals must render
-					// below every other element, including terrain.
 					priorityValue = this->manager->map->getPortalTypePriority(this->manager->palette->selectedOrigin);
 					std::shared_ptr<Model> model = std::make_shared<Model>(this->manager, tilesetPosition, "", priorityValue, false, "", this->manager->palette->selectedOrigin);
 
@@ -1858,10 +1792,6 @@ bool Hud::recordHistory(HistoryActionType type, std::string description)
 	return true;
 }
 
-// Records a render-order move (move to front/back) on the undo stack. The
-// caller passes a copy of the object taken BEFORE the move plus its index in
-// the objects list, so undo can restore the exact render order (the game
-// draws props in the order they appear in the map file).
 bool Hud::recordHistoryMove(MapObjectUnit object, int previousIndex, bool toFront, std::string description)
 {
 	if (this->locked)
@@ -1936,7 +1866,6 @@ bool Hud::undoAction()
 		if (entry.objects.empty() || !entry.objects.front().model)
 			return false;
 
-		// Locate the live object; it may have been deleted since the move.
 		std::list<MapObjectUnit>& objects = this->manager->map->objects;
 		auto it = objects.begin();
 		for (; it != objects.end(); ++it)
@@ -1945,9 +1874,6 @@ bool Hud::undoAction()
 		if (it == objects.end())
 			return false;
 
-		// Restore the render-order state (priority + auto-priority) and the
-		// position in the objects list, which the map file (and the game's
-		// prop draw order) follows.
 		it->model->priority = entry.previousPriority;
 		it->model->autoPriority = entry.previousAutoPriority;
 
@@ -1961,11 +1887,9 @@ bool Hud::undoAction()
 		auto dest = objects.begin();
 		for (int i = 0; i < target; i++)
 			++dest;
-		// Splice before the object itself is a no-op and undefined, so skip it.
 		if (dest != it)
 			objects.splice(dest, objects, it);
 
-		// Re-sort the render list with the restored values.
 		this->manager->addViewElement(std::static_pointer_cast<ViewElement>(it->model));
 		this->manager->map->dirty = true;
 		this->showMessage("Undo: " + entry.description, 2.f);
@@ -2026,8 +1950,6 @@ bool Hud::redoAction()
 		if (entry.objects.empty() || !entry.objects.front().model)
 			return false;
 
-		// Re-apply the move; the map methods take care of re-sorting the
-		// render list and marking the map dirty.
 		if (entry.moveToFront)
 			this->manager->map->moveObjectToFront(entry.objects.front().model);
 		else
@@ -2281,25 +2203,12 @@ bool Hud::imguiRender()
 	return true;
 }
 
-// ---------------------------------------------------------------------------
-// "Tools" menu: opens the embedded tools (Trigger Editor / Sprite Fusion).
-// The tools are standalone modes of this same realm-editor binary
-// (--trigger-editor / --sprite-fusion), so opening them spawns a SECOND
-// realm-editor process and returns immediately (fire and forget). Closing the
-// tool (its BACK button / window close) exits only that process - unlike the
-// previous in-window hosting, the map editor window, the open map and unsaved
-// changes are never affected when the tool is closed.
-// ---------------------------------------------------------------------------
 void Hud::launchTool(std::string toolFlag)
 {
-	// The tools read maps / resources / options from the game folder
-	// selected when opening the map (fallback: working directory).
 	std::string gamePath = this->manager->constant.gamePath;
 	if (gamePath.empty())
 		gamePath = boost::filesystem::current_path().string();
 
-	// The tool process starts in the executable folder, which may not hold
-	// data/options/realm-editor.json, so the active theme is passed along.
 	const int launched = ToolLaunch::launchTool(gamePath, toolFlag, this->manager->hudTheme);
 	if (launched == 0)
 		this->showMessage("Could not open " + ToolLaunch::toolName(toolFlag)
@@ -2320,10 +2229,6 @@ void Hud::imguiRenderMenuBar()
 		{
 			if (this->manager->recentFiles.empty())
 				ImGui::MenuItem("(none)", nullptr, false, false);
-			// Loading the map re-adds it to recentFiles (Manager::addRecentFile),
-			// which erases/re-inserts list nodes while we are iterating below and
-			// invalidates recentIt (crashed on Windows). Remember the click here
-			// and open the map only after the loop has finished.
 			std::string openRequest = "";
 			for (auto recentIt = this->manager->recentFiles.begin(); recentIt != this->manager->recentFiles.end(); )
 			{
@@ -2505,7 +2410,6 @@ void Hud::imguiRenderToolPanel()
 	ImGui::Begin("Tools", NULL, flags);
 	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 4));
 
-	// Lock toggle: while locked the map is read-only. Hotkey: K.
 	if (this->locked)
 	{
 		ImGui::PushStyleColor(ImGuiCol_Button, GrimsolfTheme::gray(0.22f, 0.9f));
@@ -2556,8 +2460,6 @@ void Hud::imguiRenderToolPanel()
 		if (wasActive) ImGui::PopStyleColor(2);
 	};
 
-	// Editing tools are disabled while the map is locked; navigation/view
-	// toggles (Grid, Drag, Area) stay available.
 	ImGui::BeginDisabled(this->locked);
 	renderToggleBtn("C", this->itemSelect); ImGui::SameLine();
 	ImGui::Text("Clear"); ImGui::SameLine(); ImGui::Spacing(); ImGui::SameLine();
@@ -2595,8 +2497,6 @@ void Hud::imguiRenderToolPanel()
 	ImGui::SameLine(); ImGui::Text("Fill");
 	ImGui::EndDisabled();
 
-	// Form / rotation / scale / priority settings only matter when painting;
-	// keep them out of the way while the map is locked.
 	ImGui::BeginDisabled(this->locked);
 	
 	ImGui::Separator();
@@ -2664,11 +2564,6 @@ void Hud::imguiRenderToolPanel()
 		ImGui::Separator();
 		ImGui::Text("Properties:");
 
-		// With an object selected this section shows that object's properties;
-		// editing then happens through the popup opened by "Edit", where the
-		// values are only written back when OK is pressed (rows below are shown
-		// read-only so nothing changes by accident). Without a selection the
-		// same fields are the defaults used for the next painted item.
 		bool editingSelectedObject = (this->itemSelected && this->itemModelSelected != nullptr);
 		if (editingSelectedObject)
 		{
@@ -2763,17 +2658,12 @@ void Hud::renderPropertyEditFields(bool readOnly)
 	}
 }
 
-// Persists the last used size/position of the properties edit popup into
-// config.txt so it can be restored on the next session.
 void Hud::savePropertiesEditWindowConfig()
 {
 	if (this->propertiesEditWindowConfigSet && this->manager)
 		this->manager->saveConfigTxt();
 }
 
-// Reloads the shared property field buffers with the values stored on the
-// currently selected object (by field name). Used when an object is picked so
-// the panel mirrors its properties, and when the edit popup is discarded.
 bool Hud::loadSelectedItemProperties()
 {
 	if (!this->itemModelSelected)
@@ -2811,9 +2701,6 @@ bool Hud::isPropertiesEditOpen()
 	return this->showPropertiesEditWindow;
 }
 
-// Opens the modal popup that edits the properties of the object currently
-// selected. The popup works on the same field buffers shown by the panel, and
-// changes are only written to the object when OK is pressed.
 bool Hud::openPropertiesEditWindow()
 {
 	if (this->locked || !this->itemSelected || !this->itemModelSelected)
@@ -2827,10 +2714,6 @@ bool Hud::openPropertiesEditWindow()
 	return true;
 }
 
-// Picks the object under the cursor (like the select tool, but working even
-// when the select tool is not armed) and opens the properties popup for it.
-// Returns true when the click picked an object and should be consumed so it
-// is not treated as an ordinary map click (e.g. spawning a duplicate).
 bool Hud::selectItemDoubleClick(sf::Vector2f cursor)
 {
 	if (this->locked)
@@ -2849,8 +2732,6 @@ bool Hud::selectItemDoubleClick(sf::Vector2f cursor)
 	if (!objectSelected.model)
 		return false;
 
-	// Mirror a normal select click so the palette and the property fields
-	// line up with the picked object.
 	PaletteType paletteType = PaletteType::ptTerrain;
 	this->getPaletteType(paletteType, objectSelected.type);
 	this->manager->palette->selectPalette(paletteType);
@@ -2866,9 +2747,6 @@ bool Hud::selectItemDoubleClick(sf::Vector2f cursor)
 	return true;
 }
 
-// After the width/height of a portal were edited through the properties
-// popup, resize its visual rectangle so the change shows immediately (the
-// same sizing used when the portal is spawned or loaded from a map file).
 bool Hud::updateSelectedPortalShape()
 {
 	if (!this->itemModelSelected)
@@ -2880,9 +2758,6 @@ bool Hud::updateSelectedPortalShape()
 			if (object.type != MapObjectType::motPortal || !object.model->shape)
 				return false;
 
-			// Maps store dimensions as plain numbers, which load back as floats;
-			// freshly spawned portals keep them as ints - accept both (and a
-			// string, for safety) so the resize works either way.
 			int width = 0, height = 0;
 			for (auto& field : object.fields)
 			{
@@ -2906,7 +2781,6 @@ bool Hud::updateSelectedPortalShape()
 
 			rectangle->setSize(sf::Vector2f((float)width, (float)height));
 
-			// Refresh the selection outline around the resized rectangle.
 			std::static_pointer_cast<sf::RectangleShape>(this->shapeItemSelected->shape)->setSize(sf::Vector2f(object.model->getGlobalBounds().width, object.model->getGlobalBounds().height));
 			this->shapeItemSelected->setPosition(object.model->getPosition());
 			return true;
@@ -2914,10 +2788,6 @@ bool Hud::updateSelectedPortalShape()
 	return false;
 }
 
-// A portal can be corner-resized when it is drawn as a rectangle shape (all
-// sized portals: level, wall, region, teleporter, slider, crusher, connector,
-// exit, guardian, waygate, chunk). Circle portals (spawner, generator) have no
-// width/height fields to resize.
 bool Hud::isPortalResizeable(std::shared_ptr<Model> model)
 {
 	if (!model || !model->shape || model->shapeType != ShapeType::stRectangle)
@@ -2930,9 +2800,6 @@ bool Hud::isPortalResizeable(std::shared_ptr<Model> model)
 	return false;
 }
 
-// Mouse press over one of the four corner handles of the selected portal:
-// arms the resize drag and stores the opposite corner as the fixed anchor.
-// Returns true when the press was consumed so no other click action runs.
 bool Hud::portalResizeActivate(sf::Vector2f cursor)
 {
 	this->portalResizeActive = false;
@@ -2944,7 +2811,6 @@ bool Hud::portalResizeActivate(sf::Vector2f cursor)
 	if (!this->isPortalResizeable(this->itemModelSelected))
 		return false;
 
-	// Slight padding around each handle so grabbing it is forgiving.
 	for (int handle = 0; handle < 4; handle++)
 	{
 		if (!this->shapeResizeHandles[handle] || !this->shapeResizeHandles[handle]->visible)
@@ -2977,9 +2843,6 @@ bool Hud::portalResizeActivate(sf::Vector2f cursor)
 	return false;
 }
 
-// Live update of the resize drag: the rectangle is rebuilt between the fixed
-// anchor corner and the cursor, with a small minimum size so a portal can
-// never collapse to zero.
 bool Hud::updatePortalResize(sf::Vector2f cursor)
 {
 	if (!this->portalResizeActive || !this->itemModelSelected)
@@ -3017,15 +2880,11 @@ bool Hud::updatePortalResize(sf::Vector2f cursor)
 	std::static_pointer_cast<sf::RectangleShape>(this->itemModelSelected->shape)->setSize(size);
 	this->itemModelSelected->setPosition(sf::Vector2f(left + origin.x, top + origin.y));
 
-	// Keep the selection outline glued to the resized rectangle.
 	std::static_pointer_cast<sf::RectangleShape>(this->shapeItemSelected->shape)->setSize(size);
 	this->shapeItemSelected->setPosition(this->itemModelSelected->getPosition());
 	return true;
 }
 
-// End of the resize drag: writes the final width/height back into the
-// object's fields (keeping the type each field was loaded with) so the map is
-// saved with the new size, and refreshes the property panel buffers.
 bool Hud::portalResizeCommit()
 {
 	if (!this->itemModelSelected)
@@ -3075,16 +2934,11 @@ bool Hud::portalResizeCommit()
 	return false;
 }
 
-// Draws the right-click popup with the "Move to Front" / "Move to Back"
-// actions for the prop that was right-clicked on the map. The popup appears
-// at the click position and its actions reorder the prop's rendering.
 void Hud::imguiRenderPropContextMenu()
 {
 	if (!this->showPropContextMenu)
 		return;
 
-	// The prop can be gone already (deleted or undone while the popup was
-	// armed): drop the popup instead of acting on a stale model.
 	bool modelStillValid = false;
 	if (this->propContextMenuModel)
 		for (auto& object : this->manager->map->objects)
@@ -3101,8 +2955,6 @@ void Hud::imguiRenderPropContextMenu()
 		return;
 	}
 
-	// Invisible host window: popup ids are scoped to the window they are
-	// opened from, so the popup must always be opened from the same context.
 	ImGui::SetNextWindowPos(ImVec2(0.f, 0.f), ImGuiCond_Always);
 	ImGui::SetNextWindowSize(ImVec2(1.f, 1.f), ImGuiCond_Always);
 	ImGui::SetNextWindowBgAlpha(0.f);
@@ -3113,23 +2965,16 @@ void Hud::imguiRenderPropContextMenu()
 		ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoInputs);
 	ImGui::PopStyleVar();
 
-	// Open the popup only once per arming. Calling OpenPopup() every frame
-	// would reopen it in the very frame the user clicks elsewhere (ImGui
-	// closes popups on outside clicks at NewFrame, then this reopens them
-	// before the frame ends), making the popup impossible to dismiss.
 	if (!this->propContextMenuOpened)
 	{
 		ImGui::OpenPopup("Prop Context Menu");
 		this->propContextMenuOpened = true;
 	}
 
-	// Appear where the right click happened.
 	ImGui::SetNextWindowPos(ImVec2((float)this->propContextMenuScreenPos.x, (float)this->propContextMenuScreenPos.y), ImGuiCond_Appearing);
 
 	if (ImGui::BeginPopup("Prop Context Menu"))
 	{
-		// Snapshot the pre-move render-order state (a copy of the object plus
-		// its index in the objects list) so the move can be undone later.
 		MapObjectUnit snapshot{ MapObjectType::motTerrain, sf::Vector2f(0.f, 0.f), 0.f, nullptr, {} };
 		int previousIndex = 0;
 		bool found = false;
@@ -3170,11 +3015,6 @@ void Hud::imguiRenderPropContextMenu()
 		ImGui::EndPopup();
 	}
 
-	// The user clicked elsewhere and the popup closed on its own: disarm.
-	// Checked while still inside the host window: IsPopupOpen() hashes the
-	// popup name with the current window's id, so after ImGui::End() pops
-	// the host window the lookup would use a different id and always miss
-	// (which made the popup disarm itself on the very frame it was armed).
 	if (!ImGui::IsPopupOpen("Prop Context Menu"))
 	{
 		this->showPropContextMenu = false;
@@ -3190,7 +3030,6 @@ void Hud::imguiRenderPropertiesEditWindow()
 	if (!this->showPropertiesEditWindow)
 		return;
 
-	// Selection lost while the popup was open: close it and drop the edits.
 	if (!this->itemSelected || !this->itemModelSelected)
 	{
 		this->showPropertiesEditWindow = false;
@@ -3199,8 +3038,6 @@ void Hud::imguiRenderPropertiesEditWindow()
 		return;
 	}
 
-	// Invisible host window: popup ids are scoped to the window they are
-	// opened from, so the popup must always be opened from the same context.
 	ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
 	ImGui::SetNextWindowSize(ImVec2(1.f, 1.f), ImGuiCond_Always);
 	ImGui::SetNextWindowBgAlpha(0.f);
@@ -3213,11 +3050,8 @@ void Hud::imguiRenderPropertiesEditWindow()
 
 	ImGui::OpenPopup("Edit Properties");
 
-	// Resizable popup: keep a minimum size so the property fields stay usable.
 	ImGui::SetNextWindowSizeConstraints(ImVec2(380.f, 240.f), ImVec2(FLT_MAX, FLT_MAX));
 
-	// Restore the last used size/position (persisted in config.txt) whenever
-	// the popup appears. NoSavedSettings keeps imgui.ini from interfering.
 	if (this->propertiesEditWindowConfigSet)
 	{
 		const ImVec2 display = ImGui::GetIO().DisplaySize;
@@ -3225,9 +3059,6 @@ void Hud::imguiRenderPropertiesEditWindow()
 		const float posY = (float)this->propertiesEditWindowPosY;
 		const float sizeX = (float)this->propertiesEditWindowSizeX;
 		const float sizeY = (float)this->propertiesEditWindowSizeY;
-		// Skip the restore if the saved spot would put the popup entirely off
-		// the current display (e.g. the window got smaller since it was saved),
-		// so the modal can never open unreachable; it will be centered instead.
 		if (posX < display.x && posY < display.y && posX + sizeX > 0.f && posY + sizeY > 0.f)
 		{
 			ImGui::SetNextWindowPos(ImVec2(posX, posY), ImGuiCond_Appearing);
@@ -3237,7 +3068,6 @@ void Hud::imguiRenderPropertiesEditWindow()
 
 	if (ImGui::BeginPopupModal("Edit Properties", &this->showPropertiesEditWindow, ImGuiWindowFlags_NoSavedSettings))
 	{
-		// Track the current size/position so it can be persisted on close.
 		this->propertiesEditWindowPosX = (int)ImGui::GetWindowPos().x;
 		this->propertiesEditWindowPosY = (int)ImGui::GetWindowPos().y;
 		this->propertiesEditWindowSizeX = (int)ImGui::GetWindowSize().x;
@@ -3304,16 +3134,8 @@ void Hud::imguiRenderPropertiesEditWindow()
 			ImGui::CloseCurrentPopup();
 		}
 
-		// Grow the popup to fit every property row plus the OK/Cancel buttons
-		// so the last fields are never hidden behind a scrollbar, even when a
-		// smaller size was restored from config.txt. This only ever grows the
-		// window (the user can still drag it larger); the final size in use is
-		// persisted when the popup closes.
 		const float contentBottom = ImGui::GetItemRectMax().y - ImGui::GetWindowPos().y;
 		float neededHeight = contentBottom + ImGui::GetStyle().WindowPadding.y;
-		// Never grow past the display: if there are more fields than fit on
-		// screen the popup stays scrollable instead of pushing the
-		// OK/Cancel buttons off the visible area.
 		const float maxHeight = ImGui::GetIO().DisplaySize.y;
 		if (neededHeight > maxHeight)
 			neededHeight = maxHeight;
@@ -3325,13 +3147,9 @@ void Hud::imguiRenderPropertiesEditWindow()
 
 	ImGui::End();
 
-	// The popup closed this frame (OK, Cancel or the X button): persist the
-	// last used size/position so it is restored on the next session.
 	if (!this->showPropertiesEditWindow)
 		this->savePropertiesEditWindowConfig();
 
-	// The popup closed without pressing OK (Cancel or the X button): discard
-	// the edits made in the popup by reloading the values from the object.
 	if (!this->showPropertiesEditWindow && this->propertiesEditDirty)
 	{
 		this->propertiesEditDirty = false;
@@ -3352,8 +3170,6 @@ void Hud::imguiRenderPalettePanel()
 	sf::Vector2f mousePos = this->manager->getMousePosition();
 	ImGui::Text("(%d, %d)", (int)mousePos.x, (int)mousePos.y);
 
-	// Locked maps are read-only: surface the state prominently here so the
-	// palette never looks like painting is possible.
 	if (this->locked)
 		ImGui::TextColored(GrimsolfTheme::gray(0.75f), "MAP LOCKED - READ ONLY (press K to unlock)");
 	else
@@ -3574,7 +3390,6 @@ void Hud::imguiRenderPreferencesWindow()
 	strncpy(imguiWeatherName, this->manager->map->data.weatherName.c_str(), sizeof(imguiWeatherName) - 1);
 	strncpy(imguiParticles, this->manager->map->data.particles.c_str(), sizeof(imguiParticles) - 1);
 
-	// Map data (identity, dimensions, weather) is read-only while locked.
 	if (this->locked)
 		ImGui::TextColored(GrimsolfTheme::gray(0.75f), "Map is locked - properties are read only (press K to unlock)");
 	ImGui::BeginDisabled(this->locked);

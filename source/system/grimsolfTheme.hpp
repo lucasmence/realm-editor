@@ -8,10 +8,6 @@
 
 namespace GrimsolfTheme
 {
-    // True while a theme that paints dark text over light backgrounds is
-    // active. The tools author their grays against the dark themes (near-white
-    // text, dark panels), so gray()/toGray() flip their values in a light
-    // theme to keep the same contrast.
     inline bool &lightModeState()
     {
         static bool light = false;
@@ -23,9 +19,6 @@ namespace GrimsolfTheme
         return lightModeState();
     }
 
-    // Foreground colors of the active theme. Manager restores them at the
-    // start of every frame (some UI code pushes text colors and never pops
-    // them), which used to hardcode white and hide the light theme's text.
     inline ImVec4 &textColorState()
     {
         static ImVec4 text(1.0f, 1.0f, 1.0f, 1.0f);
@@ -55,8 +48,6 @@ namespace GrimsolfTheme
         return ImVec4(value, value, value, alpha);
     }
 
-    // Keeps the perceived brightness of a colored value while removing all
-    // saturation. Used by the tools that still receive colored log entries.
     inline ImVec4 toGray(const ImVec4 &color)
     {
         float value = 0.299f * color.x + 0.587f * color.y + 0.114f * color.z;
@@ -64,7 +55,6 @@ namespace GrimsolfTheme
         return ImVec4(value, value, value, color.w);
     }
 
-    // Theme names shown in the Options window. The first one is the default.
     inline const std::vector<std::string> &names()
     {
         static const std::vector<std::string> themeNames = {
@@ -79,8 +69,6 @@ namespace GrimsolfTheme
         return themeNames;
     }
 
-    // Geometry shared by every bundled theme (the ImGui default theme resets
-    // it instead).
     inline void applyMetrics(ImGuiStyle &style)
     {
         style.WindowPadding = ImVec2(10.0f, 10.0f);
@@ -560,20 +548,16 @@ namespace GrimsolfTheme
         colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.60f);
     }
 
-    // The ImGui built-in theme: default metrics and the stock dark colors.
     inline void applyImGuiDefault(ImGuiStyle &style)
     {
         style = ImGuiStyle();
         ImGui::StyleColorsDark();
     }
 
-    // Applies a bundled theme by name. Unknown names fall back to Grimsolf,
-    // which is also the default.
     inline void apply(const std::string &name = "Grimsolf")
     {
         ImGuiStyle &style = ImGui::GetStyle();
 
-        // Set first: the gray helpers below depend on it.
         lightModeState() = (name == "Light");
 
         if (name == "Light")
@@ -591,13 +575,10 @@ namespace GrimsolfTheme
         else
             applyGrimsolf(style);
 
-        // Remember the theme foreground so the frame loop can restore it.
         textColorState() = style.Colors[ImGuiCol_Text];
         textDisabledColorState() = style.Colors[ImGuiCol_TextDisabled];
     }
 
-    // Theme gray packed for the ImDrawList calls (syntax highlighting, custom
-    // rows), so those colors follow the active theme too.
     inline ImU32 u32(float value, float alpha = 1.0f)
     {
         return ImGui::ColorConvertFloat4ToU32(gray(value, alpha));
@@ -610,10 +591,6 @@ namespace GrimsolfTheme
         return ImGui::ColorConvertFloat4ToU32(color);
     }
 
-    // Theme saved by the World Editor in data/options/realm-editor.json. The
-    // tools run as separate processes, so they read that file to follow the
-    // theme picked in the editor's Options window. Falls back to Grimsolf when
-    // the file/key is missing or holds an unknown name.
     inline std::string savedName()
     {
         json file = Json::loadFromFile("data/options/realm-editor.json");
@@ -627,7 +604,6 @@ namespace GrimsolfTheme
         return "Grimsolf";
     }
 
-    // Applies the theme saved by the World Editor (Grimsolf when none is saved).
     inline void applySaved()
     {
         apply(savedName());

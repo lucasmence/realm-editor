@@ -42,9 +42,6 @@ std::string ToolLaunch::getExecutablePath()
     return std::string(buffer);
 }
 
-// The spawned tool is the same realm-editor binary: it resolves its own
-// runtime data (data/options/realm-editor.json, font, icon) from the working
-// directory, which here is the folder that contains the running executable.
 int ToolLaunch::launchTool(const std::string &gamePath, const std::string &toolFlag,
                            const std::string &hudTheme)
 {
@@ -60,8 +57,6 @@ int ToolLaunch::launchTool(const std::string &gamePath, const std::string &toolF
     const std::string workingDirectory = exePath.parent_path().string();
 
 #ifdef _WIN32
-    // --game-path and --hud-theme are quoted so values containing spaces
-    // survive (theme names like "Navy Green" included).
     std::string commandLine = "\"" + exePath.string() + "\" --no-splash " + toolFlag
                               + (hudTheme.empty() ? std::string()
                                                   : " --hud-theme \"" + hudTheme + "\"")
@@ -81,13 +76,10 @@ int ToolLaunch::launchTool(const std::string &gamePath, const std::string &toolF
                         &startupInfo, &processInfo))
         return -1;
 
-    // Fire and forget: the tool closes itself when the user leaves it, and
-    // the editor never needs to wait for it.
     CloseHandle(processInfo.hThread);
     CloseHandle(processInfo.hProcess);
     return 1;
 #else
-    // Build argv for posix_spawnp (absolute path, so no PATH lookup needed).
     std::string exeArg = exePath.string();
     std::string noSplash = "--no-splash";
     std::string flag = toolFlag;
@@ -115,9 +107,6 @@ int ToolLaunch::launchTool(const std::string &gamePath, const std::string &toolF
     if (pid <= 0)
         return -1;
 
-    // Reap the child whenever it exits (posix_spawnp children are not
-    // automatically reaped): without this every spawned tool stays a zombie
-    // until the editor closes.
     int status = 0;
     while (waitpid(pid, &status, 0) < 0)
     {
